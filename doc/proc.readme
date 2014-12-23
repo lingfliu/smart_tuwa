@@ -1,0 +1,182 @@
+A data packet is defined as:
+
+HEADER GATEWAY_ID DEV_ID DEV_TYPE DATA_TYPE DATA_LEN DATA CRC
+
+============================================================
+Packet description
+============================================================
+HEADER: indicate the starting of a packet
+	length: 2 bytes
+	content: fixed e.g. 0xAAAA
+
+GATEWAY_ID: id of the gateway
+	length: 4 bytes
+
+DEV_ID: id of the node
+	length: 4 bytes
+
+DATA_LEN: length of the data
+	length: 2 bytes
+	content: 1-65535
+
+CRC: crc
+	length: 1 byte
+
+DEV_TYPE: device type
+	length: 2 bytes
+	content:
+		DEV_TYPE_SWITCH_SINGLE
+		DEV_TYPE_SWITCH_DOUBLE
+		DEV_TYPE_SWITCH_TRIPLE
+
+		DEV_TYPE_CURTAIN_SINGLE
+
+		DEV_TYPE_SENSOR_SMOKE
+		DEV_TYPE_SENSOR_CO
+		DEV_TYPE_SENSOR_WATER
+
+		DEV_TYPE_INFRACTRL
+
+		DEV_TYPE_MECH
+
+DATA_TYPE: type of the data
+	length: 2 bytes
+	content: 
+		DATA_TYPE_STAT
+		DATA_TYPE_CTRL
+		DATA_TYPE_SYS_*
+		DATA_TYPE_ERR
+		DATA_TYPE_SYNC_*
+		DATA_TYPE_CONN_*
+
+============================================================
+DATA
+============================================================
+
+====================================
+DATA_TYPE_STAT
+Direction: from gateway to server
+====================================
+
+DEV_TYPE_SWITCH_SINGLE
+	DATA_LEN = 1
+	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+DEV_TYPE_SWITCH_DOUBLE
+	DATA_LEN = 2
+	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+	byte 2 = STAT_ON / STAT_OFF / STAT_ERR_*
+DEV_TYPE_SWITCH_TRIPLE
+	DATA_LEN = 3
+	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+	byte 2 = STAT_ON / STAT_OFF / STAT_ERR_*
+	byte 3 = STAT_ON / STAT_OFF / STAT_ERR_*
+
+DEV_TYPE_CURTAIN_SINGLE
+	DATA_LEN = 1
+	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+
+DEV_TYPE_SWITCH_DIMMABLE
+	DATA_LEN = 1
+	byte 1 = STAT_LEVEL:0~100 / STAT_ERR_*
+
+DEV_TYPE_INFRACTRL
+	DATA_LEN = varying 
+	STAT_CODE：4 bytes per code list
+
+DEV_TYPE_SENSOR_SMOKE
+	DATA_LEN = 1
+	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+
+DEV_TYPE_SENSOR_CO
+	DATA_LEN = 1
+	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+
+DEV_TYPE_SENSOR_WATER
+	DATA_LEN = 1
+	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+
+
+====================================
+DATA_TYPE_CTRL
+Direction: from server to gateway
+====================================
+DEV_TYPE_SWITCH_SINGLE
+	DATA_LEN = 1
+	byte 1 = ON / OFF
+DEV_TYPE_SWITCH_DOUBLE
+	DATA_LEN = 2
+	byte 1 = ON / OFF
+	byte 2 = ON / OFF
+DEV_TYPE_SWITCH_TRIPLE
+	DATA_LEN = 2
+	byte 1 = ON / OFF
+	byte 2 = ON / OFF
+	byte 3 = ON / OFF
+
+DEV_TYPE_CURTAIN_SINGLE
+	DATA_LEN = 1
+	byte 1 = ON / OFF
+
+DEV_TYPE_SWITCH_DIMMABLE
+	DATA_LEN = 1
+	byte 1 = LEVEL:0~100
+
+DEV_TYPE_MECH
+	DATA_LEN = 1
+	byte 1 = ON / OFF
+
+
+====================================
+DATA_TYPE_ERR
+Direction: from server to client 
+    DATA_LEN = 1
+    ERR_CODE = ERR_NET / ERR_ELEC / ...
+====================================
+
+====================================
+DATA_TYPE_SYS_*
+====================================
+    DATA_TYPE_SYS_REG_DEV
+    Direction: from gateway to server
+	DATA_LEN = 1
+	DATA = 0
+	
+    DATA_TYPE_SYS_UNREG_DEV
+    Direction: from server to gateway
+	DATA_LEN = 1
+	DATA = 0 
+	
+    DATA_TYPE_SYS_RESET_STAT
+    Direction: from gateway to server 
+	DATA_LEN = varying
+	DEV_TYPE = 00
+	DATA = collection of device status packets
+
+====================================
+DATA_TYPE_CONN_*
+====================================
+    DATA_TYPE_CONN_REQ
+    Direction: from gateway to server 
+	DATA_LEN = 1 
+	DEV_TYPE = 00
+	DATA = 0 
+	
+    DATA_TYPE_CONN_HEARTBEAT
+    Direction: from gateway to server 
+	DATA_LEN = 1 
+	DEV_TYPE = 00
+	DATA = 0 
+
+    DATA_TYPE_CONN_ACK
+    Direction: from server to gateway
+	DEV_TYPE = 0
+	DATA_LEN = 1 
+
+====================================
+DATA_TYPE_SYNC_*
+====================================
+    DATA_TYPE_SYNC_DEV
+    Direction: mutual
+	DATA_LEN = varying
+	TIME_STAMP: 12 bytes, yyyy:mm:dd:h:m:s 
+	DATA = collection of status packets
