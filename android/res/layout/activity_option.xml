@@ -1,0 +1,167 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="${packageName}.${activityClass}" >
+
+    <TextView
+        android:id="@+id/textTargetIp"
+        android:layout_width="80dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="40dp"        
+        android:text="@string/target_ip"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <EditText
+        android:id="@+id/editTargetIp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"        
+        android:layout_toRightOf="@+id/textTargetIp"  
+        android:layout_marginTop="10dp"  
+        android:layout_alignBottom="@+id/textTargetIp"   
+        android:layout_alignParentRight="true" 
+        android:inputType="textPhonetic"
+        android:ems="16">
+                <requestFocus />
+    </EditText>
+    
+    <TextView
+        android:id="@+id/textSocketPort"
+        android:layout_width="80dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="40dp"
+        android:layout_below="@+id/textTargetIp"
+        android:text="@string/socket_port"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+    
+   <EditText
+        android:id="@+id/editSocketPort"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/textSocketPort"
+        android:layout_below="@+id/textTargetIp"
+        android:layout_marginTop="20dp"
+        android:layout_marginRight="50dp"
+        android:layout_alignBottom="@+id/textSocketPort"
+        android:ems="16" >
+    </EditText>
+
+    <TextView
+        android:id="@+id/textSocketPortLocal"
+        android:layout_width="80dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textSocketPort"
+        android:layout_marginTop="40dp"       
+        android:text="@string/socket_port_local"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <EditText
+        android:id="@+id/editSocketPortLocal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/textSocketPortLocal"
+        android:layout_below="@+id/textSocketPort"
+        android:layout_marginTop="20dp"
+        android:layout_marginRight="50dp"
+        android:layout_alignBottom="@+id/textSocketPortLocal"
+        android:ems="16" >
+    </EditText>
+    
+    <TextView
+        android:id="@+id/textCmdOn"
+        android:layout_width="80dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textSocketPortLocal"
+        android:layout_marginTop="40dp"       
+        android:text="@string/cmd_on"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <EditText
+        android:id="@+id/editCmdOn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/textCmdOn"
+        android:layout_below="@+id/textSocketPortLocal"
+        android:layout_marginTop="20dp"
+        android:layout_marginRight="50dp"
+        android:layout_alignBottom="@+id/textCmdOn"
+        android:ems="16" >
+    </EditText>
+
+    
+    <TextView
+        android:id="@+id/textCmdOff"
+        android:layout_width="80dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textCmdOn"
+        android:layout_marginTop="40dp"       
+        android:text="@string/cmd_off"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <EditText
+        android:id="@+id/editCmdOff"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/textCmdOff"
+        android:layout_below="@+id/textCmdOn"
+        android:layout_marginTop="20dp"
+        android:layout_marginRight="50dp"
+        android:layout_alignBottom="@+id/textCmdOff"
+        android:ems="16" >
+    </EditText>
+
+    <TextView
+        android:id="@+id/textCmdHeartbeat"
+        android:layout_width="80dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textCmdOff"
+        android:layout_marginTop="40dp"       
+        android:text="@string/cmd_heartbeat"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <EditText
+        android:id="@+id/editCmdHeartbeat"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/textCmdHeartbeat"
+        android:layout_below="@+id/textCmdOff"
+        android:layout_marginTop="20dp"
+        android:layout_marginRight="50dp"
+        android:layout_alignBottom="@+id/textCmdHeartbeat"
+        android:ems="16" >
+    </EditText>
+    
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true" >
+
+        <Button
+            android:id="@+id/btnSet"
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentLeft="true"
+            android:text="@string/btn_set" />
+
+        <Button
+            android:id="@+id/btnDefault"
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_toRightOf="@+id/btnSet"
+            android:text="@string/btn_default" />
+
+        <Button
+            android:id="@+id/btnCancel"
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_toRightOf="@+id/btnDefault"
+            android:text="@string/btn_cancel" />
+    </RelativeLayout>
+
+</RelativeLayout>
