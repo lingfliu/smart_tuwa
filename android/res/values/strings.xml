@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Smart TUWA</string>
+           
+    <string name="target_ip">Target IP</string>    
+    <string name="socket_port">Port Out</string>
+    <string name="socket_port_local">Port In</string>
+    <string name="btn_set">Set</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_default">Default</string>
+    <string name="cmd_on">Cmd ON</string>
+    <string name="cmd_off">Cmd OFF</string>
+    <string name="cmd_heartbeat">Cmd HB</string>
+</resources>
