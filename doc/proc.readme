@@ -1,6 +1,6 @@
 A data packet is defined as:
 
-HEADER GATEWAY_ID DEV_ID DEV_TYPE DATA_TYPE DATA_LEN DATA CRC
+HEADER TIME_STAMP GATEWAY_ID DEV_ID DEV_TYPE DATA_TYPE DATA_LEN DATA CRC
 
 ============================================================
 Packet description
@@ -9,11 +9,15 @@ HEADER: indicate the starting of a packet
 	length: 2 bytes
 	content: fixed e.g. 0xAAAA
 
+TIME_STAMP: time stamp
+        length: 4 bytes
+	content:  yyyymmddhhmmss
+
 GATEWAY_ID: id of the gateway
-	length: 4 bytes
+	length: 6 bytes
 
 DEV_ID: id of the node
-	length: 4 bytes
+	length: 6 bytes
 
 DATA_LEN: length of the data
 	length: 2 bytes
@@ -157,9 +161,9 @@ DATA_TYPE_CONN_*
 ====================================
     DATA_TYPE_CONN_REQ
     Direction: from gateway to server 
-	DATA_LEN = 1 
+	DATA_LEN = 1
 	DEV_TYPE = 00
-	DATA = 0 
+	DATA = 0
 	
     DATA_TYPE_CONN_HEARTBEAT
     Direction: from gateway to server 
