@@ -6,10 +6,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define SERIAL_TYPE_UART 0
 #define SERIAL_TYPE_SPI 1
@@ -28,9 +31,7 @@ typedef struct{
 
 int serial_open(struct_serial* serial);
 int serial_close(struct_serial* serial);
-void on_serial_rx(char* rx_buff, int fp);
-void on_serial_tx(char* rx_buff, int fp);
-void serial_cfg_bak(struct_serial* serial);
-void serial_cfg_restore(struct_serial* serial);
+int on_serial_rx(struct_serial *serial, char* rx_buff);
+int on_serial_tx(struct_serial *serial, char* tx_buff, int len);
 
 #endif

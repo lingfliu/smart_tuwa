@@ -38,6 +38,6 @@ void put_buffer_num_ring_one(buffer_num_ring* buff, float* num);
 int get_buffer_num_ring(buffer_num_ring* buff, float* nums, int len);
 int get_buffer_num_ring_one(buffer_num_ring* buff, float* num);
 
-int len_buffer_num_ring(buffer_num_ring* buff);
-int len_buffer_byte_ring(buffer_byte_ring* buff);
+int len_buffer_num_ring(buffer_num_ring* buff);//len available 
+int len_buffer_byte_ring(buffer_byte_ring* buff);//len available
 #endif

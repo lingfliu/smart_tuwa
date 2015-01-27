@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -12,11 +14,25 @@
 #define INET_PROC_TCP 1
 #define INET_PROC_UDP 2
 #define INET_BUFF_LEN 255
-int inet_server_listen();
-int on_inet_server_rx();
-int inet_server_close();
-int inet_client_connect();
-int on_inet_client_rx();
-int inet_client_close();
+
+
+typedef struct{
+    int type;
+    int proc;   
+    int fd;
+    struct sockaddr_t ip_addr;
+}struct_inet;
+
+int inet_server_open(struct_inet* inet_server);
+int on_inet_server_rx(struct_inet* inet_server, char* buff);
+int on_inet_server_tx(struct_inet* inet_client, char* buff, int len);
+//int on_inet_server_tx_ack(struct_inet* inet_client, char* bytes, int len, char* ack);
+int inet_server_close(struct_inet* inet_server);
+
+int inet_client_connect(struct_inet* inet_client);//for a long connection
+int on_inet_client_disconnect(struct_inet* inet_client);
+int on_inet_client_tx(struct_inet* inet_client, char* buff, int len);
+//int on_inet_client_tx_ack(struct_inet* inet_client, char* bytes, int len, char* ack);
+int inet_client_close(struct_inet* inet_client);
 
 #endif

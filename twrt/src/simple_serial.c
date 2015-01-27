@@ -3,12 +3,20 @@
 int serial_open(struct_serial* serial){
     int fd;//file descriptor
     struct termios tio;//terminal io setting
+
     fd = open(serial->name, O_RDWR | O_NOCTTY | O_NDELAY);
     if(fd < 0){
-	perror("Cannot open serial port, exit.\n");
+	perror("serial open failed\n");
 	return -1;
     }
-
+    if(fcntl(fd, F_SETFL, FNDELAY) < 0){
+	perror("fcntl set failed\n");
+	return -1
+    }// set serial into non-blocking mode
+    if(isatty(STDIN_FILENO) == 0 ){
+        printf("standard input is not a terminal device\n");
+    }
+   
     bzero(&tio, sizeof(tio)); //reset the tio
 
     //set serial mode
@@ -16,50 +24,59 @@ int serial_open(struct_serial* serial){
 	case SERIAL_TYPE_UART:
 	    tio.c_iflag = IGNPAR | ICRNL;
 	    tio.c_oflag = 0;
-	    tio.c_cflag = CS8 | CLOCAL | CREAD;
-	    //tio.c_lflag = ;
+	    tio.c_cflag |= CLOCAL | CREAD; // local operation, 8 bytes
+	    tio.c_cflag &= ~CSIZE;
+	    tio.c_cflag |= CS8;
 	    tio.c_cc[VTIME] = 0;
 	    tio.c_cc[VMIN] = 1;
-	    //break;
-	case SERIAL_TYPE_SPI:
-	    //break;
-	case SERIAL_TYPE_USB:
-	    //break;
-	default:
 	    break;
+	case SERIAL_TYPE_SPI:
+	    perror("unsupported serial type");
+	    return -1;
+	case SERIAL_TYPE_USB:
+	    perror("unsupported serial type");
+	    return -1;
+	default:
+	    perror("unsupported serial type");
+	    return -1;
     }
     
     //set baudrate
-    switch(serial->baudrate){
-	case 1:
+    if(!strcmp(serial->baudrate, "9600")){
 	    cfsetospeed(&tio, B9600);
 	    cfsetispeed(&tio, B9600);
-	    break;
-	case 2:
+    }else if(!strcmp(serial->baudrate, "57600")){
 	    cfsetospeed(&tio, B57600);
 	    cfsetispeed(&tio, B57600);
-	    break;
-	case 3:
+    }else if(!strcmp(serial->baudrate, "115000")){
 	    cfsetospeed(&tio, B115000);
 	    cfsetispeed(&tio, B115000);
-	    break;
-	default:
-	    cfsetospeed(&tio, B9600);
-	    cfsetispeed(&tio, B9600);
-	    break;
+    }else{
+	perror("unsupported serial baudrate");
+	return -1;
     }
 
-    tcgetattr(fd,serial->tio_bak); //bak up previous tio
-    tcsetattr(fd, TCSAFLUSH, &tio); //set tio to fd after all data are flushed
     tcflush(fd, TCIOFLUSH); //flush input & output
-    serial->fd = fd;
+
+    if(tcgetattr(fd,serial->tio_bak)!=0){
+	perror("serial set error\n");
+	return -1;
+    } //bak up previous tio
+
+    if(tcsetattr(fd, TCSAFLUSH, &tio)!=0){
+	perror("serial set error\n");
+	return -1;
+    } //set tio to fd after all data are flushed
+
+    serial->fd = fd;//save fd
     serial->tio = tio; //save current tio
-    return 0;
+    return 0;//open sucessfully, return;
 }
 
-void on_serial_rx(char* rx_buff, int fd){
+int on_serial_tx(struct_serial* serial, char* tx_buff, int len){
     int result;
-    result = read(fd, rx_buff, SERIAL_BUFF_LEN);
+    result = write(serial->fd, tx_buff, len);
+    return result;
 }
 
 int serial_close(struct_serial* serial){

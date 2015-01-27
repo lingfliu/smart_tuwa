@@ -1,16 +1,14 @@
 #include "config.h"
 
-#define FILE_CONFIG_PARSER '='// config parser
-
 void get_config(struct_config* cfg){
     FILE* fp;
-    char str[CFG_FGETS_BUFF_LEN];
-    fp = fopen(FILE_CONFIG,"r");
+    char str[CFG_BUFF_LEN];
+    fp = fopen(FILE_CFG,"r");
     if(fp == NULL){
 	perror("Cannot access config file, program abort.\n");
 	return;
     }
-    while(fgets(str,CFG_FGETS_BUFF_LEN,fp)!=NULL)
+    while(fgets(str,CFG_BUFF_LEN,fp)!=NULL)
 	parse_config(cfg,str);
     fclose(fp);
 }
@@ -20,17 +18,17 @@ void parse_config(struct_config* cfg, char* str){
     int n;
     int idx_parser;
     int str_len = strlen(str);
-    char cfg_item_name[CFG_FGETS_BUFF_LEN]="";
-    char cfg_item_val[CFG_FGETS_BUFF_LEN]="";
+    char cfg_item_name[CFG_BUFF_LEN]="";
+    char cfg_item_val[CFG_BUFF_LEN]="";
 
-    while(str[n] == '\n' || str[n] == '\t')
+    while(str[n] == ' ' || str[n] == '\t')//if white space at head
 	n++;
-    if(str[n] == '\n')
+    if(str[n] == '\n')//if empty lines
 	return;
     str +=n;
     idx_parser = -1;
     for(n = 0; n<str_len; n++)
-	if(str[n] == FILE_CONFIG_PARSER){
+	if(str[n] == FILE_CFG_PARSER){
 	    idx_parser = n;
 	    break;
 	}
@@ -47,7 +45,7 @@ void parse_config(struct_config* cfg, char* str){
     if(!strcmp(cfg_item_name, CFG_ITEM_SERIAL_TYPE))
 	sscanf(cfg_item_val,"%d",&(cfg->serial_type));
     if(!strcmp(cfg_item_name, CFG_ITEM_SERIAL_BAUDRATE))
-	sscanf(cfg_item_val,"%d",&(cfg->serial_baudrate));
+	strcpy(cfg->serial_baudrate, cfg_item_val);
     if(!strcmp(cfg_item_name, CFG_ITEM_INET_SERVER_IP))
 	strcpy(cfg->inet_server_ip, cfg_item_val);
     if(!strcmp(cfg_item_name, CFG_ITEM_INET_SERVER_PORT))

@@ -8,8 +8,8 @@
 #include "simple_serial.h"
 #include "simple_inet.h"
 
-#define FILE_CONFIG "/etc/smart_tuwa/config"//config file
-#define FILE_CONFIG_PARSER '='// config parser
+#define FILE_CFG "/etc/smart_tuwa/config"//config file
+#define FILE_CFG_PARSER '='// config parser
 
 #define CFG_ITEM_SERIAL_NAME "SERIAL_NAME"
 #define CFG_ITEM_SERIAL_TYPE "SERIAL_TYPE"
@@ -23,12 +23,12 @@
 #define CFG_ITEM_FILE_STAT "FILE_STAT"
 #define CFG_ITEM_FILE_LOG "FILE_LOG"
 
-#define CFG_FGETS_BUFF_LEN 100
+#define CFG_BUFF_LEN 100 
 typedef struct{
     //serial config
     char serial_name[50];
     int serial_type;
-    int serial_baudrate; 
+    char serial_baudrate[50]; 
 
     //inet config
     char inet_server_ip[50];
