@@ -18,7 +18,7 @@
 //defines 
 #define BUFF_RW_LEN 255
 #define BUFF_RING_LEN 1000
-#define MSG_QUEUE_LEN 50 
+#define MSG_Q_LEN 50 
 
 //configs and entities
 static struct_config cfg;
@@ -34,19 +34,23 @@ static pthread_t thrd_inet_client_tx;
 static pthread_t thrd_translate_serial;
 static pthread_t thrd_translate_inet_client;
 
+static pthread_t thrd_msg_handler;
+
 static pthread_t thrd_sys;
 
 //mut and cond
-static pthread_mutex_t mut_serial_buff;
-static pthread_mutex_t mut_inet_client_buff;
-static pthread_cond_t cond_serial_buff;
-static pthread_cond_t cond_inet_client_buff;
-
+static pthread_mutex_t mut_serial;
+static pthread_mutex_t mut_inet_client;
+static pthread_mutex_t mut_msg_handler;
+static pthread_cond_t cond_serial;
+static pthread_cond_t cond_inet_client;
+static pthread_cond_t cond_msg_handler;
 //runnables
 void *run_serial_rx();
 void *run_inet_client_rx();
 void *run_translate_serial();
 void *run_translate_inet_client();
+void *run_msg_handler();
 void *run_sys();
 
 //buffers
@@ -57,7 +61,12 @@ char write_serial[BUFF_RW_LEN];
 char read_inet_client[BUFF_RW_LEN];
 char write_inet_client[BUFF_RW_LEN];
 
-//packet queue
+//message queue
+static struct_message msg_serial;
+static struct_message msg_inet_client;
 static struct_message_queue* msg_queue;
-static len_msg_queue;
+static long msg_stamp;
+
+//functions
+int handle_msg(struct_message msg);
 #endif

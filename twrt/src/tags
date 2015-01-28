@@ -1,0 +1,261 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+BUFF_RING_LEN	twrt.h	20;"	d
+BUFF_RW_LEN	twrt.h	19;"	d
+CC	Makefile	/^CC = gcc$/;"	m
+CFG_BUFF_LEN	config.h	26;"	d
+CFG_ITEM_FILE_LOG	config.h	24;"	d
+CFG_ITEM_FILE_STAT	config.h	23;"	d
+CFG_ITEM_INET_CLIENT_PORT	config.h	20;"	d
+CFG_ITEM_INET_CLIENT_PROC	config.h	21;"	d
+CFG_ITEM_INET_SERVER_IP	config.h	17;"	d
+CFG_ITEM_INET_SERVER_PORT	config.h	18;"	d
+CFG_ITEM_INET_SERVER_PROC	config.h	19;"	d
+CFG_ITEM_SERIAL_BAUDRATE	config.h	16;"	d
+CFG_ITEM_SERIAL_NAME	config.h	14;"	d
+CFG_ITEM_SERIAL_TYPE	config.h	15;"	d
+CFLAGS	Makefile	/^CFLAGS = -O2 -g -llib$/;"	m
+DATA_CTRL_OFF	proc.h	53;"	d
+DATA_CTRL_ON	proc.h	52;"	d
+DATA_NET_ACK	proc.h	60;"	d
+DATA_NET_HB	proc.h	59;"	d
+DATA_REQ_SET	proc.h	56;"	d
+DATA_REQ_UNSET	proc.h	57;"	d
+DATA_STAT_ERR	proc.h	50;"	d
+DATA_STAT_OFF	proc.h	48;"	d
+DATA_STAT_ON	proc.h	47;"	d
+DATA_TYPE_ACK_AUTH	proc.h	38;"	d
+DATA_TYPE_ACK_SYNC_ROOT	proc.h	39;"	d
+DATA_TYPE_ACK_SYNC_ZNODE	proc.h	40;"	d
+DATA_TYPE_CTRL	proc.h	33;"	d
+DATA_TYPE_REQ_AUTH	proc.h	35;"	d
+DATA_TYPE_REQ_SYNC_ROOT	proc.h	36;"	d
+DATA_TYPE_REQ_SYNC_ZNODE	proc.h	37;"	d
+DATA_TYPE_STAT	proc.h	32;"	d
+DATA_TYPE_SYS_NET_HB	proc.h	43;"	d
+DATA_TYPE_SYS_RST	proc.h	42;"	d
+DEV_TYPE_CURTAIN_DOUBLE	proc.h	15;"	d
+DEV_TYPE_CURTAIN_SINGLE	proc.h	14;"	d
+DEV_TYPE_INFRACTRL	proc.h	26;"	d
+DEV_TYPE_MECH	proc.h	16;"	d
+DEV_TYPE_SENSOR_CO	proc.h	19;"	d
+DEV_TYPE_SENSOR_HUMI	proc.h	23;"	d
+DEV_TYPE_SENSOR_INFRA	proc.h	21;"	d
+DEV_TYPE_SENSOR_SMOKE	proc.h	18;"	d
+DEV_TYPE_SENSOR_TEMP	proc.h	22;"	d
+DEV_TYPE_SENSOR_TEMPHUMI	proc.h	24;"	d
+DEV_TYPE_SENSOR_WATER	proc.h	20;"	d
+DEV_TYPE_SWITCH_DIMMABLE_SINGLE	proc.h	13;"	d
+DEV_TYPE_SWITCH_DOUBLE	proc.h	11;"	d
+DEV_TYPE_SWITCH_SINGLE	proc.h	10;"	d
+DEV_TYPE_SWITCH_TRIPLE	proc.h	12;"	d
+DEV_TYPE_THEME_QUADRO	proc.h	28;"	d
+FILE_CFG	config.h	11;"	d
+FILE_CFG_PARSER	config.h	12;"	d
+INET_BUFF_LEN	simple_inet.h	16;"	d
+INET_PROC_TCP	simple_inet.h	14;"	d
+INET_PROC_UDP	simple_inet.h	15;"	d
+MSG_Q_LEN	twrt.h	21;"	d
+OBJ_TEST	Makefile	/^OBJ_TEST = test.o string_ex.o$/;"	m
+OBJ_TWRT	Makefile	/^OBJ_TWRT = twrt.o config.o string_ex.o$/;"	m
+PROC_DATA_HEADER	proc.h	63;"	d
+PROC_DEFAULT_MOD	proc.h	66;"	d
+PROC_DEFAULT_VER	proc.h	67;"	d
+PROC_MAX_ZNODE	proc.h	70;"	d
+SERIAL_BUFF_LEN	simple_serial.h	21;"	d
+SERIAL_TYPE_SPI	simple_serial.h	18;"	d
+SERIAL_TYPE_UART	simple_serial.h	17;"	d
+SERIAL_TYPE_USB	simple_serial.h	19;"	d
+SYS_FAIL	sys.h	12;"	d
+SYS_SUCCESS	sys.h	11;"	d
+_BUFFER_EX_	buffer_ex.h	2;"	d
+_CONFIG_	config.h	2;"	d
+_PROC_	proc.h	2;"	d
+_SIMPLE_INET_	simple_inet.h	2;"	d
+_SIMPLE_SERIAL_	simple_serial.h	2;"	d
+_STRING_EX_	string_ex.h	2;"	d
+_SYS_	sys.h	2;"	d
+_TWRT_	twrt.h	2;"	d
+a	test.c	/^    int a;$/;"	m	struct:data_list	file:
+a	test_queue.c	/^    int a;$/;"	m	struct:data_list	file:
+baudrate	simple_serial.h	/^    int baudrate;$/;"	m	struct:__anon9
+buff_inet_client	twrt.h	/^buffer_byte_ring buff_inet_client;$/;"	v
+buff_serial	twrt.h	/^buffer_byte_ring buff_serial;$/;"	v
+buffer_byte_ring	buffer_ex.h	/^}buffer_byte_ring;$/;"	t	typeref:struct:__anon1
+buffer_num_ring	buffer_ex.h	/^}buffer_num_ring;$/;"	t	typeref:struct:__anon2
+bytes2msg	proc.c	/^int bytes2msg(char* bytes, struct_message* msg){$/;"	f
+cfg	twrt.h	/^static struct_config cfg;$/;"	v
+cond_inet_client	twrt.h	/^static pthread_cond_t cond_inet_client;$/;"	v
+cond_msg_handler	twrt.h	/^static pthread_cond_t cond_msg_handler;$/;"	v
+cond_serial	twrt.h	/^static pthread_cond_t cond_serial;$/;"	v
+create_buffer_byte_ring	buffer_ex.c	/^buffer_byte_ring* create_buffer_byte_ring(int len){$/;"	f
+create_buffer_num_ring	buffer_ex.c	/^buffer_num_ring* create_buffer_num_ring(int len){$/;"	f
+data	buffer_ex.h	/^    char* data;$/;"	m	struct:__anon1
+data	buffer_ex.h	/^    float* data;$/;"	m	struct:__anon2
+data	proc.h	/^    char* data;$/;"	m	struct:__anon4
+data_len	proc.h	/^    int data_len;$/;"	m	struct:__anon4
+data_list	test.c	/^typedef struct data_list{$/;"	s	file:
+data_list	test.c	/^}data_list;$/;"	t	typeref:struct:data_list	file:
+data_list	test_queue.c	/^typedef struct data_list{$/;"	s	file:
+data_list	test_queue.c	/^}data_list;$/;"	t	typeref:struct:data_list	file:
+data_type	proc.h	/^    int data_type;$/;"	m	struct:__anon4
+destroy_buffer_byte_ring	buffer_ex.c	/^void destroy_buffer_byte_ring(buffer_byte_ring* buff){$/;"	f
+destroy_buffer_num_ring	buffer_ex.c	/^void destroy_buffer_num_ring(buffer_num_ring* buff){$/;"	f
+dev_id	proc.h	/^    char[6] dev_id; $/;"	m	struct:__anon4
+dev_type	proc.h	/^    int dev_type;$/;"	m	struct:__anon4
+fd	simple_inet.h	/^    int fd;$/;"	m	struct:__anon8
+fd	simple_serial.h	/^    int fd;$/;"	m	struct:__anon9
+file_log	config.h	/^    char file_log[50];$/;"	m	struct:__anon3
+file_stat	config.h	/^    char file_stat[50];$/;"	m	struct:__anon3
+g_stamp	proc.h	/^    long g_stamp;\/\/extra stamp for status update$/;"	m	struct:__anon6
+g_stamp	proc.h	/^    long g_stamp;\/\/extra sys stamp for satus update$/;"	m	struct:__anon7
+gateway_id	proc.h	/^    char[6] gateway_id;$/;"	m	struct:__anon4
+gateway_id	proc.h	/^    char[6] gateway_id;$/;"	m	struct:__anon7
+get_buffer_byte_ring	buffer_ex.c	/^int get_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len){$/;"	f
+get_buffer_byte_ring_one	buffer_ex.c	/^int get_buffer_byte_ring_one(buffer_byte_ring* buff, char* byte){$/;"	f
+get_buffer_num_ring	buffer_ex.c	/^int get_buffer_num_ring(buffer_num_ring* buff, float* nums, int len){$/;"	f
+get_buffer_num_ring_one	buffer_ex.c	/^int get_buffer_num_ring_one(buffer_num_ring* buff, float* num){$/;"	f
+get_config	config.c	/^void get_config(struct_config* cfg){$/;"	f
+get_data_list	test.c	/^int get_data_list(data_list* dl){$/;"	f
+get_data_list	test_queue.c	/^int get_data_list(data_list* dl){$/;"	f
+getlen_data_list	test.c	/^int getlen_data_list(data_list* dl){$/;"	f
+getlen_data_list	test_queue.c	/^int getlen_data_list(data_list* dl){$/;"	f
+handle_msg	twrt.c	/^int handle_msg(struct_message *msg){$/;"	f
+id	proc.h	/^    char[6] id;$/;"	m	struct:__anon6
+inet_client	twrt.h	/^static struct_inet inet_client;$/;"	v
+inet_client_close	simple_inet.c	/^int inet_client_close(struct_inet* inet_client){$/;"	f
+inet_client_config	sys.c	/^int inet_client_config(struct_config* cfg, struct_serial* inet_client){$/;"	f
+inet_client_connect	simple_inet.c	/^int inet_client_connect(struct_inet *inet_client){$/;"	f
+inet_client_port	config.h	/^    int inet_client_port;$/;"	m	struct:__anon3
+inet_client_proc	config.h	/^    int inet_client_proc;$/;"	m	struct:__anon3
+inet_server_close	simple_inet.c	/^int inet_server_close(){$/;"	f
+inet_server_config	sys.c	/^int inet_server_config(struct_config* cfg, struct_inet* inet_server){$/;"	f
+inet_server_ip	config.h	/^    char inet_server_ip[50];$/;"	m	struct:__anon3
+inet_server_open	simple_inet.c	/^int inet_server_open(){$/;"	f
+inet_server_port	config.h	/^    int inet_server_port;$/;"	m	struct:__anon3
+inet_server_proc	config.h	/^    int inet_server_proc;   $/;"	m	struct:__anon3
+init_data_list	test.c	/^void init_data_list(data_list* dl){$/;"	f
+init_data_list	test_queue.c	/^void init_data_list(data_list* dl){$/;"	f
+ip_addr	simple_inet.h	/^    struct sockaddr_t ip_addr;$/;"	m	struct:__anon8	typeref:struct:__anon8::sockaddr_t
+isempty_data_list	test.c	/^int isempty_data_list(data_list *dl){$/;"	f
+isempty_data_list	test_queue.c	/^int isempty_data_list(data_list *dl){$/;"	f
+len	buffer_ex.h	/^    int len;$/;"	m	struct:__anon1
+len	buffer_ex.h	/^    int len;$/;"	m	struct:__anon2
+len_buffer_byte_ring	buffer_ex.c	/^int len_buffer_byte_ring(buffer_byte_ring* buff){$/;"	f
+len_buffer_num_ring	buffer_ex.c	/^int len_buffer_num_ring(buffer_num_ring* buff){$/;"	f
+main	test.c	/^void main(){$/;"	f
+main	test_queue.c	/^void main(){$/;"	f
+main	twrt.c	/^int main(int argn, char* argv[]){$/;"	f
+message_copy	proc.c	/^void message_copy(struct_message *msg_dst, struct_message *msg_src){$/;"	f
+message_flush	proc.c	/^void message_flush(struct_message *msg){\/\/flush message as empty message$/;"	f
+message_queue_flush	proc.c	/^void message_queue_flush(struct_message_queue* msg_q, int len){$/;"	f
+message_queue_flush_stamp	proc.c	/^void message_queue_flush_stamp(struct_message_queue** msg_q, long stamp){$/;"	f
+message_queue_get	proc.c	/^void message_queue_get(struct_message_queue* msg_q, struct_message* msg){$/;"	f
+message_queue_getlen	proc.c	/^int message_queue_getlen(struct_message_queue* msg_q){$/;"	f
+message_queue_has_stamp	proc.c	/^int message_queue_has_stamp(struct_message_queue* msg_q, long stamp){$/;"	f
+message_queue_init	proc.c	/^void message_queue_init(struct_message_queu* msg_queue){$/;"	f
+message_queue_isempty	proc.c	/^int message_queue_isempty(struct_message_queue* msg_q){$/;"	f
+message_queue_put	proc.c	/^void message_queue_put(struct_message_queue** msg_q, struct_message* msg){$/;"	f
+model	proc.h	/^    int model;\/\/manufacturing model$/;"	m	struct:__anon6
+model	proc.h	/^    int model;\/\/manufacturing model$/;"	m	struct:__anon7
+msg	proc.h	/^    struct_message* msg;$/;"	m	struct:__anon5
+msg2bytes	proc.c	/^int msg2bytes(struct_message* msg, char* bytes){$/;"	f
+msg_inet_client	twrt.h	/^static struct_message msg_inet_client;$/;"	v
+msg_queue	twrt.h	/^static struct_message_queue* msg_queue;$/;"	v
+msg_serial	twrt.h	/^static struct_message msg_serial;$/;"	v
+msg_stamp	twrt.h	/^static long msg_stamp;$/;"	v
+mut_inet_client	twrt.h	/^static pthread_mutex_t mut_inet_client;$/;"	v
+mut_msg_handler	twrt.h	/^static pthread_mutex_t mut_msg_handler;$/;"	v
+mut_serial	twrt.h	/^static pthread_mutex_t mut_serial;$/;"	v
+name	simple_serial.h	/^    char name[100];$/;"	m	struct:__anon9
+next	proc.h	/^    struct_message_q* next;$/;"	m	struct:__anon5
+next	test.c	/^    struct data_list* next;$/;"	m	struct:data_list	typeref:struct:data_list::data_list	file:
+next	test_queue.c	/^    struct data_list* next;$/;"	m	struct:data_list	typeref:struct:data_list::data_list	file:
+on_inet_client_tx	simple_inet.c	/^int on_inet_client_tx(struct_inet* inet_client, char* buff, int len){$/;"	f
+on_inet_server_rx	simple_inet.c	/^int on_inet_server_rx(){$/;"	f
+on_serial_tx	simple_serial.c	/^int on_serial_tx(struct_serial* serial, char* tx_buff, int len){$/;"	f
+overflow	buffer_ex.h	/^    int overflow; \/\/flag indicating overflow of buff$/;"	m	struct:__anon1
+overflow	buffer_ex.h	/^    int overflow; \/\/flag indicating overflow of buff$/;"	m	struct:__anon2
+p_c	buffer_ex.h	/^    char* p_c; \/\/current position of the buff$/;"	m	struct:__anon1
+p_c	buffer_ex.h	/^    float* p_c; \/\/current position of the buff$/;"	m	struct:__anon2
+p_head	buffer_ex.h	/^    char* p_head;$/;"	m	struct:__anon1
+p_head	buffer_ex.h	/^    float* p_head;$/;"	m	struct:__anon2
+p_rw	buffer_ex.h	/^    char* p_rw; \/\/read \/ write position$/;"	m	struct:__anon1
+p_rw	buffer_ex.h	/^    float* p_rw; \/\/read \/ write position$/;"	m	struct:__anon2
+p_tail	buffer_ex.h	/^    char* p_tail;$/;"	m	struct:__anon1
+p_tail	buffer_ex.h	/^    float* p_tail;$/;"	m	struct:__anon2
+parent_id	proc.h	/^    char[6] parent_id;$/;"	m	struct:__anon6
+parse_config	config.c	/^void parse_config(struct_config* cfg, char* str){$/;"	f
+prev	proc.h	/^    struct_message_q* prev;$/;"	m	struct:__anon5
+prev	test.c	/^    struct data_list* prev;$/;"	m	struct:data_list	typeref:struct:data_list::data_list	file:
+prev	test_queue.c	/^    struct data_list* prev;$/;"	m	struct:data_list	typeref:struct:data_list::data_list	file:
+proc	simple_inet.h	/^    int proc;   $/;"	m	struct:__anon8
+put_buffer_byte_ring	buffer_ex.c	/^void put_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len){$/;"	f
+put_buffer_byte_ring_one	buffer_ex.c	/^void put_buffer_byte_ring_one(buffer_byte_ring* buff, char* byte){$/;"	f
+put_buffer_num_ring	buffer_ex.c	/^void put_buffer_num_ring(buffer_num_ring* buff, float* nums, int len){$/;"	f
+put_buffer_num_ring_one	buffer_ex.c	/^void put_buffer_num_ring_one(buffer_num_ring* buff, float* num){$/;"	f
+put_data_list	test.c	/^void put_data_list(data_list** dl, int a){$/;"	f
+put_data_list	test_queue.c	/^void put_data_list(data_list** dl, int a){$/;"	f
+read_inet_client	twrt.h	/^char read_inet_client[BUFF_RW_LEN];$/;"	v
+read_serial	twrt.h	/^char read_serial[BUFF_RW_LEN];$/;"	v
+run_inet_client_rx	twrt.c	/^void *run_inet_client_rx(){$/;"	f
+run_msg_handler	twrt.c	/^void *run_msg_handler(){$/;"	f
+run_serial_rx	twrt.c	/^void *run_serial_rx(){$/;"	f
+run_sys	twrt.c	/^void* run_sys(){$/;"	f
+run_translate_inet_client	twrt.c	/^void *run_translate_inet_client(){$/;"	f
+run_translate_serial	twrt.c	/^void *run_translate_serial(){$/;"	f
+serial	twrt.h	/^static struct_serial serial;$/;"	v
+serial_baudrate	config.h	/^    char serial_baudrate[50]; $/;"	m	struct:__anon3
+serial_close	simple_serial.c	/^int serial_close(struct_serial* serial){$/;"	f
+serial_config	sys.c	/^void serial_config(struct_config* cfg, struct_serial* serial){$/;"	f
+serial_name	config.h	/^    char serial_name[50];$/;"	m	struct:__anon3
+serial_open	simple_serial.c	/^int serial_open(struct_serial* serial){$/;"	f
+serial_type	config.h	/^    int serial_type;$/;"	m	struct:__anon3
+stamp	proc.h	/^    long stamp;$/;"	m	struct:__anon4
+status	proc.h	/^    char* status;$/;"	m	struct:__anon6
+status	proc.h	/^    char* status;$/;"	m	struct:__anon7
+status_len	proc.h	/^    int status_len;$/;"	m	struct:__anon6
+status_len	proc.h	/^    int status_len;$/;"	m	struct:__anon7
+stridx	string_ex.c	/^int stridx(char* str, int idx_start, char c){$/;"	f
+strsub	string_ex.c	/^char* strsub(char* str, char* substr, int start, int stop){$/;"	f
+strtrim	string_ex.c	/^char* strtrim(char* str){$/;"	f
+struct_config	config.h	/^}struct_config;$/;"	t	typeref:struct:__anon3
+struct_inet	simple_inet.h	/^}struct_inet;$/;"	t	typeref:struct:__anon8
+struct_message	proc.h	/^}struct_message;$/;"	t	typeref:struct:__anon4
+struct_message_queue	proc.h	/^}struct_message_queue;$/;"	t	typeref:struct:__anon5
+struct_serial	simple_serial.h	/^}struct_serial;$/;"	t	typeref:struct:__anon9
+struct_sys	proc.h	/^}struct_sys;$/;"	t	typeref:struct:__anon7
+struct_znode	proc.h	/^}struct_znode; $/;"	t	typeref:struct:__anon6
+sys_clock_sync	sys.c	/^int sys_clock_sync(struct_config* cfg){$/;"	f
+sys_get_max_stamp_znode	sys.c	/^int sys_get_max_stamp_znode(struct_sys* sys){$/;"	f
+sys_init	sys.c	/^int sys_init(struct_sys* sys, long u_stamp, long g_stamp){$/;"	f
+sys_load_sys	sys.c	/^int sys_load_sys(char* file_name){$/;"	f
+sys_reset	sys.c	/^int sys_reset(struct_sys* sys){$/;"	f
+sys_save_sys	sys.c	/^int sys_save_sys(char* file_name){$/;"	f
+sys_stamp_sync	sys.c	/^void sys_stamp_sync(struct_sys* sys, long u_stamp, long g_stamp){$/;"	f
+sys_znode_update	sys.c	/^int sys_znode_update(struct_sys* sys, struct_znode* znode){$/;"	f
+thrd_inet_client_rx	twrt.h	/^static pthread_t thrd_inet_client_rx;$/;"	v
+thrd_inet_client_tx	twrt.h	/^static pthread_t thrd_inet_client_tx;$/;"	v
+thrd_msg_handler	twrt.h	/^static pthread_t thrd_msg_handler;$/;"	v
+thrd_serial_rx	twrt.h	/^static pthread_t thrd_serial_rx;$/;"	v
+thrd_serial_tx	twrt.h	/^static pthread_t thrd_serial_tx;$/;"	v
+thrd_sys	twrt.h	/^static pthread_t thrd_sys;$/;"	v
+thrd_translate_inet_client	twrt.h	/^static pthread_t thrd_translate_inet_client;$/;"	v
+thrd_translate_serial	twrt.h	/^static pthread_t thrd_translate_serial;$/;"	v
+tio	simple_serial.h	/^    struct termios tio;$/;"	m	struct:__anon9	typeref:struct:__anon9::termios
+tio_bak	simple_serial.h	/^    struct termios tio_bak;$/;"	m	struct:__anon9	typeref:struct:__anon9::termios
+type	proc.h	/^    int type;\/\/type$/;"	m	struct:__anon6
+type	simple_inet.h	/^    int type;$/;"	m	struct:__anon8
+type	simple_serial.h	/^    int type;$/;"	m	struct:__anon9
+u_stamp	proc.h	/^    long u_stamp;\/\/node stamp for status update$/;"	m	struct:__anon6
+u_stamp	proc.h	/^    long u_stamp;\/\/sys stamp for status update$/;"	m	struct:__anon7
+ver	proc.h	/^    int ver;\/\/firmware version$/;"	m	struct:__anon6
+ver	proc.h	/^    int ver;\/\/firmware version$/;"	m	struct:__anon7
+write_inet_client	twrt.h	/^char write_inet_client[BUFF_RW_LEN];$/;"	v
+write_serial	twrt.h	/^char write_serial[BUFF_RW_LEN];$/;"	v
+znode_list	proc.h	/^    struct_znode znode_list[PROC_MAX_ZNODE];$/;"	m	struct:__anon7
+znode_num	proc.h	/^    int znode_num;\/\/actual  znode number$/;"	m	struct:__anon7

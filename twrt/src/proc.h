@@ -28,13 +28,18 @@
 #define DEV_TYPE_THEME_QUADRO 202
 
 ////////data type
+//status and ctrl
 #define DATA_TYPE_STAT 1 //status update, from znode to gateway
 #define DATA_TYPE_CTRL 2 //control, from znode to gateway, from gateway to znode, from server to gateway
-#define DATA_TYPE_REQ 3 //request, from gateway to server, from gateway to znet
 
+#define DATA_TYPE_REQ_AUTH 20 //request, from gateway to server, from gateway to znet
+#define DATA_TYPE_REQ_SYNC_ROOT 21 //request, from gateway to server, from gateway to znet
+#define DATA_TYPE_REQ_SYNC_ZNODE 22 //request, from gateway to server, from gateway to znet
+#define DATA_TYPE_ACK_AUTH 50
+#define DATA_TYPE_ACK_SYNC_ROOT 51
+#define DATA_TYPE_ACK_SYNC_ZNODE 52
 //sys operation datum
 #define DATA_TYPE_SYS_RST 101 //sys reset 
-
 #define DATA_TYPE_SYS_NET_HB 201 //heart beat to server	
 
 
@@ -54,6 +59,9 @@
 #define DATA_NET_HB  0xAA
 #define DATA_NET_ACK 0x00
 
+//define the header for the messages
+#define PROC_DATA_HEADER "AAAA"
+
 //default model and ver
 #define PROC_DEFAULT_MOD 1
 #define PROC_DEFAULT_VER 2
@@ -67,49 +75,53 @@
 
 //message
 typedef struct{
-    char[6] id_gateway;
-    char[6] id_dev;
+    char[6] gateway_id;
+    char[6] dev_id; 
     int dev_type;
     int data_type;
     int data_len;
     char* data;
+    long stamp;
 }struct_message;
 
-void copy_message(struct_message *msg_dst, struct_message *msg_src);
-void flush_message(struct_message *msg);//flush message as empty message
+void message_copy(struct_message *msg_dst, struct_message *msg_src);
+void message_flush(struct_message *msg);//flush message as empty message
 
 
-//message queue and operations
+//message q and operations
 typedef struct{
     struct_message* msg;
-    struct_message_queue* prev;
-    struct_message_queue* next;
-    struct_message_queue* head;
-    struct_message_queue* tail;
+    struct_message_q* prev;
+    struct_message_q* next;
 }struct_message_queue;
 
-void init_message_queue(struct_message_queu* msg_queue);
-void put_message_queue(struct_message_queue* msg_queue, struct_message* msg);
-void get_message_queue(struct_message_queue* msg_queue, struct_message* msg);
-void flush_message_queue(struct_message_queue* msg_queue, int len);
-void flush_message_queue_single(struct_message_queue* msg_queue);
-
+void message_queue_init(struct_message_queue* msg_q);
+void message_queue_put(struct_message_queue** msg_q, struct_message* msg);
+void message_queue_get(struct_message_queue* msg_q, struct_message* msg);
+void message_queue_flush(struct_message_queue* msg_q, int len);
+void message_queue_flush_single(struct_message_queue* msg_q);
+void message_queue_flush_stamp(struct_message_queue* msg_q, long stamp);
+int message_queue_getlen(struct_message_queue* msg_q);
+int message_queue_isempty(struct_message_queue* msg_q);
 //sys and znode
 typedef struct{
+    char[6] parent_id;
     char[6] id;
-    char[6] id_parent;
     int type;//type
-    int mod;//manufacturing model
+    int model;//manufacturing model
     int ver;//firmware version
-    char* status; 
+    int status_len;
+    char* status;
     long u_stamp;//node stamp for status update
     long g_stamp;//extra stamp for status update
 }struct_znode; 
 
 typedef struct{
-    char[6] id_gateway;
-    int mod;//manufacturing model
+    char[6] gateway_id;
+    int model;//manufacturing model
     int ver;//firmware version
+    int status_len;
+    char* status;
     //znet info
     int znode_num;//actual  znode number
     struct_znode znode_list[PROC_MAX_ZNODE];
@@ -117,21 +129,9 @@ typedef struct{
     long g_stamp;//extra sys stamp for satus update
 }struct_sys;
 
-//destroy node in the list
-void destroy_znode(struct_znode* znode);
-void destroy_sys_status(struct_znode* znode);
-
-//stamp operation
-void renew_stamp(struct_sys* sys);
-//void update_u_stamp(struct_sys* sys);
-//void reset_stamp_znode(struct_sys* sys);
-//void reset_stamp_sys(struct_sys* sys);
-
-//sys status saving
-int save_sys_status(struct_sys* sys, char* file_name);
 
 //data translation & retro-translation
-message* bytes2msg(char* bytes, struct_message* msg);
+struct_message* bytes2msg(char* bytes, struct_message* msg);
 char* msg2bytes(struct_message* msg, char* bytes);
 
 #endif
