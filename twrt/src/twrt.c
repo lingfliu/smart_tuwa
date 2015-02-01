@@ -1,10 +1,17 @@
 #include "twrt.h"
 
 int main(int argn, char* argv[]){
-
+    //1. reset the config
+    //2. check the network
+    //3. retrieve authorization
+    //4. 
+    //5. retrieve stamps
+    //6. check the znet and retrieve the node status
+    //7. synchronization with the web
+    //8. start threads
     get_config(&cfg);
-    serial_config(&serial);
-    inet_client_config(&inet_client);
+    serial_config(cfg->serial_name, cfg->serial_type, cfg->serial_baudrate, &serial);
+    inet_client_config(cfg->server_ip, cfg->server_port, cfg->, &inet_client);
 
     //initialize buffers
     buffer_serial = create_buffer_byte_ring(BUFF_RING_LEN);
@@ -129,12 +136,18 @@ void *run_msg_handler(){
     }
 }
 
-void* run_sys(){
+void* run_sys_ptask(){
+    struct_message* msg;
     while(1){	
 	//periodic tasks
+	sleep(3);
+	//send the hb to the server
+
+	   
     }
 }
 
+//message handle function
 int handle_msg(struct_message *msg){
     int req_num;
     int result = -1;
@@ -142,6 +155,7 @@ int handle_msg(struct_message *msg){
 	case DATA_TYPE_STAT: 
 	    //update stat
 	    //sync to server
+	    
 	    result = 0;
 	    break;
 	case DATA_TYPE_CTRL:
@@ -152,27 +166,24 @@ int handle_msg(struct_message *msg){
 	    memset(write_serial, 0, BUFF_RW_LEN);
 	    result = 0;
 	    break;
-	case DATA_TYPE_REQ:
+	case DATA_TYPE_REQ_AUTH:
 	    req_num = 0;
 	    msg_stamp ++;
 	    msg->stamp = msg_stamp;//add a stamp for the message
 	    //send req
 	    bytes2msg(bytes, msg); 
 	    //wait 1 second
-	    while(req_num++<3){
-		pthread_create(thrd_inet_client_tx, run_inet_client_tx, bytes);
-		pthread_join(thrd_inet_cient_tx);
-		sleep(1);
-		//check if ack msg is in the queue
-		pthread_mutex_lock(&mut_msg_handler);
-		if(message_queue_has_ack(msg_queue, msg->stamp)){
-		    message_queue_flush_stamp(msg_queue, msg->stamp);//flush all msg with the  same stamp
-		    result = 0; //if acked, return 0
-		    break;
-		}
-		//if not, send again
-		pthread_mutex_unlock(&mut_msg_handler);
+	    pthread_create(thrd_inet_client_tx, run_inet_client_tx, bytes);
+	    pthread_join(thrd_inet_cient_tx);
+	    sleep(1);
+	    //check if ack msg is in the queue
+	    pthread_mutex_lock(&mut_msg_handler);
+	    if(message_queue_has_ack(msg_queue, msg->stamp)){
+		message_queue_flush_stamp(msg_queue, msg->stamp);//flush all msg with the  same stamp
+		result = 0; //if acked, return 0
+		break;
 	    }
+	    pthread_mutex_unlock(&mut_msg_handler);
 	    free(bytes);
 	    break;
 	case DATA_TYPE_ACK:

@@ -54,6 +54,17 @@ void main(){
     memset(c, 0, 2);
     c = realloc(c,sizeof(char)*2);
     printf("%s\n",c);
+
+    char aa = 0x08;
+    int aaa = (int) (aa<<20);
+    printf("size of int = %ld\n", sizeof(int));
+    printf("size of unsigned int = %ld\n", sizeof(unsigned int));
+    printf("size of char = %ld\n", sizeof(char));
+    printf("size of float = %ld\n", sizeof(float));
+    printf("%d\n", aaa);
+    
+    char* testa;
+    testa = realloc(testa,0);
 }
 
 void init_data_list(data_list* dl){

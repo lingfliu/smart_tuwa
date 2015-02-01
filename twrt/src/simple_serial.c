@@ -4,7 +4,7 @@ int serial_open(struct_serial* serial){
     int fd;//file descriptor
     struct termios tio;//terminal io setting
 
-    fd = open(serial->name, O_RDWR | O_NOCTTY | O_NDELAY);
+    fd = open(serial->name, O_RDWR | O_NOCTTY | O_NDELAY);//non-block serial port
     if(fd < 0){
 	perror("serial open failed\n");
 	return -1;

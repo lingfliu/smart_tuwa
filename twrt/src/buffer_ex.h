@@ -30,6 +30,7 @@ void put_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len);
 void put_buffer_byte_ring_one(buffer_byte_ring* buff, char* byte);
 int get_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len);
 int get_buffer_byte_ring_one(buffer_byte_ring* buff, char* byte);
+void read_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len);
 
 buffer_num_ring* create_buffer_num_ring(int len);
 void destroy_buffer_num_ring(buffer_num_ring* buff);

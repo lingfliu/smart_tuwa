@@ -94,6 +94,17 @@ int get_buffer_byte_ring_one(buffer_byte_ring* buff, char* byte){
     }
 }
 
+void read_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len){
+    bytes = realloc(bytes, len);
+    int m;
+    for(m = 0; m<len; m++){
+	if(buff->pw+m<=buff->p_tail)
+	    bytes[m] = *(buff->p_rw+m);
+	else
+	    bytes[m] = *(buff->p_head+m-buff->p_tail+buff->p_rw-1);
+    }
+}
+
 int len_buffer_byte_ring(buffer_byte_ring* buff){
     if(!buff->overflow)//if not overflow: p_rw<p_c
 	len = buff->p_c-buff->p_rw;

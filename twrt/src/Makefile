@@ -1,21 +1,29 @@
 CC = gcc
-CFLAGS = -O2 -g -llib
+CFLAGS = -O2 -g 
+LIBS = -lpthread
 
-OBJ_TEST = test.o string_ex.o
-OBJ_TWRT = twrt.o config.o string_ex.o
-twrt: $(OBJ_TWRT)
-	$(CC) -o twrt $(OBJ_TWRT)
-test: $(OBJ_TEST)
-	$(CC) -o test $(OBJ_TEST)
-test.o: test.c string_ex.h
-	$(CC) $(CFLAGS) -c test.c -o test.o
-string_ex.o: string_ex.c string_ex.h
-	$(CC) $(CFLAGS) -c string_ex.c -o string_ex.o
+OBJ = twrt.o config.o string_ex.o simple_serial.o simple_inet.o proc.o sys.o buffer_ex.o 
+
+twrt.o: twrt.c twrt.h
+	$(CC) $(CFLAGS) $(LIBS) -c twrt.c -o twrt.o
 config.o: config.c config.h string_ex.c string_ex.h
 	$(CC) $(CFLAGS) -c config.c -o config.o
+string_ex.o: string_ex.c string_ex.h
+	$(CC) $(CFLAGS) -c string_ex.c -o string_ex.o
+buffer_ex.o: buffer_ex.c buffer_ex.h
+	$(CC) $(CFLAGS) -c buffer_ex.c -o buffer_ex.o
+simple_serial.o: simple_serial.c simple_serial.h
+	$(CC) $(CFLAGS) -c simple_serial.c -o simple_serial.o
+simple_inet.o: simple_inet.c simple_inet.h
+	$(CC) $(CFLAGS) -c simple_inet.c -o simple_inet.o
+proc.o: proc.c proc.h
+	$(CC) $(CFLAGS) -c proc.c -o proc.o
+sys.o: sys.c sys.h
+	$(CC) $(CFLAGS) -c sys.c -o sys.o
+
+twrt: $(OBJ_TWRT)
+	$(CC) $(OBJ) -o twrt 
 .PHONY: clean
 clean: 
-	rm $(OBJ_TEST)
-	rm $(OBJ_TWRT)
-	rm test
+	rm $(OBJ)
 	rm twrt

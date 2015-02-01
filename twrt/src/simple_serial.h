@@ -29,6 +29,13 @@ typedef struct{
     struct termios tio_bak;
 }struct_serial;
 
+struct_serial* serial_config(char* name, int type, char* baudrate, struct_serial* serial){
+    strcpy(name, cfg->serial_name);
+    serial->type = type;
+    strcpy(serial->baudrate, cfg->serial_baudrate);
+    return serial;
+}
+
 int serial_open(struct_serial* serial);
 int serial_close(struct_serial* serial);
 int on_serial_rx(struct_serial *serial, char* rx_buff);

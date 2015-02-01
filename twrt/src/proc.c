@@ -1,20 +1,36 @@
 #include "proc.h"
 
 void message_copy(struct_message *msg_dst, struct_message *msg_src){
-    message_flush(sg_dst->data);
+    message_flush(msg_dst->data);
+    memcpy(msg_dst, msg_src, sizeof(struct_message);
     msg_dst->data = realloc(msg_dst->data, sizeof(char)*msg_src->data_len);
     memcpy(msg_dst->data, msg_src->data, sizeof(char)*msg_src->data_len);
-    memcpy(msg_dst->id_gateway, msg_src->id_gateway, 6);
-    memcpy(msg_dst->id_dev, msg_src->id_dev, 6);
-    msg_dst->dev_type = msg_src->dev_type;
-    msg_dst->data_type = msg_src->data_type;
-    msg_dst->data_len = msg_src->data_len;
 }
 
 void message_flush(struct_message *msg){//flush message as empty message
     memset(msg->data, 0, msg->data_len);
     free(msg->data);
     memset(msg, 0, sizeof(msg));
+}
+
+struct_message* message_create(struct_message* msg, int type, long stamp){
+    message_flush(msg);
+    switch(type){
+	case MSG_REQ_NET_HB:
+	    openwrt_get_id(wrt_get_id(msg->gateway_id));		   
+	    msg->data_type = DATA_TYPE_NET_HB;
+	    msg->stamp = stamp+1;
+	    break;
+	default:
+	    break;
+    }
+}
+
+int message_is_ack(struct_message* msg){
+    if(msg->stamp!=0)
+	return 1;
+    else
+	return 0;
 }
 
 void message_queue_init(struct_message_queu* msg_queue){
@@ -157,15 +173,24 @@ int message_queue_isempty(struct_message_queue* msg_q){
 }
 
 //transfer bytes into one message from the beginning
-int bytes2msg(char* bytes, struct_message* msg){
+int bytes2msg(buffer_byte_ring* bytes, struct_message* msg){
     int len;
-    char* bytes_origin = bytes; 
-    while(!memcmp(bytes, PROC_DATA_HEADER, 4))
-	bytes++;
-    len = (int) (*(bytes+18)&& 0xF0h) + (int) (*(bytes+19)&& 0x0Fh);
+    int data_len;
+    char *read_bytes = realloc(read_bytes, 4);
+    if(len_buffer_byte_ring(bytes)<PROC_MSG_MIN)
+	return;
+    //locate the header
+    read_buffer_byte_ring(bytes, read_bytes, 4);
+    while(!(len_buffer_byte_ring(bytes)>=PROC_MSG_MIN && !memcmp(read_bytes, PROC_DATA_HEADER, 4))){
+	get_buffer_byte_ring(bytes, read_bytes);//flush one byte until we get the header
+	read_buffer_byte_ring(bytes, read_bytes, 4);
+    }
+    read_buffer_byte_ring(bytes, read_bytes, PROC_MSG_MIN-1);	  
+    data_len = (int) (read_bytes[PROC_MSG_MIN-3] && 0x0Fh) + (int) (read_bytes[PROC_MSG_MIN-2]>>8 && 0xF0h);
+
     message_flush(msg);
     msg->data = realloc(msg->data, sizeof(char)*len);
-    //the rest of the msg setting
+    //the rest of the msg setting:w
     return len;
 }
 int msg2bytes(struct_message* msg, char* bytes){
