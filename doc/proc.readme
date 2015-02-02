@@ -1,17 +1,17 @@
 A data packet is defined as:
 
-HEADER TIME_STAMP GATEWAY_ID DEV_ID DEV_TYPE DATA_TYPE DATA_LEN DATA CRC
+HEADER STAMP GATEWAY_ID DEV_ID DEV_TYPE DATA_TYPE DATA_LEN DATA CRC
 
 ============================================================
 Packet description
 ============================================================
 HEADER: indicate the starting of a packet
-	length: 2 bytes
+	length: 4 bytes
 	content: fixed e.g. 0xAAAA
 
-TIME_STAMP: time stamp
-        length: 4 bytes
-	content:  yyyymmddhhmmss
+STAMP: message stamp, default is 0
+        length: 4 bytes, unsigned long
+	content:  long
 
 GATEWAY_ID: id of the gateway
 	length: 6 bytes
@@ -20,14 +20,14 @@ DEV_ID: id of the node
 	length: 6 bytes
 
 DATA_LEN: length of the data
-	length: 2 bytes
+	length: 2 bytes, unsigned int
 	content: 1-65535
 
-CRC: crc
+CRC: crc(optional)
 	length: 1 byte
 
 DEV_TYPE: device type
-	length: 2 bytes
+	length: 2 bytes, unsigned int, min from 1
 	content:
 		DEV_TYPE_SWITCH_SINGLE
 		DEV_TYPE_SWITCH_DOUBLE
@@ -44,7 +44,7 @@ DEV_TYPE: device type
 		DEV_TYPE_MECH
 
 DATA_TYPE: type of the data
-	length: 2 bytes
+	length: 2 bytes, unsigned int
 	content: 
 		DATA_TYPE_STAT
 		DATA_TYPE_CTRL
@@ -99,6 +99,9 @@ DEV_TYPE_SENSOR_WATER
 	DATA_LEN = 1
 	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
 
+DEV_TYPE_THEME_QUADRO
+	DATA_LEN = 4
+	byte 1 = STAT_ON / STAT_OFF / REQ_SET / REQ_UNSET
 
 ====================================
 DATA_TYPE_CTRL
@@ -129,6 +132,9 @@ DEV_TYPE_MECH
 	DATA_LEN = 1
 	byte 1 = ON / OFF
 
+DEV_TYPE_THEME_QUADRO
+	DATA_LEN = 4
+	byte 1 = ON / OFF / SET / UNSET
 
 ====================================
 DATA_TYPE_ERR
