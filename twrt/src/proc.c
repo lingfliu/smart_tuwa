@@ -1,168 +1,201 @@
 #include "proc.h"
 
-void message_copy(struct_message *msg_dst, struct_message *msg_src){
-    message_flush(msg_dst->data);
-    memcpy(msg_dst, msg_src, sizeof(struct_message);
-    msg_dst->data = realloc(msg_dst->data, sizeof(char)*msg_src->data_len);
-    memcpy(msg_dst->data, msg_src->data, sizeof(char)*msg_src->data_len);
+//message creation
+struct_message* message_create_empty(struct_message* msg, char gw_id[6], int type){
+    msg = realloc(sizeof(struct_message));
+    memset(msg, 0, sizeof(struct_message));
+    memcpy(msg->gateway_id, gw_id, 6);
+    return msg;
 }
 
-void message_flush(struct_message *msg){//flush message as empty message
-    memset(msg->data, 0, msg->data_len);
-    free(msg->data);
-    memset(msg, 0, sizeof(msg));
-}
+struct_message* message_create_sys(struct_message* msg, char gw_id[6], long* stamp ){
 
-struct_message* message_create(struct_message* msg, int type, long stamp){
-    message_flush(msg);
+    msg = realloc(sizeof(struct_message));
+    memset(msg, 0, sizeof(struct_message));
+    memcpy(msg->gateway_id, gw_id, 6);
+
     switch(type){
-	case MSG_REQ_NET_HB:
-	    openwrt_get_id(wrt_get_id(msg->gateway_id));		   
+	case MSG_SYS_NET_HB:
 	    msg->data_type = DATA_TYPE_NET_HB;
-	    msg->stamp = stamp+1;
+	    msg->data_len = 1;
+	    msg->data = realloc(msg->data, sizeof(char));
+	    memcpy(msg->data,DATA_NET_HB, sizeof(char));  
+	    *stamp ++;
+	    msg->stamp = *stamp;
 	    break;
 	default:
 	    break;
     }
+    return msg;
 }
 
-int message_is_ack(struct_message* msg){
-    if(msg->stamp!=0)
-	return 1;
-    else
-	return 0;
+/*
+struct_message* message_create_ctrl_root(struct_sys*, char *data, struct_message* msg){
+}
+struct_message* message_create_ctrl_znode(struct_znode* znode, int data_len, char* data, struct_message* msg){
+}
+struct_message* message_create_stat_root(struct_sys*, struct_message* msg){
+}
+struct_message* message_create_stat_znode(struct_znode* znode, struct_message* msg){
+}
+*/
+
+/////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////
+
+struct_message* message_copy(struct_message *msg_dst, struct_message *msg_src){
+    message_flush(msg_dst);
+    memcpy(msg_dst, msg_src, sizeof(struct_message));
+    msg->data = NULL;
+    msg_dst->data = realloc(msg_dst->data, sizeof(char)*msg_src->data_len);
+    memcpy(msg_dst->data, msg_src->data, sizeof(char)*msg_src->data_len);
+    return msg_dst;
 }
 
-void message_queue_init(struct_message_queu* msg_queue){
+struct_message* message_destroy(struct_message *msg){//delete message
+    memset(msg->data, 0, msg->data_len);
+    free(msg->data);
+    msg->data = NULL;
+    memset(msg, 0, sizeof(*msg));
+    free(msg);
+    return msg;
+}
+
+void message_flush(struct_message *msg){//flush message 
+    memset(msg->data, 0, msg->data_len);
+    free(msg->data);
+    memset(msg, 0, sizeof(struct_message));
+}
+
+int message_is_req(struct_message* msg){
+    switch(msg->data_type){
+	case DATA_TYPE_REQ_AUTH:
+	    return 1;
+	case DATA_TYPE_NET_HB:
+	    return 1;
+	default:
+	    return 0;
+    }
+}
+
+///////////////////////////////////////////////////
+//message queue functions
+
+void message_queue_init(struct_message_queu* msg_q){
     msg_queue->msg = NULL;
-    msg_queue->prev = msg_queue;
-    msg_queue->next = msg_queue;
+    msg_q->prev = msg_q;
+    msg_q->next = msg_q;
 }
 
 void message_queue_put(struct_message_queue** msg_q, struct_message* msg){
-    message_queue *msg_q_new;
-    if((*msg_q)->msg == NULL){//empty queue
-	(*msg_q)->msg = msg;
-    }else{  //msg in the queue
-	msg_q_new = malloc(sizeof(message_queue));
-	message_copy(msg_q_new->msg, msg);
-	msg_q_new->prev = *msg_q;
-	(*msg_q)->next = msg_q_new;
-	msg_q_new->next = msg_q_new;
-	*msg_q = msg_q_new;
-    }
-}
-
-void message_queue_get(struct_message_queue* msg_q, struct_message* msg){
     message_queue *msg_q_item;
-    msg_q_item = msg_q;
-    while(msg_q_item->prev != msg_q_item)
-	msg_queue_item = msg_q_item->prev;
-    message_copy(msg, msg_q_item->msg);
-    message_queue_flush(msg_q, 1); 
-}
-
-void message_queue_flush(struct_message_queue* msg_q, int len){
-    int m;
-    len = len>message_queue_getlen(msg_q)?message_queue_getlen(msg_q):len;
-    message_queue *msg_q_item = msg_q;
-    message_queue *msg_q_item2;
-
-    while(msg_q_item->prev != msg_q_item)
-	msg_q_item = msg_q_item->prev; //flush from the head
-
-    
-    for(m = 0; m<len; len++){
-	//if queue has only one item
-	if(message_queue_getlen(msg_q)<=1){
-	    free(msg_q->msg);
-	    msg_q->msg = NULL;
-	    return;
-	}
-	msg_q_item->next->prev = msg_q_item->next;
-	msg_q_item2 = msg_q_item;
-	msg_q_item = msg_q_item->next;
-	free(msg_q_item2->msg);
-	free(msg_q_item2);
+    if(message_queue_isempty(*msg_q)){//empty queue
+	(*msg_q)->msg = message_copy((*msg_q)->msg, msg);
+    }else{  //queue has msgs
+	msg_q_item = realloc(sizeof(message_queue));
+	msg_q_item->msg = message_copy(msg_q_item->msg, msg);
+	msg_q_item->prev = *msg_q;
+	(*msg_q)->next = msg_q_item;
+	msg_q_item->next = msg_q_item;
+	*msg_q = msg_q_item; //update the position of the msg_q
     }
 }
 
-void message_queue_flush_stamp(struct_message_queue** msg_q, long stamp){
-    message_queue* msg_q_item = *msg_q;
-    message_queue* msg_q_item2;
-    if(message_queue_isempty(*msg_q))
+struct_message* message_queue_get(struct_message_queue** msg_q, struct_message* msg){
+    msg_q_item = *msg_q;
+    if((*msg_q)->msg==NULL)
+	return msg;//do nothing
+    msg = message_copy(msg, msg_q_item->msg);
+    message_queue_del(msg_q);
+    return msg;
+}
+
+void message_queue_del(struct_message_queue** msg_q){
+    struct_message_queue* msg_q_item = *msg_q;
+    if(message_queue_istempty(msg_q_item))//empty queue, do nothing
 	return;
+    msg_q_item->msg = message_destroy(msg_q_item->msg);//destroy the message
+    if(msg_q_item->prev == msg_q_item && msg_q_item->next = msg_q_item){//one msg in the queue, only destroy the message
+	return;
+    }
+    if(msg_q_item->prev == msg_q_item){ //head
+	free(msg_q_item);
+	return;
+    }
+    if(msg_q_item->next == msg_q_item){ //tail
+	*msg_q = msg_q_item->prev;
+	free(msg_q_item);
+	return;
+    }
+
+    //in the middle
+    msg_q_item->prev->next = msg_q_item->next;
+    msg_q_item->next->prev = msg_q_item->prev;
+}
+
+int message_queue_del_stamp(struct_message_queue** msg_q, long stamp){
+    int has_stamp = -1;
+    message_queue* msg_q_item = *msg_q;
+    if(message_queue_isempty(*msg_q))
+	return has_stamp;
 
     while(msg_q_item->prev != msg_q_item)
-	msg_q_item = msg_q_item->prev;//flush from the head
+	msg_q_item = msg_q_item->prev;//move to the head
     
     while(msg_q_item->next != msg_q_item){
 	if(msq_q_item->msg->stamp == stamp){
-	    //flush the msg and connect previous with next
-	    if(msg_q_item->prev == msg_q_item){//if at the head
-		msg_q_item2 = msg_q_item;
-		msg_q_item = msg_q_item->next;
-		msg_q_item->prev = msg_q_item;
-		free(msg_q_item2->msg);
-		free(msg_q_item2);
-	    }else{
-		msg_q_item2 = msg_q_item;
-		msg_q_item = msg_q_item->next;
-		msg_q_item->prev = msg_q_item2->prev;
-		msg_q_item2->prev->next = msg_q_item;
-		free(msg_q_item2->msg);
-		free(msg_q_item2);
-	    }
-	}else{
-	    msg_q_item = msg_q_item->next;
+	    message_queue_del(&msg_q_item);
+	    has_stamp = 0;
 	}
+	msg_q_item = msg_q_item->next;
     }
+
     if(msg_q_item->msg->stamp == stamp){//check the tail
-	*msg_q = msg_q_item->prev;
-	*msg_q->next = *msg_q;
-	free(msg_q_item->msg);
-	free(msg_q_item);
+	message_queue_del(&msg_q_item);
+	has_stamp = 0;
     }
+    return has_stamp;
 }
 
 int message_queue_has_stamp(struct_message_queue* msg_q, long stamp){
-    int result = 0;
+    int has_stamp = 0;
     if(message_queue_isempty(msg_q))
-	    return 0; //if empty, return false
+	return has_stamp;
+
     while(msg_q->prev != msg_q)
-	msg_q = msg_q->prev;//search from the head
+	msg_q= msg_q->prev;//move to the head
+    
     while(msg_q->next != msg_q){
-	if(msg_q->msg->stamp == stamp){
-	    result = 1;
-	    return result;
+	if(msq_q->msg->stamp == stamp){
+	    has_stamp = 1;
 	}
-	msg_q = msg_q->next;
+	msg_q= msg_q->next;
     }
-    if(msg_q->msg->stamp == stamp)//check the tail
-	result = 1;
-    return result;
+
+    if(msg_q->msg->stamp == stamp){//check the tail
+	has_stamp = 1;
+    }
+    return has_stamp;
 }
 
-int message_queue_getlen(struct_message_queue* msg_q){
-    struct_message_queue* msg_q_item = msg_q;
+int message_queue_len(struct_message_queue* msg_q){
     int len=0;
-    while(msg_q_item->next !=msg_q_item)
-	msg_q_item=msg_q_item->next;
-
     if(msg_q->next == msg_q && msg_q->prev == msg_q){
 	if(msg_q->msg == NULL)
 	    return 0;
 	if(msg_q->msg != NULL)
 	    return 1;
     }
-    else{
-	while(msg_q_item->prev !=msg_q_item){
-	    len ++;
-	    msg_q_item = msg_q_item->prev;
-	}
+
+    while(msg_q->next != msg_q)
+	msg_q=msg_q->next;
+    
+    while(msg_q->prev != msg_q){
 	len ++;
-	return len;
+	msg_q_item = msg_q_item->prev;
     }
+    len ++;
+    return len;
 }
 
 int message_queue_isempty(struct_message_queue* msg_q){
@@ -175,25 +208,54 @@ int message_queue_isempty(struct_message_queue* msg_q){
 //transfer bytes into one message from the beginning
 int bytes2msg(buffer_byte_ring* bytes, struct_message* msg){
     int len;
-    int data_len;
-    char *read_bytes = realloc(read_bytes, 4);
-    if(len_buffer_byte_ring(bytes)<PROC_MSG_MIN)
-	return;
-    //locate the header
-    read_buffer_byte_ring(bytes, read_bytes, 4);
-    while(!(len_buffer_byte_ring(bytes)>=PROC_MSG_MIN && !memcmp(read_bytes, PROC_DATA_HEADER, 4))){
-	get_buffer_byte_ring(bytes, read_bytes);//flush one byte until we get the header
-	read_buffer_byte_ring(bytes, read_bytes, 4);
-    }
-    read_buffer_byte_ring(bytes, read_bytes, PROC_MSG_MIN-1);	  
-    data_len = (int) (read_bytes[PROC_MSG_MIN-3] && 0x0Fh) + (int) (read_bytes[PROC_MSG_MIN-2]>>8 && 0xF0h);
+    char* read_bytes;
 
-    message_flush(msg);
-    msg->data = realloc(msg->data, sizeof(char)*len);
-    //the rest of the msg setting:w
-    return len;
+    if(buffer_byte_ring_len(bytes)<PROC_MSG_MIN)
+	return;//if not sufficient for a msg, return
+
+    //locate the header
+    read_bytes = realloc(read_bytes, 4);
+    buffer_byte_ring_read(bytes, read_bytes, 4);
+    while(!memcmp(read_bytes, PROC_DATA_HEADER, 4)){
+	buffer_byte_ring_get(bytes, NULL, 1); //remove one byte
+	if(buffer_byte_ring_len(bytes)<PROC_MSG_MIN)
+	   return 0; 
+    }
+    if(buffer_byte_ring_len(bytes)<PROC_MSG_MIN)
+	return 0; 
+    else{
+	read_bytes = realloc(read_bytes, 18);
+	buffer_byte_ring_read(bytes, read_bytes, 18);
+	len = read_bytes[16]>>8+read_bytes[17] + 18;
+	if(buffer_byte_ring_len(bytes)<len)
+	    return 0;
+	else{
+	    read_bytes = realloc(read_bytes, len);
+	    memcpy(msg->gateway_id, *bytes, 6);
+	    memcpy(msg->dev_id, *bytes+6, 6);
+	    memcpy(msg->dev_type, *bytes+12, 2);
+	    memcpy(msg->data_type, *bytes+14, 2);
+	    memcpy(msg->data_len, *bytes+16, 2);
+	    msg->data = realloc(msg->data, len-18);
+	    memcpy(msg->data, *bytes+18, msg->data_len);
+	    memcpy(msg->stamp, *bytes+18+msg->data_len, 4);
+	    free(read_bytes);
+	    buffer_byte_ring_get(bytes, NULL, len);
+	    return 1;
+	}
+    }
 }
-int msg2bytes(struct_message* msg, char* bytes){
+int msg2bytes(struct_message* msg, char** bytes){
     int len;
+    len = 22+msg->data_len;
+    *bytes = realloc(*bytes, len); 
+    memcpy(*bytes,msg->gateway_id, 6);
+    memcpy(*bytes+6, msg->dev_id, 6);
+    memcpy(*bytes+12, msg->dev_type, 2);
+    memcpy(*bytes+14, msg->data_type, 2);
+    memcpy(*bytes+16, msg->data_len, 2);
+    memcpy(*bytes+18, msg->data, msg->data_len);
+    memcpy(*bytes+18+msg->data_len, msg->stamp, 4);
+
     return len;
 }
