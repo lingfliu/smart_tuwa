@@ -4,9 +4,9 @@
 /////////////////////////////////////////////////
 //Byte ring
 ////////////////////////////////////////////////
-buffer_byte_ring* create_buffer_byte_ring(int len){
-    buffer_byte_ring* buff = malloc(sizeof(buffer_byte_ring));
-    buff->data = malloc(sizeof(char)*len);
+buffer_byte_ring* buffer_byte_ring_create(buffer_byte_ring* buff, int len){
+    buff = malloc(sizeof(buffer_byte_ring));
+    buff->data = realloc(buff->data, sizeof(char)*len);
     buff->p_head = buff->data;
     buff->p_tail = buff->data+len-1;
     buff->p_c = buff->data;
@@ -16,13 +16,13 @@ buffer_byte_ring* create_buffer_byte_ring(int len){
     return buff;
 }
 
-void destroy_buffer_byte_ring(buffer_byte_ring* buff){
+void buffer_byte_ring_flush(buffer_byte_ring* buff){
     free(buff->data);
     free(buff);
     buff = NULL;
 }
 
-void put_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len){
+void buffer_byte_ring_put(buffer_byte_ring* buff, char* bytes, int len){
     int m;    
     for(m=0; m<len; m++){	
 	*(buff->p_c) = bytes[m];
@@ -38,7 +38,7 @@ void put_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len){
 	    buff->p_rw = buff->p_c;
     }
 }
-void put_buffer_byte_ring_one(buffer_byte_ring* buff, char* byte){
+void buffer_byte_ring_put_one(buffer_byte_ring* buff, char* byte){
     *(buff->p_c) = byte[0];
     buff->p_c++;//to the next empty position
     if(buff->p_c > buff->p_tail){
@@ -52,15 +52,10 @@ void put_buffer_byte_ring_one(buffer_byte_ring* buff, char* byte){
 	buff->p_rw = buff->p_c;
 }
 
-int get_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len){
+int buffer_byte_ring_get(buffer_byte_ring* buff, char* bytes, int len){
     int m;
-    int len_available;
-    if(!buff->overflow)//if not overflow: p_rw<p_c
-	len_available = buff->p_c-buff->p_rw;
-    else
-	len_available = buff->p_tail-buff->p_rw+buff->p_c-buff->p_head+1;//if overflow: p_rw > p_c:w
+    int len_available=buffer_byte_ring_len(buff);
     len = len>len_available?len_available:len;
-
     if(len == 0)
 	return -1;
 
@@ -75,12 +70,8 @@ int get_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len){
     return 0;
 }
 
-int get_buffer_byte_ring_one(buffer_byte_ring* buff, char* byte){
-    int len_available;
-    if(!buff->overflow)//if not overflow: p_rw<p_c
-	len_available = buff->p_c-buff->p_rw;
-    else
-	len_available = buff->p_tail-buff->p_rw+buff->p_c-buff->p_head+1;//if overflow: p_rw > p_c:w
+int buffer_byte_ring_get_one(buffer_byte_ring* buff, char* byte){
+    int len_available=buffer_byte_ring_len(buff);
     if(len_available==0){
 	return -1;
     }else{
@@ -94,7 +85,7 @@ int get_buffer_byte_ring_one(buffer_byte_ring* buff, char* byte){
     }
 }
 
-void read_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len){
+void buffer_byte_ring_read(buffer_byte_ring* buff, char* bytes, int len){
     bytes = realloc(bytes, len);
     int m;
     for(m = 0; m<len; m++){
@@ -105,7 +96,7 @@ void read_buffer_byte_ring(buffer_byte_ring* buff, char* bytes, int len){
     }
 }
 
-int len_buffer_byte_ring(buffer_byte_ring* buff){
+int buffer_byte_ring_len(buffer_byte_ring* buff){
     if(!buff->overflow)//if not overflow: p_rw<p_c
 	len = buff->p_c-buff->p_rw;
     else
@@ -115,9 +106,9 @@ int len_buffer_byte_ring(buffer_byte_ring* buff){
 /////////////////////////////////////////////////
 //Number ring
 ////////////////////////////////////////////////
-buffer_num_ring* create_buffer_num_ring(int len){
-    buffer_num_ring* buff = malloc(sizeof(buffer_num_ring));
-    buff->data = malloc(sizeof(float)*len);
+buffer_num_ring* buffer_num_ring_create(buffer_num_ring* buff, int len){
+    buff = malloc(sizeof(buffer_num_ring));
+    buff->data = realloc(buff->data, sizeof(float)*len);
     buff->p_head = buff->data;
     buff->p_tail = buff->data+len-1;
     buff->p_c = buff->data;
@@ -127,13 +118,13 @@ buffer_num_ring* create_buffer_num_ring(int len){
     return buff;
 }
 
-void destroy_buffer_num_ring(buffer_num_ring* buff){
+void buffer_num_ring_flush(buffer_num_ring* buff){
     free(buff->data);
     free(buff);
     buff = NULL;
 }
 
-void put_buffer_num_ring(buffer_num_ring* buff, float* nums, int len){
+void buffer_num_ring_put(buffer_num_ring* buff, float* nums, int len){
     int m;    
     for(m=0; m<len; m++){	
 	*(buff->p_c) = nums[m];
@@ -149,7 +140,7 @@ void put_buffer_num_ring(buffer_num_ring* buff, float* nums, int len){
 	    buff->p_rw = buff->p_c;
     }
 }
-void put_buffer_num_ring_one(buffer_num_ring* buff, float* num){
+void buffer_num_ring_put_one(buffer_num_ring* buff, float* num){
     *(buff->p_c) = num[0];
     buff->p_c++;//to the next empty position
     if(buff->p_c > buff->p_tail){
@@ -163,13 +154,9 @@ void put_buffer_num_ring_one(buffer_num_ring* buff, float* num){
 	buff->p_rw = buff->p_c;
 }
 
-int get_buffer_num_ring(buffer_num_ring* buff, float* nums, int len){
+int buffer_num_ring_get(buffer_num_ring* buff, float* nums, int len){
     int m;
-    int len_available;
-    if(!buff->overflow)//if not overflow: p_rw<p_c
-	len_available = buff->p_c-buff->p_rw;
-    else
-	len_available = buff->p_tail-buff->p_rw+buff->p_c-buff->p_head+1;//if overflow: p_rw > p_c:w
+    int len_available = buffer_num_ring_len(buff);
     len = len>len_available?len_available:len;
 
     if(len == 0)
@@ -185,12 +172,8 @@ int get_buffer_num_ring(buffer_num_ring* buff, float* nums, int len){
     }
     return 0;
 }
-int get_buffer_num_ring_one(buffer_num_ring* buff, float* num){
-    int len_available; 
-    if(!buff->overflow)//if not overflow: p_rw<p_c len_available = buff->p_c-buff->p_rw;
-	len_available = buff->p_c-buff->p_rw;
-    else
-	len_available = buff->p_tail-buff->p_rw+buff->p_c-buff->p_head+1;//if overflow: p_rw > p_c:w
+int buffer_num_ring_get_one(buffer_num_ring* buff, float* num){
+    int len_available = buffer_num_ring_len(buff);
     if(len_available==0){
 	return -1;
     }else{
@@ -205,7 +188,7 @@ int get_buffer_num_ring_one(buffer_num_ring* buff, float* num){
 }
 
 
-int len_buffer_num_ring(buffer_num_ring* buff){
+int buffer_num_ring_len(buffer_num_ring* buff){
     if(!buff->overflow)//if not overflow: p_rw<p_c
 	len = buff->p_c-buff->p_rw;
     else
