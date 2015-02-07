@@ -13,6 +13,9 @@
 #define SYS_STATUS_LEN 255
 #define SYS_LISCENSE_LEN 64
 
+#define ZNET_ON 1
+#define ZNET_OFF 2
+#define  
 //sys and znode
 typedef struct{
     char parent_id[6];
@@ -22,6 +25,7 @@ typedef struct{
     int ver;//firmware version
     int status_len;
     char* status;
+    int status_znet;
     long u_stamp;//node stamp for status update
     long g_stamp;//extra stamp for status update (not used yet)
 }struct_znode; 
@@ -45,15 +49,17 @@ typedef struct{
     char liscense[SYS_LISCENSE_LEN];
     int is_valid_liscense;
 
-    //time for 
+    //timer 
     time_t timer;
 }struct_sys;
 
-//system operation
 //system initialization & reset
 int sys_init(struct_sys* sys);//allocate memory space for sys
 int sys_reset(struct_sys* sys); //reset the system
 void sys_flush(struct_sys* sys); //flush the system for reset
+
+//get id
+void sys_get_id(char id[6]);
 
 //znode operation 
 //int znode_copy(struct_znode* znode_dst, struct_znode* znode_src);
@@ -64,16 +70,17 @@ int sys_znode_update(struct_sys* sys, struct_message* msg);
 
 //synchronization
 int sys_sync_znet(struct_sys* sys, int idx_znode, int socket);//synchronize the system znet status
-int sys_sync_root(struct_sys* sys, int idx_znode, int socket);//synchronize the system znet status
+int sys_sync_root(struct_sys* sys, int socket);//synchronize the system znet status
+int sys_sync_init(struct_sys* sys, int socket, int serial);
 
 //network operation
 int sys_net_hb(int socket);//heart beat to the server
 int sys_net_auth(struct_sys* sys, int socket);//authentication of the gateway
 
 //local save/load 
-int sys_save_sys(char* file_name);
-int sys_load_sys(char* file_name);
+//int sys_save_sys(char* file_name);
+//int sys_load_sys(char* file_name);
 
 //time
-int sys_timer_update();
+int sys_timer_update(struct_sys* sys);
 #endif

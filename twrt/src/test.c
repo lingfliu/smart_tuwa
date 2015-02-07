@@ -62,9 +62,6 @@ void main(){
     printf("size of char = %ld\n", sizeof(char));
     printf("size of float = %ld\n", sizeof(float));
     printf("%d\n", aaa);
-    
-    char* testa;
-    testa = realloc(testa,0);
 }
 
 void init_data_list(data_list* dl){

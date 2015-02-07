@@ -1,5 +1,12 @@
 #include "simple_serial.h"
 
+struct_serial* serial_config(char* name, int type, char* baudrate, struct_serial* serial){
+    strcpy(name, cfg->serial_name);
+    serial->type = type;
+    strcpy(serial->baudrate, cfg->serial_baudrate);
+    return serial;
+}
+
 int serial_open(struct_serial* serial){
     int fd;//file descriptor
     struct termios tio;//terminal io setting
@@ -73,13 +80,8 @@ int serial_open(struct_serial* serial){
     return 0;//open sucessfully, return;
 }
 
-int on_serial_tx(struct_serial* serial, char* tx_buff, int len){
-    int result;
-    result = write(serial->fd, tx_buff, len);
-    return result;
-}
-
 int serial_close(struct_serial* serial){
+    //flush serial
     tcsetattr(serial->fd, TCSANOW, serial->tio_bak); //restore tio
     return close(serial->fd);
 }

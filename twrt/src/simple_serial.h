@@ -21,24 +21,18 @@
 #define SERIAL_BUFF_LEN 255 //buffer length for write/read
 
 typedef struct{
-    char name[100];
+    char name[50];
     int fd;
     int type;
-    int baudrate;
+    char baudrate[20];
     struct termios tio;
     struct termios tio_bak;
 }struct_serial;
 
-struct_serial* serial_config(char* name, int type, char* baudrate, struct_serial* serial){
-    strcpy(name, cfg->serial_name);
-    serial->type = type;
-    strcpy(serial->baudrate, cfg->serial_baudrate);
-    return serial;
-}
-
+void serial_config(char* name, int type, char* baudrate, struct_serial* serial);
 int serial_open(struct_serial* serial);
 int serial_close(struct_serial* serial);
-int on_serial_rx(struct_serial *serial, char* rx_buff);
-int on_serial_tx(struct_serial *serial, char* tx_buff, int len);
+//int on_serial_rx(struct_serial *serial, char* rx_buff);
+//int on_serial_tx(struct_serial *serial, char* tx_buff, int len);
 
 #endif

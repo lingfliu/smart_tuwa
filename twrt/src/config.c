@@ -5,11 +5,13 @@ void get_config(struct_config* cfg){
     char str[CFG_BUFF_LEN];
     fp = fopen(FILE_CFG,"r");
     if(fp == NULL){
-	perror("Cannot access config file, program abort.\n");
+	perror("Cannot read config file, program abort.\n");
 	return;
     }
     while(fgets(str,CFG_BUFF_LEN,fp)!=NULL)
 	parse_config(cfg,str);
+    //check the unset paras
+
     fclose(fp);
 }
 
