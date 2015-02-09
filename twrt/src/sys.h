@@ -49,7 +49,7 @@ typedef struct{
     long g_stamp;//extra sys stamp for satus update (not used yet)
 
     //stamp for msg
-    long msg_stamp;
+    long msg_tx_stamp;
 
     //license
     char lic[SYS_LIC_LEN];
@@ -80,7 +80,6 @@ void znode_flush(struct_znode* znode);
 int sys_znode_update(struct_sys* sys, struct_message* msg);
 
 //synchronization
-void sys_sync_init(struct_sys* sys, struct_inet *client, struct_serial *serial);
 void sys_sync_znode(struct_sys* sys, int idx_znode, struct_message_queue** msg_q_tx);//synchronize the system znet status
 void sys_sync_root(struct_sys* sys, struct_message_queue** msg_q_tx);//synchronize the system znet status
 
@@ -92,7 +91,6 @@ int sys_net_hb(struct_message_queue** msg_q_tx);//heart beat to the server
 //int sys_load_sys(char* file_name);
 
 //time
-int sys_timer_update(struct_sys* sys);
 
 
 //message creation
