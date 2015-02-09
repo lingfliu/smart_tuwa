@@ -89,8 +89,6 @@ typedef struct{
     long stamp;
 }struct_message;
 
-struct_message* message_create_empty(struct_message* msg, char gw_id[6]);
-struct_message* message_create_sys(struct_message* msg, char gw_id[6], int type, long* stamp);
 struct_message* message_destroy(struct_message* msg);
 struct_message* message_flush(struct_message *msg);//flush message without destroy it
 struct_message* message_copy(struct_message *msg_dst, struct_message *msg_src);

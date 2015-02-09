@@ -1,47 +1,5 @@
 #include "proc.h"
 
-//message creation
-struct_message* message_create_empty(struct_message* msg, char gw_id[6], int type){
-    msg = realloc(sizeof(struct_message));
-    memset(msg, 0, sizeof(struct_message));
-    memcpy(msg->gateway_id, gw_id, 6);
-    return msg;
-}
-
-struct_message* message_create_sys(struct_message* msg, char gw_id[6], long* stamp ){
-
-    msg = realloc(sizeof(struct_message));
-    memset(msg, 0, sizeof(struct_message));
-    memcpy(msg->gateway_id, gw_id, 6);
-
-    switch(type){
-	case MSG_SYS_NET_HB:
-	    msg->data_type = DATA_TYPE_NET_HB;
-	    msg->data_len = 1;
-	    msg->data = realloc(msg->data, sizeof(char));
-	    memcpy(msg->data,DATA_NET_HB, sizeof(char));  
-	    *stamp ++;
-	    msg->stamp = *stamp;
-	    break;
-	default:
-	    break;
-    }
-    return msg;
-}
-
-/*
-struct_message* message_create_ctrl_root(struct_sys*, char *data, struct_message* msg){
-}
-struct_message* message_create_ctrl_znode(struct_znode* znode, int data_len, char* data, struct_message* msg){
-}
-struct_message* message_create_stat_root(struct_sys*, struct_message* msg){
-}
-struct_message* message_create_stat_znode(struct_znode* znode, struct_message* msg){
-}
-*/
-
-/////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////
 
 struct_message* message_copy(struct_message *msg_dst, struct_message *msg_src){
     message_flush(msg_dst);
