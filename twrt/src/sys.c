@@ -20,65 +20,85 @@ void sys_get_lic(struct_sys* sys, char* file_lic){
 }
 
 int sys_get_auth(struct_sys* sys, struct_inet* client){   
+    int result = -1;
     struct_message* msg;
     buffer_ring_byte* buff;
     buff = buffer_ring_byte_create(buff, 500);
     char* bytes;
     msg = struct_message_create_sys(struct_sys* sys, msg,  MSG_SYS_AUTH_REQ);
     int len = msg2bytes(msg, &bytes);   
+
+    //send auth req
     write(client->fd, bytes, len);
     free(msg);
+    free(bytes);
+
+    //after sending the req, wait to get ack
     bytes = realloc(bytes, 255);
-    len = read(client->fd, bytes, 255);
-    buffer_ring_byte_put(buff, bytes, len);
-    if(bytes2msg(buff, msg)>0){
-	if(message_type(msg)==MSG_ACK_AUTH && msg->data_len == SYS_COOKIE_LEN){
-	    sys->is_valid_lic = 1;
-	    memcpy(sys->cookie, msg->data, SYS_COOKIE_LEN);
-	    free(buff);
-	    free(bytes);
-	    return 0; //auth successfully, quit
+
+    //this loop will break only when: server disconnected / ack negative
+    while(1){
+	if(bytes2msg(buff,msg)<0){
+	    len = read(client->fd, bytes, 255);
+	    if(len <= 0)
+		break;
+	    buffer_ring_byte_put(buff, bytes, len);
 	}else{
-	    free(bytes);
-	    free(buff);
-	    return -1; //fail to be authed
+	    if(msg->type == DATA_TYPE_AUTH_ACK){
+		if(msg->data_len == SYS_COOKIE_LEN)
+		    result = 0;
+		break;
+	    }
 	}
-    }else{
-	free(bytes);
-	free(buff);
-	return -1;// fail to be authed
     }
+
+    if(result<0)
+	sys->is_valid_lic = 0;
+    else{
+	sys->is_valid_lic = 1;
+	memcpy(sys->cookie, msg->data, SYS_COOKIE_LEN);
+    }
+    free(bytes);
+    free(buff);
+    return result;
 }
 
 long sys_get_stamp(struct_sys* sys, struct_inet* client){
     long stamp = -1;
+    if(!sys->is_valid_lic)
+	return stamp;
+
     struct_message* msg;
     buffer_ring_byte* buff;
     buff = buffer_ring_byte_create(buff, 500);
     char* bytes;
-    msg = struct_message_create_sys(struct_sys* sys, msg,  MSG_SYS_STAMP_REQ);
+    msg = struct_message_create_sys(sys, msg,  MSG_SYS_STAMP_REQ);
     int len = msg2bytes(msg, &bytes);   
+
+    //send auth req
     write(client->fd, bytes, len);
     free(msg);
+    free(bytes);
+
+    //after sending the req, wait to get ack
     bytes = realloc(bytes, 255);
-    len = read(client->fd, bytes, 255);
-    buffer_ring_byte_put(buff, bytes, len);
-    if(bytes2msg(buff, msg)>0){
-	if(message_type(msg)==MSG_ACK_STAMP && msg->data_len == 4){
-	    memcpy(&stamp, msg->data, 4);
-	    free(buff);
-	    free(bytes);
-	    return 0; //get the stamp
+
+    //this loop will break only when: server disconnected
+    while(1){
+	if(bytes2msg(buff,msg)<0){
+	    len = read(client->fd, bytes, 255);
+	    if(len <= 0)
+		break;
+	    buffer_ring_byte_put(buff, bytes, len);
 	}else{
-	    free(buff);
-	    free(bytes);
-	    return -1;
+	    if(msg->type == DATA_TYPE_STAMP_ACK){
+		if(msg->data_len == 4)
+		    memcpy(&stamp, msg->data, 4);
+		break;		
+	    }
 	}
-    }else{
-	free(buff);
-	free(bytes);
-	return -1;// fail to be authed
     }
+
     return stamp;
 }
 
@@ -115,7 +135,7 @@ int sys_znode_update(struct_sys* sys, struct_message* msg){
 	    sys->znode_list[idx].status_len = msg->data_len;
 	    sys->znode_list[idx].status = realloc(sys->znode_list[sys->znode_num-1].status, msg->data_len); 
 	    memcpy(sys->znode_list[idx].status, msg->data, msg->data_len);
-	    sys->znode_list[idx].u_stamp = sys->u_stamp;
+	    sys->znode_list[idx].u_stamp = sys->u_stamp; //set stamp as no less than the root stamp
 	    sys->znode_list[idx].g_stamp = sys->g_stamp;
 	}
 	return idx;
@@ -125,20 +145,13 @@ int sys_znode_update(struct_sys* sys, struct_message* msg){
 void sys_sync_znode(struct_sys* sys, int idx_znode, struct_message_queue** msg_q_tx){//synchronize the system znet status
     struct_message *msg;
     msg = message_create_sync_znode(&(sys->znode[idx_znode]), msg);
-    message_queue_put(msg_q, msg);
+    message_queue_put(msg_q_tx, msg);
     free(msg);
 }
 
 void sys_sync_root(struct_sys* sys, struct_message_queue** msg_q_tx){
     struct_message *msg;
     msg = message_cretae_sys_root(sys, msg);
-    message_queue_put(msg_q_tx, msg);
-    free(msg);
-}
-
-void sys_sync_init(struct_sys* sys, struct_message_queue** msg_q_tx){
-    struct_message *msg;
-    msg = message_cretae_sync_init(sys, msg);
     message_queue_put(msg_q_tx, msg);
     free(msg);
 }
