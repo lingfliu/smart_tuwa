@@ -10,6 +10,7 @@
 
 #define FILE_CFG "/etc/smart_tuwa/config"//config file
 #define FILE_CFG_PARSER '='// config parser
+#define FILE_LIC = "/etc/smart_tuwa/twrt.lic"
 
 #define CFG_ITEM_SERIAL_NAME "SERIAL_NAME"
 #define CFG_ITEM_SERIAL_TYPE "SERIAL_TYPE"

@@ -25,6 +25,19 @@ void message_flush(struct_message *msg){//flush message
     memset(msg, 0, sizeof(struct_message));
 }
 
+int message_direction(struct_message* msg){
+    switch(msg->data_type){
+	case DATA_TYPE_CTRL: 
+	    return MSG_TO_SERIAL;
+	case DATA_TYPE_AUTH_REQ;
+	    return MSG_TO_INET_CLIENT;
+	case DATA_TYPE_SYNC;
+	    return MSG_TO_INET_CLIENT;
+	default:
+	    return MSG_TO_INET_CLIENT;
+    }
+}
+
 int message_is_req(struct_message* msg){
     switch(msg->data_type){
 	case DATA_TYPE_REQ_AUTH:
@@ -177,16 +190,16 @@ int bytes2msg(buffer_byte_ring* bytes, struct_message* msg){
     while(!memcmp(read_bytes, PROC_DATA_HEADER, 4)){
 	buffer_byte_ring_get(bytes, NULL, 1); //remove one byte
 	if(buffer_byte_ring_len(bytes)<PROC_MSG_MIN)
-	   return 0; 
+	   return -1; 
     }
     if(buffer_byte_ring_len(bytes)<PROC_MSG_MIN)
-	return 0; 
+	return -1; 
     else{
 	read_bytes = realloc(read_bytes, 18);
 	buffer_byte_ring_read(bytes, read_bytes, 18);
 	len = read_bytes[16]>>8+read_bytes[17] + 18;
 	if(buffer_byte_ring_len(bytes)<len)
-	    return 0;
+	    return -1;
 	else{
 	    read_bytes = realloc(read_bytes, len);
 	    memcpy(msg->gateway_id, *bytes, 6);
@@ -199,7 +212,7 @@ int bytes2msg(buffer_byte_ring* bytes, struct_message* msg){
 	    memcpy(msg->stamp, *bytes+18+msg->data_len, 4);
 	    free(read_bytes);
 	    buffer_byte_ring_get(bytes, NULL, len);
-	    return 1;
+	    return 0;
 	}
     }
 }

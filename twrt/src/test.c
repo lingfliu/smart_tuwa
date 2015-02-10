@@ -1,5 +1,5 @@
 #include <stdio.h>
-//#include <time.h>
+#include <time.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,5 +27,8 @@ void main(){
 	printf("Read=%s\n",c);
     }
 
+    //test the size of time_t
+    time_t t; 
+    printf("size of time_t is %d\n",sizeof(t));
 }
 
