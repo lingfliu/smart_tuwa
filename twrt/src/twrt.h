@@ -64,25 +64,21 @@ void *run_sys_ptask();
 buffer_byte_ring *buff_serial;
 buffer_byte_ring *buff_client;
 char read_serial[BUFF_RW_LEN];
-//char write_serial[BUFF_RW_LEN];
 char read_client[BUFF_RW_LEN];
-//char write_client[BUFF_RW_LEN];
 
 //message queue
-static struct_message *msg_serial;
-static struct_message *msg_client;
 static struct_message_queue* msg_q_rx;
 static struct_message_queue* msg_q_tx;
-static long msg_tx_stamp;
 
 //functions
+void on_inet_client_disconnect();
 int handle_msg(struct_message *msg);
 void on_req_failed(struct_message *msg);
 
-//timer for the sys_ptask
-static time_t timer_net_hb;
-static time_t timer_sys_reset;
-
+//system
+static struct_sys* sys;
+//inet flags
+static inet_stat;
 #define TIME_INTERVAL_HB 1;
 #define TIME_INTERVAL_REQ 1;
 #endif
