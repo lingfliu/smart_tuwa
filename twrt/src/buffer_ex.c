@@ -34,14 +34,17 @@ void buffer_ring_byte_put(buffer_ring_byte* buff, char* bytes, int len){
     for(m=0; m<len; m++){	
 	*(buff->p_c) = bytes[m];
 	buff->p_c++;//to the next empty position
-	if(buff->p_c > buff->p_tail){
+	if(buff->p_c > buff->p_tail && buff->overflow == 0){
 	    buff->p_c = buff->p_head;
 	    buff->overflow = 1;
+	}else if(buff->p_c > buff->p_tail && buff->overflow == 1){
+	    buff->p_c = buff->p_head;
 	    if(buff->p_rw == buff->p_tail)//move p_rw to p_c
 		buff->p_rw = buff->p_c;
+
 	}
 	//push the p_rw so p_c < = p_rw and is overflowed
-	if((buff->p_c > buff->p_rw) && buff->overflow )
+	if((buff->p_c > buff->p_rw) && buff->overflow == 1 )
 	    buff->p_rw = buff->p_c;
     }
 }
