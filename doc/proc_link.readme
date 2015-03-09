@@ -1,0 +1,8 @@
+Protocol for maintaining a long TCP link
+
+1. If first connected, set link status as connected.
+2. Keep link status as connected until a read/write error occurs.
+3. When connected, send pulse packet (1 byte) per second:
+    if send failed, set link status as disconnected
+    if no ACK from server after 1 seconds, set link status as disconnected
+4. If disconnected, reconnect immediately every 1 second
