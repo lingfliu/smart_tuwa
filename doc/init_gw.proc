@@ -1,7 +1,8 @@
 Protocol for GW initialization.
 
 1. Status reset
-2. Request the Znet all node's status
-3. Request a init stamp from the sys
-4. Set all the nodes and the sys with the init stamp
-5. Start status synchronization
+2. Get auth from server, if failed, quit
+3. Request the Znet all node's status
+4. Request a init stamp from the sys
+5. Set all the nodes and the sys with the init stamp
+6. Start status synchronization
