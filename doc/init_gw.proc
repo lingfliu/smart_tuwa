@@ -1,0 +1,8 @@
+Protocol for GW initialization.
+
+1. Status reset
+2. Get auth from server, if failed, quit
+3. Request the Znet all node's status
+4. Request a init stamp from the sys
+5. Set all the nodes and the sys with the init stamp
+6. Start status synchronization

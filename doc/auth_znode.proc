@@ -1,0 +1,6 @@
+Protocol for Znode auth
+
+1. If znode is a relaying node, auth immediately
+2. If znode is a end node, GW send auth request with node id, gw id, and cache to server, and wait maximum 16 s
+3. If server send back auth ACK, GW set dev as auth
+4. If no-responding or server send back auth-no ACK, GW set dev as auth-no
