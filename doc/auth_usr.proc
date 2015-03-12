@@ -1,0 +1,10 @@
+Protocol to auth local phone
+
+1. local phone connect to local server socket 
+2. GW send auth request to phone
+3. Phone send account info to GW
+4. GW check its local phone list
+5. If phone is on the list, send back auth ACK to the phone
+6. Otherwise GW send an auth request with its liscense and id and the phone's id to the server and wait maximum 16s
+7. Server send auth ACK to GW with the phone's info(128 bytes)
+8. If server send auth-no ACK, or no-responding in 16s, GW set auth as failed and inform the phone
