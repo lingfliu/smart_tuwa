@@ -56,7 +56,7 @@ To-GW-communication:
 1-channel smoke sensor: DEV_SENSOR_SMOKE
 1-channel CO sensor: DEV_SENSOR_CO
 1-channel WATER sensor: DEV_SENSOR_WATER
-
+1-channel tempo+humid sensor: DEV_SENSOR_TEHU
 
 From-GW-communciation:
 1-channel mechanical valve: DEV_MECH_VALVE
@@ -97,7 +97,7 @@ OFF == 0
 ERR == 0xFF
 LEVEL == 0:100
 SENSOR_DETECT = ON
-
+VALUE == -255:255
 
 controlling:
 ON == 100
@@ -125,4 +125,3 @@ Other notations
 ============================================================
 1. status stamps are cyclic unsigned long: 0-2^32
 2. req stamps are cyclic unsigned int: 0-65535
-3. 
