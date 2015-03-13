@@ -1,0 +1,25 @@
+Protocol to synchronize one znode  
+
+From GW to server
+1. GW send znode's stamp to server
+2. server compare the stamp
+3. if the stamp on server is smaller than the stamp from GW:
+    1. server send back its stamp to GW
+    2. GW send znodes's sync status to server
+    3. server update the znode's status, and update its stamp
+4. if the stamp on server is greater than the stmap from GW:
+    1. server send znode's sync status to GW
+    2. GW update the znode's status, and update its stamp
+5. if stamp are equal, do nothing
+
+From server to GW
+1. server send znode's stamp to GW
+2. GW compare the stamp
+3. if the stamp on GW is smaller than the stamp from server:
+    1. GW send back its stamp to server
+    2. server send znodes's sync status to GW
+    3. server update the znode's status, and update its stamp
+4. if the stamp on server is greater than the stmap from GW:
+    1. server send znode's sync status to GW
+    2. GW update the znode's status, and update its stamp
+

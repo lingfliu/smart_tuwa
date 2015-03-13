@@ -1,192 +1,128 @@
 A data packet is defined as:
 
-HEADER STAMP GATEWAY_ID DEV_ID DEV_TYPE DATA_TYPE DATA_LEN DATA CRC
+HEADER|STAMP|GATEWAY_ID|DEV_ID|DEV_TYPE|DATA_TYPE|DATA_LEN|DATA|CRC
 
 ============================================================
 Packet description
 ============================================================
-HEADER: indicate the starting of a packet
+HEADER: start of a packet
 	length: 4 bytes
 	content: fixed e.g. 0xAAAA
 
-STAMP: message stamp, default is 0
+STAMP: incrementing stamp for REQ message, init is 1 
         length: 4 bytes, unsigned long
 	content:  long
 
 GATEWAY_ID: id of the gateway
 	length: 6 bytes
 
-DEV_ID: id of the node
+DEV_ID: id of the node/dev
 	length: 6 bytes
+
+DEV_TYPE: device type
+	length: 2 bytes, unsigned int, min from 1
+	content: predefined references, see below
+
+DATA_TYPE: type of the packet
+	length: 2 bytes, unsigned int, min from 1
+	content: predefined references, see below
 
 DATA_LEN: length of the data
 	length: 2 bytes, unsigned int
 	content: 1-65535
 
+DATA: variable data stream
+	length: varying
+
 CRC: crc(optional)
 	length: 1 byte
 
-DEV_TYPE: device type
-	length: 2 bytes, unsigned int, min from 1
-	content:
-		DEV_TYPE_SWITCH_SINGLE
-		DEV_TYPE_SWITCH_DOUBLE
-		DEV_TYPE_SWITCH_TRIPLE
-
-		DEV_TYPE_CURTAIN_SINGLE
-
-		DEV_TYPE_SENSOR_SMOKE
-		DEV_TYPE_SENSOR_CO
-		DEV_TYPE_SENSOR_WATER
-
-		DEV_TYPE_INFRACTRL
-
-		DEV_TYPE_MECH
-
-DATA_TYPE: type of the data
-	length: 2 bytes, unsigned int
-	content: 
-		DATA_TYPE_STAT
-		DATA_TYPE_CTRL
-		DATA_TYPE_SYS_*
-		DATA_TYPE_ERR
-		DATA_TYPE_SYNC_*
-		DATA_TYPE_CONN_*
-
 ============================================================
-DATA
+Meta data description
 ============================================================
 
-====================================
-DATA_TYPE_STAT
-Direction: from gateway to server
-====================================
+1. Devices
+==============================
 
-DEV_TYPE_SWITCH_SINGLE
-	DATA_LEN = 1
-	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
-DEV_TYPE_SWITCH_DOUBLE
-	DATA_LEN = 2
-	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
-	byte 2 = STAT_ON / STAT_OFF / STAT_ERR_*
-DEV_TYPE_SWITCH_TRIPLE
-	DATA_LEN = 3
-	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
-	byte 2 = STAT_ON / STAT_OFF / STAT_ERR_*
-	byte 3 = STAT_ON / STAT_OFF / STAT_ERR_*
+Dual-communication
+1-channel switch: DEV_SWITCH_1
+2-channel switch: DEV_SWITCH_2
+3-channel switch: DEV_SWITCH_3
+4-channel switch: DEV_SWITCH_4
+1-channel curtain: DEV_CURTAIN_1
+1-channel theme selector: DEV_THEME
 
-DEV_TYPE_CURTAIN_SINGLE
-	DATA_LEN = 1
-	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+To-GW-communication:
+1-channel smoke sensor: DEV_SENSOR_SMOKE
+1-channel CO sensor: DEV_SENSOR_CO
+1-channel WATER sensor: DEV_SENSOR_WATER
 
-DEV_TYPE_SWITCH_DIMMABLE
-	DATA_LEN = 1
-	byte 1 = STAT_LEVEL:0~100 / STAT_ERR_*
 
-DEV_TYPE_INFRACTRL
-	DATA_LEN = varying 
-	STAT_CODE：4 bytes per code list
+From-GW-communciation:
+1-channel mechanical valve: DEV_MECH_VALVE
 
-DEV_TYPE_SENSOR_SMOKE
-	DATA_LEN = 1
-	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+To-be-defined:
+1-channel infrared controller: DEV_INFRACTRL
 
-DEV_TYPE_SENSOR_CO
-	DATA_LEN = 1
-	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
 
-DEV_TYPE_SENSOR_WATER
-	DATA_LEN = 1
-	byte 1 = STAT_ON / STAT_OFF / STAT_ERR_*
+2. Data types
+============================
 
-DEV_TYPE_THEME_QUADRO
-	DATA_LEN = 4
-	byte 1 = STAT_ON / STAT_OFF / REQ_SET / REQ_UNSET
+status data: DATA_STAT
+controlling data: DATA_CTRL
+for theme controller: DATA_THEME_SET
 
-====================================
-DATA_TYPE_CTRL
-Direction: from server to gateway
-====================================
-DEV_TYPE_SWITCH_SINGLE
-	DATA_LEN = 1
-	byte 1 = ON / OFF
-DEV_TYPE_SWITCH_DOUBLE
-	DATA_LEN = 2
-	byte 1 = ON / OFF
-	byte 2 = ON / OFF
-DEV_TYPE_SWITCH_TRIPLE
-	DATA_LEN = 2
-	byte 1 = ON / OFF
-	byte 2 = ON / OFF
-	byte 3 = ON / OFF
+initial stamp request data: DATA_REQ_STAMP
+gw auth request data: DATA_REQ_AUTH_GW
+gw auth ack data: DATA_ACK_AUTH_GW
+dev register request data: DATA_REQ_REG_DEV
+dev register ack data: DATA_ACK_REG_DEV
+local user auth data: DATA_REQ_AUTH_USR 
+local user auth ack data: DATA_ACK_AUTH_USR 
 
-DEV_TYPE_CURTAIN_SINGLE
-	DATA_LEN = 1
-	byte 1 = ON / OFF
+pulse data for long tcp connection: DATA_REQ_PULSE
+sync dev/gw data: DATA_SYNC
+sync user data: DATA_UPDATE_USR
 
-DEV_TYPE_SWITCH_DIMMABLE
-	DATA_LEN = 1
-	byte 1 = LEVEL:0~100
+error data: DATA_ERR
 
-DEV_TYPE_MECH
-	DATA_LEN = 1
-	byte 1 = ON / OFF
+sys reset data: DATA_SYS_RESET
 
-DEV_TYPE_THEME_QUADRO
-	DATA_LEN = 4
-	byte 1 = ON / OFF / SET / UNSET
+============================================================
+DATA CONTENTS
+============================================================
+status:
+ON == 100
+OFF == 0
+ERR == 0xFF
+LEVEL == 0:100
+SENSOR_DETECT = ON
 
-====================================
-DATA_TYPE_ERR
-Direction: from server to client 
-    DATA_LEN = 1
-    ERR_CODE = ERR_NET / ERR_ELEC / ...
-====================================
 
-====================================
-DATA_TYPE_SYS_*
-====================================
-    DATA_TYPE_SYS_REG_DEV
-    Direction: from gateway to server
-	DATA_LEN = 1
-	DATA = 0
+controlling:
+ON == 100
+OFF == 0
+ERR == 0xFF
+LEVEL == 0:100
+THEME == 1:100
+
+errors:
+ERR_NET == 0xF0
+ERR_ELEC == 0xF1
+ERR_SYS == 0xF2
+
+
+pulse:
+PULSE == 0xAA
 	
-    DATA_TYPE_SYS_UNREG_DEV
-    Direction: from server to gateway
-	DATA_LEN = 1
-	DATA = 0 
-	
-    DATA_TYPE_SYS_RESET_STAT
-    Direction: from gateway to server 
-	DATA_LEN = varying
-	DEV_TYPE = 00
-	DATA = collection of device status packets
+auth:
+AUTH_OK == 0
+AUTH_NO == 0xFF
 
-====================================
-DATA_TYPE_CONN_*
-====================================
-    DATA_TYPE_CONN_REQ
-    Direction: from gateway to server 
-	DATA_LEN = 1
-	DEV_TYPE = 00
-	DATA = 0
-	
-    DATA_TYPE_CONN_HEARTBEAT
-    Direction: from gateway to server 
-	DATA_LEN = 1 
-	DEV_TYPE = 00
-	DATA = 0 
 
-    DATA_TYPE_CONN_ACK
-    Direction: from server to gateway
-	DEV_TYPE = 0
-	DATA_LEN = 1 
-
-====================================
-DATA_TYPE_SYNC_*
-====================================
-    DATA_TYPE_SYNC_DEV
-    Direction: mutual
-	DATA_LEN = varying
-	TIME_STAMP: 12 bytes, yyyy:mm:dd:h:m:s 
-	DATA = collection of status packets
+============================================================
+Other notations
+============================================================
+1. status stamps are cyclic unsigned long: 0-2^32
+2. req stamps are cyclic unsigned int: 0-65535
+3. 
