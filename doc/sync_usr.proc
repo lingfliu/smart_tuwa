@@ -1,0 +1,7 @@
+Protocol to sync user registration
+
+1. GW send request to server
+2. Server send user registration info back to GW
+3. GW replace / create local user registration list
+
+

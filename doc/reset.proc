@@ -1,0 +1,10 @@
+Protocol for sys reset
+
+1. System save liscense, usr registering, sys status, message stamp as local file
+2. Flush all i/o
+3. close connection
+4. start a new session and quit current session, pass a "reset" para to the new session
+5. new session send reset to server
+6. server reset the message stamp
+7. server flush all unhandled requests
+8. server wait for the gw to re-sync with
