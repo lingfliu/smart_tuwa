@@ -1,10 +1,12 @@
-A data packet is defined as:
+============================================================
+I. PACKET FORMATS
+============================================================
+A data packet between GW and server is defined as:
 
 HEADER|STAMP|GATEWAY_ID|DEV_ID|DEV_TYPE|DATA_TYPE|DATA_LEN|DATA|CRC
 
-============================================================
 Packet description
-============================================================
+------------------------------------------------------------
 HEADER: start of a packet
 	length: 4 bytes
 	content: fixed e.g. 0xAAAA
@@ -14,10 +16,10 @@ STAMP: incrementing stamp for REQ message, init is 1
 	content:  long
 
 GATEWAY_ID: id of the gateway
-	length: 6 bytes
+	length: 8 bytes
 
 DEV_ID: id of the node/dev
-	length: 6 bytes
+	length: 8 bytes
 
 DEV_TYPE: device type
 	length: 2 bytes, unsigned int, min from 1
@@ -37,91 +39,165 @@ DATA: variable data stream
 CRC: crc(optional)
 	length: 1 byte
 
+
+A data packet between znodes and front-ends is defined as:
+
+HEADER|DATA_TYPE|DATA_LEN|DATA
+
+Packet description
+------------------------------------------------------------
+HEADER: start of a packet
+	length: 1 byte
+	content: fixed e.g. 0xAA
+
+DATA_TYPE: only two types: STAT and CTRL 
+	length: 2 bytes
+	content: predefined references, see below
+
+DATA_LEN: 
+	length: 1 byte
+
+DATA: varying
+
 ============================================================
-Meta data description
+II. Data description
 ============================================================
 
-1. Devices
+1. DEV_TYPE 
 ==============================
 
-Dual-communication
-1-channel switch: DEV_SWITCH_1
-2-channel switch: DEV_SWITCH_2
-3-channel switch: DEV_SWITCH_3
-4-channel switch: DEV_SWITCH_4
-1-channel curtain: DEV_CURTAIN_1
-1-channel theme selector: DEV_THEME
+A. switches:
+1-channel switch:		DEV_SWITCH_1
+2-channel switch: 		DEV_SWITCH_2
+3-channel switch: 		DEV_SWITCH_3
+4-channel switch: 		DEV_SWITCH_4
+1-channel curtain: 		DEV_CURTAIN_1
+1-channel theme selector: 	DEV_THEME
 
-To-GW-communication:
-1-channel smoke sensor: DEV_SENSOR_SMOKE
-1-channel CO sensor: DEV_SENSOR_CO
-1-channel WATER sensor: DEV_SENSOR_WATER
-1-channel tempo+humid sensor: DEV_SENSOR_TEHU
+B. sensors:
+1-channel smoke sensor: 	DEV_SENSOR_SMOKE
+1-channel CO sensor: 		DEV_SENSOR_CO
+1-channel WATER sensor: 	DEV_SENSOR_WATER
+1-channel tempo+humid sensor: 	DEV_SENSOR_TEHU
 
-From-GW-communciation:
-1-channel mechanical valve: DEV_MECH_VALVE
+C. mechanics:
+1-channel mechanical valve: 	DEV_MECH_VALVE
 
-To-be-defined:
-1-channel infrared controller: DEV_INFRACTRL
+D. controller:
+1-channel infrared controller: 	DEV_INFRACTRL
 
-
-2. Data types
+2. DATA_TYPE 
 ============================
 
-status data: DATA_STAT
-controlling data: DATA_CTRL
-for theme controller: DATA_THEME_SET
+1. status: 	DATA_STAT
+2. control: 	DATA_CTRL
+3. theme set: 	DATA_THEME_SET
 
-initial stamp request data: DATA_REQ_STAMP
-gw auth request data: DATA_REQ_AUTH_GW
-gw auth ack data: DATA_ACK_AUTH_GW
-dev register request data: DATA_REQ_REG_DEV
-dev register ack data: DATA_ACK_REG_DEV
-local user auth data: DATA_REQ_AUTH_USR 
-local user auth ack data: DATA_ACK_AUTH_USR 
+4. pulse for long tcp connection: 	DATA_REQ_PULSE
+5. pulse ack from server: 		DATA_ACK_PULSE
+6. dev/gw status synchronization: 	DATA_REQ_SYNC
+7. dev/gw status synchronization ack: 	DATA_ACK_SYNC
+8. gw auth request: 			DATA_REQ_AUTH_GW
+9. gw auth ack: 			DATA_ACK_AUTH_GW
+10. dev auth request: 			DATA_REQ_AUTH_DEV
+11. dev auth ack: 			DATA_ACK_AUTH_DEV
+12. user list request: 			DATA_REQ_USER 
+13. user list ack: 			DATA_ACK_USER 
+14. initializaion stamp: 		DATA_REQ_STAMP
+15. initializaion stamp ack: 		DATA_ACK_STAMP
+16. reset:	 			DATA_SYS_RESET
+17. ..
 
-pulse data for long tcp connection: DATA_REQ_PULSE
-sync dev/gw data: DATA_SYNC
-sync user data: DATA_UPDATE_USR
-
-error data: DATA_ERR
-
-sys reset data: DATA_SYS_RESET
 
 ============================================================
-DATA CONTENTS
+III. DATA CONTENTS
 ============================================================
-status:
+A. status:
 ON == 100
 OFF == 0
-ERR == 0xFF
-LEVEL == 0:100
-SENSOR_DETECT = ON
-VALUE == -255:255
+ERR == 0xFx
+LEVEL == 0:100 (for dimmable lights, valve, and motor)
+THEME == 1:100
+SENSOR_ON = ON
+SENSOR_OFF = OFF
+VALUE == 2 bytes for .1f floats 
 
-controlling:
+B. control:
 ON == 100
 OFF == 0
-ERR == 0xFF
 LEVEL == 0:100
 THEME == 1:100
 
-errors:
+C. errors:
 ERR_NET == 0xF0
 ERR_ELEC == 0xF1
 ERR_SYS == 0xF2
 
-
-pulse:
+D. tcp pulse:
 PULSE == 0xAA
 	
-auth:
+E. auth:
 AUTH_OK == 0
 AUTH_NO == 0xFF
 
 
 ============================================================
-Other notations
+IV. PACKET EXAMPLES
+============================================================
+A. 2-channel switch status:
+HEADER|STAMP|GATEWAY_ID|DEV_ID|DEV_TYPE|DATA_TYPE|DATA_LEN|DATA|CRC
+-------------------------------------------------------------------
+HEADER == 0x0D 0x0D 0x0D 0x0D    
+STAMP == 0
+GATEWAY_ID == 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 (id of the gw)
+DEV_ID == 0xAE 0xD0 0xC2 0xAA 0xC1 0xD2 0x21 0x22 (id of the dev)
+DEV_TYPE == DEV_SWITCH_2 
+DATA_TYPE == DATA_STAT 
+DATA_LEN == 2 
+DATA == ON ON
+CRC == NULL
+
+B. gw sync req:
+HEADER|STAMP|GATEWAY_ID|DEV_ID|DEV_TYPE|DATA_TYPE|DATA_LEN|DATA|CRC
+-------------------------------------------------------------------
+HEADER == 0x0D 0x0D 0x0D 0x0D    
+STAMP == 0
+GATEWAY_ID == 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 (id of the gw)
+DEV_ID == 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 (send empty id)
+DEV_TYPE == 0 (send empty dev type) 
+DATA_TYPE == DATA_REQ_SYNC
+DATA_LEN == 4 
+DATA == GW STAMP (unsigned long) 
+CRC == NULL
+
+C. gw sync ack:
+HEADER|STAMP|GATEWAY_ID|DEV_ID|DEV_TYPE|DATA_TYPE|DATA_LEN|DATA|CRC
+-------------------------------------------------------------------
+HEADER == 0x0D 0x0D 0x0D 0x0D    
+STAMP == 0
+GATEWAY_ID == 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 (id of the gw)
+DEV_ID == 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 (send empty id)
+DEV_TYPE == 0 (send empty dev type) 
+DATA_TYPE == DATA_ACK_SYNC
+DATA_LEN == varying 
+DATA == status of the gateway (64 bytes) 
+CRC == NULL
+
+D. tcp pulse req:
+HEADER|STAMP|GATEWAY_ID|DEV_ID|DEV_TYPE|DATA_TYPE|DATA_LEN|DATA|CRC
+-------------------------------------------------------------------
+HEADER == 0x0D 0x0D 0x0D 0x0D    
+STAMP == 0
+GATEWAY_ID == 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 (id of the gw)
+DEV_ID == 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 (send empty id)
+DEV_TYPE == 0 (send empty dev type) 
+DATA_TYPE == DATA_REQ_PULSE
+DATA_LEN == 1 
+DATA == PULSE 
+CRC == NULL
+
+============================================================
+V. Other notations
 ============================================================
 1. status stamps are cyclic unsigned long: 0-2^32
 2. req stamps are cyclic unsigned int: 0-65535
