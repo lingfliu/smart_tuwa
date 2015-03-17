@@ -6,60 +6,86 @@
 #include <time.h>
 #include "buffer_ex.h"
 
-//Code list
+//////////////////////////////////////////////////
+//device type
+//////////////////////////////////////////////////
+#define DEV_SWITCH_1 1
+#define DEV_SWITCH_2 2
+#define DEV_SWITCH_3 3
+#define DEV_SWITCH_4 4
+#define DEV_DIMSWITCH_1 5
+#define DEV_CURTAIN_1 6
+#define DEV_CURTAIN_2 7
+#define DEV_SOCK_1 8
 
-////////device type
-#define DEV_TYPE_SWITCH_SINGLE 1
-#define DEV_TYPE_SWITCH_DOUBLE 2
-#define DEV_TYPE_SWITCH_TRIPLE 3
-#define DEV_TYPE_SWITCH_DIMMABLE_SINGLE 4
-#define DEV_TYPE_CURTAIN_SINGLE 5
-#define DEV_TYPE_CURTAIN_DOUBLE 6
-#define DEV_TYPE_MECH 7
+#define DEV_SENSOR_SMOKE 101
+#define DEV_SENSOR_CO 102
+#define DEV_SENSOR_WATER 103
+#define DEV_SENSOR_TEMP 104
+#define DEV_SENSOR_HUMI 105
+#define DEV_SENSOR_TEHU 106
+#define DEV_SENSOR_INFRA 107
 
-#define DEV_TYPE_SENSOR_SMOKE 101
-#define DEV_TYPE_SENSOR_CO 102
-#define DEV_TYPE_SENSOR_WATER 103
-#define DEV_TYPE_SENSOR_INFRA 104
-#define DEV_TYPE_SENSOR_TEMP 105
-#define DEV_TYPE_SENSOR_HUMI 106
-#define DEV_TYPE_SENSOR_TEMPHUMI 107
 
-#define DEV_TYPE_INFRACTRL 201
+#define DEV_MECH_VALVE 201 
+#define DEV_THEME_4 202 
+#define DEV_INFRACTRL 203
 
-#define DEV_TYPE_THEME_QUADRO 202
 
-////////data type
-//status and ctrl
-#define DATA_TYPE_STAT 1 //status update, from znode to gateway
-#define DATA_TYPE_CTRL 2 //control, from znode to gateway, from gateway to znode, from server to gateway
+//////////////////////////////////////////////////
+//data type
+//////////////////////////////////////////////////
 
-#define DATA_TYPE_AUTH_REQ 20 //authroization request, from gateway to server
-#define DATA_TYPE_AUTH_ACK 21 
-#define DATA_TYPE_SYNC 22 //request, from gateway to server, from gateway to znet
-#define DATA_TYPE_SYNC_STAT 23 //synchronization data feed back
+#define DATA_STAT 1 //status update, from znode to gateway
+#define DATA_CTRL 2 //control, from znode to gateway, from gateway to znode, from server to gateway
 
-//sys operation datum
-#define DATA_TYPE_SYS_RST 101 //sys reset 
-#define DATA_TYPE_NET_HB 201 //heart beat to server	
+#define DATA_REQ_SYNC 21 //synchronization request
+#define DATA_REQ_AUTH_GW 22 //gw authroization request
+#define DATA_REQ_AUTH_DEV 23 //dev authroization request
+#define DATA_REQ_USER 24 //user list request
+#define DATA_REQ_STAMP 25 //initial stamp request
+#define DATA_REQ_PULSE 26 //tcp pulse 
 
-////////data contents
-#define DATA_STAT_ON  0xFF
-#define DATA_STAT_OFF 0x00
-//#define DATA_STAT_LEVEL: range from 0~100
-#define DATA_STAT_ERR 0xAA
+#define DATA_ACK_SYNC 61 //synchronization ack
+#define DATA_ACK_AUTH_GW 62 //auth gw ack
+#define DATA_ACK_AUTH_DEV 63 //auth dev ack
+#define DATA_ACK_USER 64 //user list ack
+#define DATA_ACK_STAMP 65 //initial stamp ack
+#define DATA_ACK_PULSE 66 //tcp pulse ack
 
-#define DATA_CTRL_ON 0xFF
-#define DATA_CTRL_OFF 0x00
+#define DATA_SYS_RESET 101 //sys reset command
+
+//////////////////////////////////////////////////
+//data contents
+//////////////////////////////////////////////////
+#define STAT_ON  100 
+#define STAT_OFF 0 
+
+#define ERR_NET 0xF0
+#define ERR_ELEC 0xF1
+#define ERR_SYS 0xF2
+
+#define TCP_PULSE 0xAA
+
+#define AUTH_OK 0
+#define AUTH_NO 0xFF
+
+#define CTRL_ON 0 
+#define CTRL_OFF 100 
 //#define DATA_CTRL_LEVEL: range from 0~100 
 
-#define DATA_REQ_SET 0x11
-#define DATA_REQ_UNSET 0x22
+#define THEME_SET 0x11
 
-#define DATA_NET_HB  0xAA
 
+//////////////////////////////////////////////////
 //define the header for the messages
-#define PROC_DATA_HEADER "AAAA" //4 bytes
+//////////////////////////////////////////////////
+#define HEADER_GW "\x0d\x0d\x0d\x0d" //for packets over gw server and znet, 4 bytes
+#define HEADER_FE "\x0d" //for packets over znode and fe, 1 byte
+
+//////////////////////////////////////////////////
+//Protocol defined constants
+//////////////////////////////////////////////////////////
 
 //default model and versio
 #define PROC_DEFAULT_MODEL 1

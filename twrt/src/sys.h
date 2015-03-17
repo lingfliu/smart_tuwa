@@ -9,7 +9,7 @@
 #include <string.h>
 
 #define SYS_STATUS_LEN  50
-#define SYS_LIC_LEN 64
+#define SYS_LIC_LEN 128 
 #define SYS_COOKIE_LEN 64
 
 #define ZNET_ON 1
@@ -49,7 +49,7 @@ typedef struct{
     long g_stamp;//extra sys stamp for satus update (not used yet)
 
     //stamp for msg
-    long msg_tx_stamp;
+    int msg_tx_stamp;
 
     //license
     char lic[SYS_LIC_LEN];
