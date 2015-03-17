@@ -55,7 +55,7 @@ DATA_TYPE: only two types: STAT and CTRL
 	content: predefined references, see below
 
 DATA_LEN: 
-	length: 1 byte
+	length: 2 bytes
 
 DATA: varying
 
@@ -71,13 +71,18 @@ A. switches:
 2-channel switch: 		DEV_SWITCH_2
 3-channel switch: 		DEV_SWITCH_3
 4-channel switch: 		DEV_SWITCH_4
+1-channel dimmable switch:	DEV_DIMSWITCH_1
 1-channel curtain: 		DEV_CURTAIN_1
-1-channel theme selector: 	DEV_THEME
+2-channel curtain: 		DEV_CURTAIN_2
+4-channel theme selector: 	DEV_THEME_4
+1-channel socket:		DEV_SOCK_1
 
 B. sensors:
 1-channel smoke sensor: 	DEV_SENSOR_SMOKE
 1-channel CO sensor: 		DEV_SENSOR_CO
 1-channel WATER sensor: 	DEV_SENSOR_WATER
+1-channel temperature sensor: 	DEV_SENSOR_TEHU
+1-channel humidity sensor: 	DEV_SENSOR_TEHU
 1-channel tempo+humid sensor: 	DEV_SENSOR_TEHU
 
 C. mechanics:

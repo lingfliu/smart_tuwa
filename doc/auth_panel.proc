@@ -1,3 +1,6 @@
 Protocol to auth an local panel
 
-GW will issue any local panel to its authed nodes
+1. panel sends its id to gw
+2. gw req dev auth to server
+3. server ack gw with auth info
+4. gw add panel to its dev list

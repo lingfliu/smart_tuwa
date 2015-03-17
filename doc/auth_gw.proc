@@ -1,6 +1,6 @@
 Protocol to auth the gw
 
-1. GW retrieve its liscense (128 bytes) from its storage
-2. GW send an auth request with its liscense and id and wait maximum 16s
+1. gw retrieve its license (128 bytes) from its storage
+2. gw send an auth request with its liscense and id and wait maximum 16s
 3. Server send auth ACK to GW with a cache file (128 bytes)
 4. If server send auth-no ACK, or no-responding in 16s, GW set auth as failed

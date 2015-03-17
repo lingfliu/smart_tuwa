@@ -4,7 +4,7 @@ From GW to server
 1. GW send znode's stamp to server
 2. server compare the stamp
 3. if the stamp on server is smaller than the stamp from GW:
-    1. server send back its stamp to GW
+    1. server send back its stamp to GW (DATA_REQ_SYNC)
     2. GW send znodes's sync status to server
     3. server update the znode's status, and update its stamp
 4. if the stamp on server is greater than the stmap from GW:
