@@ -3,7 +3,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <time.h>
+#include <sys/time.h>
 #include "buffer_ex.h"
 
 //////////////////////////////////////////////////
@@ -25,7 +25,6 @@
 #define DEV_SENSOR_HUMI 105
 #define DEV_SENSOR_TEHU 106
 #define DEV_SENSOR_INFRA 107
-
 
 #define DEV_MECH_VALVE 201 
 #define DEV_THEME_4 202 
@@ -78,71 +77,124 @@
 
 
 //////////////////////////////////////////////////
-//define the header for the messages
+//define the header of the packet
 //////////////////////////////////////////////////
-#define HEADER_GW "\x0d\x0d\x0d\x0d" //for packets over gw server and znet, 4 bytes
-#define HEADER_FE "\x0d" //for packets over znode and fe, 1 byte
+#define MSG_HEADER_GW "\x0d\x0d\x0d\x0d" //for packets over gw server and znet, 4 bytes
+#define MSG_HEADER_FE "\x0d" //for packets over znode and fe, 1 byte
 
 //////////////////////////////////////////////////
 //Protocol defined constants
-//////////////////////////////////////////////////////////
+//////////////////////////////////////////////////
 
-//default model and versio
+//default model and version for gw and dev
 #define PROC_DEFAULT_MODEL 1
 #define PROC_DEFAULT_VER 2
 
 //other specifications
-#define PROC_MAX_ZNODE 255 //maximum number of znodes supported by the znet
+#define PROC_ZNODE_MAX 255 //maximum number of znodes supported by the znet
 
-//header stamp id_gw id_znode znode_type data_type data_len data crc: 4+4+6+6+2+2+2+x+1
-#define PROC_MSG_MIN 27//minimum length of message
+//header stamp id_gw id_dev dev_type data_type data_len data: 4+4+8+8+2+2+2+x
+#define MSG_LEN_MIN 30//minimum length of a message
+//message length contents
+#define MSG_LEN_HEADER_GW 4 
+#define MSG_LEN_HEADER_FE 1 
+#define MSG_LEN_STAMP 4 
+#define MSG_LEN_ID_GW 8 
+#define MSG_LEN_ID_DEV 8 
+#define MSG_LEN_DEV_TYPE 2 
+#define MSG_LEN_DATA_TYPE 2 
+#define MSG_LEN_DATA_LEN 2 
+
+#define MSG_LEN_FIXED 30 
+
+#define MSG_POS_STAMP 4
+#define MSG_POS_ID_GW 8
+#define MSG_POS_ID_DEV 16
+#define MSG_POS_DEV_TYPE 24
+#define MSG_POS_DATA_TYPE 26
+#define MSG_POS_DATA_LEN 28
 
 //properties
-#define MSG_TO_SERIAL 1
-#define MSG_TO_INET_CLIENT 2
-#define MSG_TO_INET_SEVER 3
+#define MSG_TO_ZNET 1
+#define MSG_TO_SERVER 2
+#define MSG_TO_LOCAL_DEV 3
+#define MSG_TO_LOCAL_CLIENT 4
+
+//twrt system parameters
+#define SYS_LEN_STATUS 50 //status length of gw
+#define SYS_LEN_LIC 128  //lic string length
+#define SYS_LEN_COOKIE 32  //cookie length
+#define ZNET_ON 1  //znet status of znode
+#define ZNET_OFF 0 //znet status of znode
+#define DEFAULT_VER 1 //default version of twrt
+#define DEFAULT_MODEL 1 //default vendor of all devices
+
+#define NULL_DEV '\x00\x00\x00\x00\x00\x00\x00\x00'
 //////////////////////////////////////////
 //structs and operations
 //////////////////////////////////////////
 
 //message
+//////////////////////////////////////////
 typedef struct{
-    char gateway_id[6];
-    char dev_id[6]; 
+    char gateway_id[8];
+    char dev_id[8]; 
     int dev_type;
     int data_type;
     int data_len;
     char* data;
-    long stamp;
-}struct_message;
+    long stamp; //message stamp
+}message;
 
-struct_message* message_destroy(struct_message* msg);
-struct_message* message_flush(struct_message *msg);//flush message without destroy it
-struct_message* message_copy(struct_message *msg_dst, struct_message *msg_src);
-int message_is_req(struct_message* msg);
-int message_direction(struct_message* msg);
+message* message_create(); //memory allocation of a new message
+void message_destroy(message *msg); //memory destroy of a message
+void message_flush(message *msg);//flush message's data
+void message_copy(message *msg_dst, message *msg_src);
+
 //message translation
-struct_message* bytes2msg(buffer_byte_ring* bytes, struct_message* msg);
-int msg2bytes(struct_message* msg, char** bytes);
+int bytes2message(buffer_byte_ring* bytes, message* msg); //return the length of the message
+int message2bytes(message* msg, char** bytes); //return the length of the byte
 
+//message properties
+int message_isreq(message* msg); //check if message is req messgae
+int message_tx_dest(message* msg); //get tx message destination 
 
-//message q and operations
-typedef struct struct_message_queue{
-    struct_message* msg;
-    struct_message_queue* prev;
-    struct_message_queue* next;
-    struct timeval timer;
-}struct_message_queue;
+//fifo message queue
+//////////////////////////////////////////
+#define MSG_Q_MAX_LEN  100 //max length of a message queue
+typedef struct message_queue{
+    message* msg;
+    message_queue* prev;
+    message_queue* next;
+    struct timeval time;
+}message_queue;
 
-void message_queue_init(struct_message_queue* msg_q);
-void message_queue_put(struct_message_queue** msg_q, struct_message* msg);
-struct_message* message_queue_get(struct_message_queue* msg_q, struct_message* msg);
-void message_queue_del(struct_message_queue** msg_q, int len);//delete current message from the queue 
-void message_queue_del_stamp(struct_message_queue** msg_q, long stamp);
-int message_queue_has_stamp(struct_message_queue* msg_q, long stamp);
-struct_message_queue* message_queue_move_head(struct_message_queue* msg_q);
-struct_message_queue* message_queue_move_tail(struct_message_queue* msg_q);
-int message_queue_len(struct_message_queue* msg_q);
-int message_queue_is_empty(struct_message_queue* msg_q);
+message_queue* message_queue_create(); //create a message queue item
+message_queue* message_queue_flush(message_queue* msg_q); //flush the queue
+void message_queue_destroy(message_queue* msg_q); //destroy the whole queue
+
+void message_queue_init(message_queue* msg_q); //initiate an empty message queue
+message_queue* message_queue_put(message_queue* msg_q, message* msg); //put one message to the tail fo the queue
+message_queue* message_queue_get(message_queue* msg_q, message* msg); //get one message from the head of the queue 
+
+message_queue* message_queue_to_head(message_queue* msg_q); //move pointer to the head
+message_queue* message_queue_to_tail(message_queue* msg_q); //move pointer to the tail
+int message_queue_getlen(message_queue* msg_q); //get the length of queue
+
+//operations for req message queue
+////////////////////////////////////////////////////
+int message_queue_del(message_queue** msg_q);//delete a message queue item at current position msg_q, return to the current position of the msg_q 
+int message_queue_del_stamp(message_queue** msg_q, int stamp); //delete all messages with stamp in the queue, return to number of deletion
+
+//message create
+////////////////////////////////////////////////////
+message* message_create_stat(int stat_len, char* stat, char id_gw[8], char id_dev[8], long stamp);
+message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], long stamp);
+message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], long stamp);
+message* message_create_req_auth_gw(int lic_len, char* lic, char id_gw[8], long stamp);
+message* message_create_req_auth_dev(char id_gw[8], char id_dev[8], long stamp);
+message* message_create_req_user(char id_gw[8], char id_user[8], long stamp);
+message* message_create_pulse(char id_gw[8], long stamp);
+message* message_create_req_stamp(char id_gw[8]);
 
 #endif

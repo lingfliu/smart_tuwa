@@ -27,12 +27,10 @@ typedef struct{
     char baudrate[20];
     struct termios tio;
     struct termios tio_bak;
-}struct_serial;
+}serial;
 
-void serial_config(char* name, int type, char* baudrate, struct_serial* serial);
-int serial_open(struct_serial* serial);
-int serial_close(struct_serial* serial);
-//int on_serial_rx(struct_serial *serial, char* rx_buff);
-//int on_serial_tx(struct_serial *serial, char* tx_buff, int len);
+void serial_config(char* name, int type, char* baudrate, serial* srl);
+int serial_open(serial* srl);
+int serial_close(serial* serial);
 
 #endif

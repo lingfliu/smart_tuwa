@@ -1,155 +1,293 @@
 #include "proc.h"
 
+message* message_create(){
+   message *msg = calloc(sizeof(message));
+   return msg;
+}
 
-struct_message* message_copy(struct_message *msg_dst, struct_message *msg_src){
+void message_destroy(message *msg){
+    memset(msg->data, 0, msg->data_len);
+    free(msg->data);
+    memset(msg,0,sizeof(message));
+    free(msg);
+}
+
+void message_flush(message *msg){//flush message without destroying it
+    memset(msg->data, 0, msg->data_len);
+    free(msg->data);
+    memset(msg, 0, sizeof(message));
+}
+
+void message_copy(message *msg_dst, message *msg_src){
     message_flush(msg_dst);
-    memcpy(msg_dst, msg_src, sizeof(struct_message));
+    memcpy(msg_dst, msg_src, sizeof(message));
     msg->data = NULL;
     msg_dst->data = realloc(msg_dst->data, sizeof(char)*msg_src->data_len);
     memcpy(msg_dst->data, msg_src->data, sizeof(char)*msg_src->data_len);
-    return msg_dst;
 }
 
-struct_message* message_destroy(struct_message *msg){//delete message
-    memset(msg->data, 0, msg->data_len);
-    free(msg->data);
-    msg->data = NULL;
-    memset(msg, 0, sizeof(*msg));
-    free(msg);
-    return msg;
-}
-
-void message_flush(struct_message *msg){//flush message 
-    memset(msg->data, 0, msg->data_len);
-    free(msg->data);
-    memset(msg, 0, sizeof(struct_message));
-}
-
-int message_direction(struct_message* msg){
+int message_isreq(message *msg){
     switch(msg->data_type){
-	case DATA_TYPE_CTRL: 
-	    return MSG_TO_SERIAL;
-	case DATA_TYPE_AUTH_REQ;
-	    return MSG_TO_INET_CLIENT;
-	case DATA_TYPE_SYNC;
-	    return MSG_TO_INET_CLIENT;
-	default:
-	    return MSG_TO_INET_CLIENT;
-    }
-}
-
-int message_is_req(struct_message* msg){
-    switch(msg->data_type){
-	case DATA_TYPE_REQ_AUTH:
+	case DATA_REQ_SYNC:
 	    return 1;
-	case DATA_TYPE_NET_HB:
+	case DATA_REQ_AUTH_GW:
+	    return 1;
+	case DATA_REQ_AUTH_DEV:
+	    return 1;
+	case DATA_REQ_STAMP:
+	    return 1;
+	case DATA_REQ_PULSE:
 	    return 1;
 	default:
 	    return 0;
     }
+    return isreq;
+}
+
+int message_tx_dest(message* msg){ //get tx message destination
+    switch(msg->data_type){
+	case DATA_STAT: 
+	    return MSG_TO_SERVER;
+	case DATA_CTRL: 
+	    return MSG_TO_ZNET;
+	case DATA_REQ_SYNC:
+	    return MSG_TO_SERVER;
+	case DATA_REQ_AUTH_GW:
+	    return MSG_TO_SERVER;
+	case DATA_REQ_AUTH_DEV:
+	    return MSG_TO_SERVER;
+	case DATA_REQ_USER:
+	    return MSG_TO_SERVER;
+	case DATA_REQ_STAMP:
+	    return MSG_TO_SERVER;
+	case DATA_REQ_PULSE:
+	    return MSG_TO_SERVER;
+	default:
+	    return MSG_TO_SERVER;
+    }
+}
+
+//transfer bytes into one message from the beginning
+int bytes2message(buffer_ring_byte* bytes, message* msg){
+    int data_len;
+    char pre_bytes[50];
+    char *data;
+
+    if(buffer_ring_byte_len(bytes)<MSG_LEN_MIN)
+	return 0;//if not sufficient for a msg, return
+
+    //locate the header
+    buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
+    while(!memcmp(pre_bytes, MSG_HEADER_GW, 4)){//locate the header
+	buffer_ring_byte_get(bytes, NULL, 1); //remove one byte
+	if(buffer_ring_byte_len(bytes)<MSG_LEN_MIN)
+	   return 0; 
+	buffer_ring_ring_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
+    }
+    if(buffer_ring_byte_len(bytes)<MSG_LEN_MIN)
+	return 0;  //header found, but lenght is not long enough
+    else{
+	buffer_byte_ring_read(bytes, pre_bytes, MSG_LEN_FIXED); //read the fixed length 
+	memcpy(data_len, pre_bytes+MSG_POS_DATA_LEN, sizeof(int)); //get data length
+	if(buffer_ring_byte_len(bytes)<data_len+MSG_LEN_FIXED) //if all data in the bytes
+	    return 0;
+	else{ //start read the data
+	    buffer_ring_byte_get(bytes, pre_bytes, MSG_LEN_FIXED);
+	    
+	    data = calloc(data_len, sizeof(char));
+	    buffer_ring_byte_get(bytes, data, data_len);
+
+	    memcpy(msg->stamp, *pre_bytes+MSG_POS_STAMP, MSG_LEN_STAMP);
+	    memcpy(msg->gateway_id, *pre_bytes+MSG_POS_ID_GW, MSG_LEN_ID_GW);
+	    memcpy(msg->dev_id, *pre_bytes+MSG_POS_ID_DEV, MSG_LEN_ID_DEV);
+	    memcpy(msg->dev_type, *bytes+MSG_POS_DEV_TYPE, MSG_LEN_DEV_TYPE);
+	    memcpy(msg->data_type, *bytes+MSG_POS_DATA_TYPE, MSG_LEN_DATA_TYPE);
+	    memcpy(msg->data_len, *bytes+MSG_POS_DATA_LEN, MSG_LEN_DATA_LEN);
+	    msg->data = realloc(msg->data, data_len);
+	    memcpy(msg->data, *data, data_len);
+
+	    free(data);//free the temp data buffer
+	    return MSG_LEN_FIXED+data_len;
+	}
+    }
+}
+
+int message2bytes(message* msg, char** bytes){
+    int len;
+    len = MSG_LEN_FIXED+msg->data_len;
+    *bytes = realloc(*bytes, len); 
+
+    //conver the prefix
+    memcpy(*bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW);
+    memcpy(*bytes+MSG_POS_STAMP, msg->stamp, MSG_LEN_STAMP);
+    memcpy(*bytes+MSG_POS_ID_GW, msg->gateway_id, MSG_LEN_ID_GW);
+    memcpy(*bytes+MSG_POS_ID_DEV, msg->dev_id, MSG_LEN_ID_DEV);
+    memcpy(*bytes+MSG_POS_DEV_TYPE, msg->dev_type, MSG_LEN_DEV_TYPE);
+    memcpy(*bytes+MSG_POS_DATA_TYPE, msg->data_type, MSG_LEN_DATA_TYPE);
+    memcpy(*bytes+MSG_POS_DATA_LEN, msg->data_len, MSG_LEN_DATA_LEN);
+
+    memcpy(*bytes+MSG_LEN_FIXED, msg->data, msg->data_len); //conver the data
+
+    return len;
 }
 
 ///////////////////////////////////////////////////
 //message queue functions
+message_queue* message_queue_create(){
+    return calloc(sizeof(message_queue));
+}
 
-void message_queue_init(struct_message_queu* msg_q){
+message_queue* message_queue_flush(message_queu* msg_q){
+    //move to the head
+    msg_q = message_queue_to_head(msg_q);
+    message_queue *msg_q_item;
+    while(msg_q->next != msg_q){
+	msg_q_item = msg_q;
+	msg_q = msg_q->next;//move to next msg
+	msg_q->prev = msg_q; //set the next msg as the head
+	message_destroy(msg_q_item->msg); //delete current msg
+	free(msg_q_item); //free current msg_q
+    }
+    message_destroy(msg_q->msg); //keep the last item in the queue
+    return msg_q;
+}
+
+void message_queue_destroy(message_queu* msg_q){
+    msg_q = message_queue_flush(msg_q);
+    free(msg_q);
+}
+
+void message_queue_init(message_queue *msg_q){
+    memset(msg_q, sizeof(message_queue));
     msg_queue->msg = NULL;
     msg_q->prev = msg_q;
     msg_q->next = msg_q;
 }
 
-void message_queue_put(struct_message_queue** msg_q, struct_message* msg){
+message_queue* message_queue_put(message_queue* msg_q, message* msg){
+    if(message_queue_getlen(msg_q)<=0){
+	message_copy(msg_q->msg, msg); //empty queue
+    }else{
+	msg_q->next = message_queue_create();
+	msg_q->next->prev = msg_q;
+	msg_q = msg_q->next;
+	msg_q->next = msg_q;
+	message_copy(msg_q->msg, msg);
+    }
+    return msg_q;
+}
+
+message_queue* message_queue_get(message_queue* msg_q, message* msg){
+    message_queue msg_q_item;
+    int len = message_queue_getlen(msg_q);
+    if(len <= 0){
+	msg = NULL;
+    }else if(len == 1){
+	message_copy(msg, msg_q->msg);
+	message_destroy(msg_q->msg);
+    }else{
+	message_copy(msg,msg_q->msg);
+	message_destroy(msg_q->msg);
+	msg_q_item = msg_q;
+	msg_q = msg_q->next; //move to the next item 
+	msg_q->prev = msg_q;
+	free(msg_q_item); //delete the current item
+    }
+    return msg_q;
+}
+
+int message_queue_del(message_queue **msg_q){
     message_queue *msg_q_item;
-    if(message_queue_isempty(*msg_q)){//empty queue
-	(*msg_q)->msg = message_copy((*msg_q)->msg, msg);
-    }else{  //queue has msgs
-	msg_q_item = realloc(sizeof(message_queue));
-	msg_q_item->msg = message_copy(msg_q_item->msg, msg);
-	msg_q_item->prev = *msg_q;
-	(*msg_q)->next = msg_q_item;
-	msg_q_item->next = msg_q_item;
-	*msg_q = msg_q_item; //update the position of the msg_q
-    }
-}
+    if(*msg_q->msg == NULL && msg_q->prev == *msg_q->next) //if is empty queue
+	return 0;
+    else{
+	message_destroy(*msg_q->msg); //delete the message
 
-struct_message* message_queue_get(struct_message_queue** msg_q, struct_message* msg){
-    msg_q_item = *msg_q;
-    if((*msg_q)->msg==NULL)
-	return msg;//do nothing
-    msg = message_copy(msg, msg_q_item->msg);
-    message_queue_del(msg_q);
-    return msg;
-}
-
-void message_queue_del(struct_message_queue** msg_q){
-    struct_message_queue* msg_q_item = *msg_q;
-    if(message_queue_istempty(msg_q_item))//empty queue, do nothing
-	return;
-    msg_q_item->msg = message_destroy(msg_q_item->msg);//destroy the message
-    if(msg_q_item->prev == msg_q_item && msg_q_item->next = msg_q_item){//one msg in the queue, only destroy the message
-	return;
-    }
-    if(msg_q_item->prev == msg_q_item){ //head
-	free(msg_q_item);
-	return;
-    }
-    if(msg_q_item->next == msg_q_item){ //tail
-	*msg_q = msg_q_item->prev;
-	free(msg_q_item);
-	return;
-    }
-
-    //in the middle
-    msg_q_item->prev->next = msg_q_item->next;
-    msg_q_item->next->prev = msg_q_item->prev;
-}
-
-int message_queue_del_stamp(struct_message_queue** msg_q, long stamp){
-    int has_stamp = -1;
-    message_queue* msg_q_item = *msg_q;
-    if(message_queue_isempty(*msg_q))
-	return has_stamp;
-
-    while(msg_q_item->prev != msg_q_item)
-	msg_q_item = msg_q_item->prev;//move to the head
-    
-    while(msg_q_item->next != msg_q_item){
-	if(msq_q_item->msg->stamp == stamp){
-	    message_queue_del(&msg_q_item);
-	    has_stamp = 0;
+	//then delete the message queue item
+	if(*msg_q->prev == *msg_q && *msg_q->next == *msg_q) //one message in the queue
+	else if(*msg_q->prev == *msg_q){ //head
+	    msg_q_item = *msg_q;
+	    *msg_q = *msg_q->next;
+	    *msg_q->prev = *msg_q;
+	    free(msg_q_item);
+	}else if(*msg_q->next == *msg_q){ //tail
+	    msg_q_item = *msg_q;
+	    *msg_q = *msg_q->prev;
+	    *msg_q->next = *msg_q;
+	    free(msg_q_item);
+	}else{ //in the middle
+	    msg_q_item = *msg_q;
+	    *msg_q = *msg_q->next;
+	    *msg_q->prev = msg_q_item->prev;
+	    msg_q_item->prev->next = *msg_q;
+	    free(msg_q_item);
 	}
-	msg_q_item = msg_q_item->next;
-    }
-
-    if(msg_q_item->msg->stamp == stamp){//check the tail
-	message_queue_del(&msg_q_item);
-	has_stamp = 0;
-    }
-    return has_stamp;
+	return 1;//return the number of deletion
 }
 
-int message_queue_has_stamp(struct_message_queue* msg_q, long stamp){
-    int has_stamp = 0;
-    if(message_queue_isempty(msg_q))
-	return has_stamp;
-
-    while(msg_q->prev != msg_q)
-	msg_q= msg_q->prev;//move to the head
+int message_queue_del_stamp(message_queue **msg_q_p, int stamp){
+    message_queue *msg_q = *msg_q_p;
+    message_queue *msg_q_item;
+    msg_q = message_queue_to_head(msg_q);
     
-    while(msg_q->next != msg_q){
-	if(msq_q->msg->stamp == stamp){
-	    has_stamp = 1;
-	}
-	msg_q= msg_q->next;
-    }
+    int cnt = 0;
+    len = message_queue_getlen(msg_q);
 
-    if(msg_q->msg->stamp == stamp){//check the tail
-	has_stamp = 1;
+    if(len <=0){ //no msg
+	return 0;
+    }else if(len==1){ //one msg
+	if(msg_q->msg->stamp == stamp){
+	    cnt++;
+	    message_destroy(msg_q->msg); //remove the message
+	    memset(msg_q->time, 0, sizeof(timeval));//reset the time
+	}
+	return cnt;
+    }else{
+	while(msg_q->next != msg_q){ //if not the last one
+	    if(msg_q->msg->stamp == stamp){
+		cnt++;
+		message_destroy(msg_q->msg);
+		msg_q_item = msg_q;
+
+		if(msg_q->prev == msg_q) //if the first one
+		    msg_q->next->prev = msg_q->next; //replace the head with next
+		else{
+		    //connect the adjscent msg
+		    msg_q->prev->next = msg_q->next;
+		    msg_q->next->prev = msg_q->prev;
+		}
+
+		msg_q = msg_q->next; //move to the next msg 
+		free(msg_q_item);
+	    }else{
+		msg_q = msg_q->next; //check the next msg
+	    }
+	}
+
+	//check the last item
+	if(msg_q->prev == msg_q){//check if only one in the queue
+	    if(msg_q->msg->stamp == stamp){
+		cnt++;
+		message_destroy(msg_q->msg); //remove the message
+		memset(msg_q->time, 0, sizeof(timeval));//reset the time
+	    }
+	}else{
+	    if(msg_q->msg->stamp == stamp){
+		cnt++;
+		mesage_destroy(msg_q->msg);
+		msg_q_item = msg_q;
+		msg_q = msg_q->prev;
+		msg_q->next = msg_q;
+		free(msg_q_item);
+	    }
+	}
+	*msg_q_p = msg_q; //update the msg_q_p
+	return cnt;
     }
-    return has_stamp;
 }
 
-int message_queue_len(struct_message_queue* msg_q){
+int message_queue_getlen(message_queue* msg_q){
+    msg_q = message_queue_to_head(msg_q);
     int len=0;
     if(msg_q->next == msg_q && msg_q->prev == msg_q){
 	if(msg_q->msg == NULL)
@@ -158,75 +296,115 @@ int message_queue_len(struct_message_queue* msg_q){
 	    return 1;
     }
 
-    while(msg_q->next != msg_q)
+    len++;
+    while(msg_q->next != msg_q){
+	len++;
 	msg_q=msg_q->next;
-    
-    while(msg_q->prev != msg_q){
-	len ++;
-	msg_q_item = msg_q_item->prev;
     }
-    len ++;
+
     return len;
 }
 
-int message_queue_isempty(struct_message_queue* msg_q){
-    if(msg_q->next == msg_q && msg_q->prev == msg_q && msg_q->msg == NULL)
-	return 1;
-    else
-	return 0;
+message_queue* message_queue_to_head(message_queue *msg_q){
+    while(msg_q->prev != msg_q)
+	msg_q = msg_q->prev;
+    return msg_q;
 }
 
-//transfer bytes into one message from the beginning
-int bytes2msg(buffer_byte_ring* bytes, struct_message* msg){
-    int len;
-    char* read_bytes;
-
-    if(buffer_byte_ring_len(bytes)<PROC_MSG_MIN)
-	return;//if not sufficient for a msg, return
-
-    //locate the header
-    read_bytes = realloc(read_bytes, 4);
-    buffer_byte_ring_read(bytes, read_bytes, 4);
-    while(!memcmp(read_bytes, PROC_DATA_HEADER, 4)){
-	buffer_byte_ring_get(bytes, NULL, 1); //remove one byte
-	if(buffer_byte_ring_len(bytes)<PROC_MSG_MIN)
-	   return -1; 
-    }
-    if(buffer_byte_ring_len(bytes)<PROC_MSG_MIN)
-	return -1; 
-    else{
-	read_bytes = realloc(read_bytes, 18);
-	buffer_byte_ring_read(bytes, read_bytes, 18);
-	len = read_bytes[16]>>8+read_bytes[17] + 18;
-	if(buffer_byte_ring_len(bytes)<len)
-	    return -1;
-	else{
-	    read_bytes = realloc(read_bytes, len);
-	    memcpy(msg->gateway_id, *bytes, 6);
-	    memcpy(msg->dev_id, *bytes+6, 6);
-	    memcpy(msg->dev_type, *bytes+12, 2);
-	    memcpy(msg->data_type, *bytes+14, 2);
-	    memcpy(msg->data_len, *bytes+16, 2);
-	    msg->data = realloc(msg->data, len-18);
-	    memcpy(msg->data, *bytes+18, msg->data_len);
-	    memcpy(msg->stamp, *bytes+18+msg->data_len, 4);
-	    free(read_bytes);
-	    buffer_byte_ring_get(bytes, NULL, len);
-	    return 0;
-	}
-    }
+message_queue* message_queue_to_tail(message_queue *msg_q){
+    while(msg_q->next != msg_q)
+	msg_q = msg_q->next;
+    return msg_q;
 }
-int msg2bytes(struct_message* msg, char** bytes){
-    int len;
-    len = 22+msg->data_len;
-    *bytes = realloc(*bytes, len); 
-    memcpy(*bytes,msg->gateway_id, 6);
-    memcpy(*bytes+6, msg->dev_id, 6);
-    memcpy(*bytes+12, msg->dev_type, 2);
-    memcpy(*bytes+14, msg->data_type, 2);
-    memcpy(*bytes+16, msg->data_len, 2);
-    memcpy(*bytes+18, msg->data, msg->data_len);
-    memcpy(*bytes+18+msg->data_len, msg->stamp, 4);
 
-    return len;
+message* message_create_stat(int stat_len, char* stat, char id_gw[8], char id_dev[8], long stamp){
+    message *msg = message_create();
+    msg->data = realloc(msg->data, stat_len);
+    memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+    memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+    msg->data_type = DATA_STAT;
+    memcpy(msg->data, stat, stat_len);
+    msg->data_len = stat_len;
+    msg->stamp = stamp;
+    return msg;
+}
+
+message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], long stamp){
+    message *msg = message_create();
+    msg->data = realloc(msg->data, ctrl_len);
+    memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+    memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+    msg->data_type = DATA_CTRL;
+    memcpy(msg->data, ctrl, ctrl_len);
+    msg->data_len = ctrl_len;
+    msg->stamp = stamp;
+    return msg;
+}
+
+message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], long stamp){
+    message *msg = message_create();
+    msg->data = realloc(msg->data, stat_len+4);
+    memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+    memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+    msg->data_type = DATA_REQ_SYNC;
+    memcpy(msg->data, &u_stamp, 4);
+    memcpy(msg->data+4, ctrl, ctrl_len);
+    msg->data_len = stat_len+4;
+    msg->stamp = stamp;
+    return msg;
+}
+
+message* message_create_auth_gw(int lic_len, char* lic, char id_gw[8], char id_dev[8], long stamp){
+    message *msg = message_create();
+    msg->data = realloc(msg->data, lic_len);
+    memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+    memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+    msg->data_type = DATA_REQ_AUTH_GW;
+    memcpy(msg->data, lic, lic_len);
+    msg->data_len = lic_len;
+    msg->stamp = stamp;
+    return msg;
+}
+
+message* message_create_auth_dev(char id_gw[8], char id_dev[8], long stamp){
+    message *msg = message_create();
+    msg->data = realloc(msg->data, 1);
+    memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+    memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+    msg->data_type = DATA_REQ_AUTH_DEV;
+    memset(msg->data, 0, 1);
+    msg->data_len = 1;
+    msg->stamp = stamp;
+    return msg;
+}
+
+message* message_create_pulse(char id_gw[8], long stamp){
+    message *msg = message_create();
+    msg->data = realloc(msg->data, 1);
+    memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+    memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+    msg->data_type = DATA_REQ_PULSE;
+    memset(msg->data, 0, 1);
+    msg->data_len = 1;
+    msg->stamp = stamp;
+    return msg;
+}
+
+message* message_create_req_stamp(char id_gw[8]){
+    message *msg = message_create();
+    msg->data = realloc(msg->data, 1);
+    memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+    memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
+    msg->data_type = DATA_REQ_STAMP;
+    memset(msg->data, 0, 1);
+    msg->data_len = 1;
+    msg->stamp = 0;
+    return msg;
+}
+
+message* message_create_req_user(char id_gw[8], char id_user[8], long stamp){
+    message msg* = message_create();
+    msg->data = realloc(msg->data, 1);
+    msg->data_len = 1;
+    return msg;
 }

@@ -1,6 +1,6 @@
 #include "config.h"
 
-void get_config(struct_config* cfg){
+void get_config(config* cfg){
     FILE* fp;
     char str[CFG_BUFF_LEN];
     fp = fopen(FILE_CFG,"r");
@@ -11,11 +11,10 @@ void get_config(struct_config* cfg){
     while(fgets(str,CFG_BUFF_LEN,fp)!=NULL)
 	parse_config(cfg,str);
     //check the unset paras
-
     fclose(fp);
 }
 
-void parse_config(struct_config* cfg, char* str){
+void parse_config(config* cfg, char* str){
     //remove blank lines
     int n;
     int idx_parser;
@@ -58,8 +57,4 @@ void parse_config(struct_config* cfg, char* str){
 	sscanf(cfg_item_val,"%d",&(cfg->inet_client_port));
     if(!strcmp(cfg_item_name, CFG_ITEM_INET_CLIENT_PROC))
 	sscanf(cfg_item_val,"%d",&(cfg->inet_client_proc));
-    if(!strcmp(cfg_item_name, CFG_ITEM_FILE_STAT))
-	strcpy(cfg->file_stat, cfg_item_val);
-    if(!strcmp(cfg_item_name, CFG_ITEM_FILE_LOG))
-	strcpy(cfg->file_log, cfg_item_val);
 }

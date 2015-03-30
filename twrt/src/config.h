@@ -10,7 +10,10 @@
 
 #define FILE_CFG "/etc/smart_tuwa/config"//config file
 #define FILE_CFG_PARSER '='// config parser
-#define FILE_LIC = "/etc/smart_tuwa/twrt.lic"
+#define FILE_LIC = "/etc/smart_tuwa/lic"
+#define FILE_ID_SYS = "/etc/smart_tuwa/id_sys"
+#define FILE_STAT = "/etc/smart_tuwa/stat_sys"
+#define FILE_LOG = "/etc/smart_tuwa/log"
 
 #define CFG_ITEM_SERIAL_NAME "SERIAL_NAME"
 #define CFG_ITEM_SERIAL_TYPE "SERIAL_TYPE"
@@ -21,28 +24,23 @@
 #define CFG_ITEM_INET_CLIENT_PORT "INET_CLIENT_PORT"
 #define CFG_ITEM_INET_CLIENT_PROC "INET_CLIENT_PROC"
 
-#define CFG_ITEM_FILE_STAT "FILE_STAT"
-#define CFG_ITEM_FILE_LOG "FILE_LOG"
-
 #define CFG_BUFF_LEN 100 
 typedef struct{
     //serial config
-    char serial_name[50];
+    char serial_name[20];
     int serial_type;
-    char serial_baudrate[50]; 
+    char serial_baudrate[20]; 
 
     //inet config
-    char inet_server_ip[50];
+    char inet_server_ip[20];
     int inet_server_port;
     int inet_server_proc;   
     int inet_client_port;
     int inet_client_proc;
 
-    //application config
-    char file_stat[50];
-    char file_log[50];
-}struct_config;
+}config;
 
-void get_config(struct_config* cfg);
-void parse_config(struct_config* cfg, char* str);
+void get_config(config* cfg);
+void parse_config(config* cfg, char* str);
+
 #endif

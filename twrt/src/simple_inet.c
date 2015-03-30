@@ -1,7 +1,7 @@
 #include "simple_inet.h"
 
-int inet_client_config(char* ip, int port, int proc_type, struct_serial* inet_client){
-    inet_client->proc = cfg->inet_client_proc;
+int inet_client_config(char* ip, int port, int proc_type, serial* inet_client){
+    inet_client->proc = proc_type;
 
     switch(inet_client->proc){
 	case INET_PROC_TCP:
@@ -34,12 +34,10 @@ int inet_client_config(char* ip, int port, int proc_type, struct_serial* inet_cl
     return 0;
 }
 
-int inet_client_connect(struct_inet *inet_client){
-    int result;
-    result = connect(inet_client->fd, (struct sockaddr*) &inet_client->ip_addr, sizeof(inet_client->ip_addr)); 
-    return result;
+int inet_client_connect(inet *inet_client){
+    return connect(inet_client->fd, (struct sockaddr*) &inet_client->ip_addr, sizeof(inet_client->ip_addr)); 
 }
 
-int inet_client_close(struct_inet* inet_client){
+int inet_client_close(inet* inet_client){
     return close(inet_client->fd);
 }
