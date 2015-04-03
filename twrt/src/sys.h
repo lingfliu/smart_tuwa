@@ -46,7 +46,7 @@ typedef struct{
     char id[8];
     int model;//manufacturing model
     int ver;//firmware version
-    char status[SYS_LEN_STATUS]; //root status of the system
+    char status[SYS_LEN_STATUS]; //root status of the sys_t
 
     //znet
     znode znode_list[PROC_ZNODE_MAX]; //fixed length of znode_list
@@ -65,27 +65,27 @@ typedef struct{
 
     //timer 
     struct timeval timer_pulse; //timer to send tcp pulse to the server
-    struct timeval  timer_reset; //timer to reset the system 
+    struct timeval  timer_reset; //timer to reset the sys_t 
     struct timeval  timer_sync; //timer to synchronization 
 
     //server status
     int server_status;
-}system;
+}sys_t;
 
-//system operation
-void sys_get_id(system *sys, char* id_file); //get GW id from file
+//sys_t operation
+void sys_get_id(sys_t *sys, char* id_file); //get GW id from file
 
-void sys_get_lic(system *sys, char* lic_file); //get license from file
-int sys_init(system *sys); //initial empty system
-void sys_reset(system *sys); //reset & flush the system to its initial status
+void sys_get_lic(sys_t *sys, char* lic_file); //get license from file
+int sys_init(sys_t *sys); //initial empty sys_t
+void sys_reset(sys_t *sys); //reset & flush the sys_t to its initial status
 
-int sys_znode_update(system* sys, message* msg); //update the znode status in system, if znode is not found, add into the znode_list, return the index of the updated znode
+int sys_znode_update(sys_t* sys, message* msg); //update the znode status in sys_t, if znode is not found, add into the znode_list, return the index of the updated znode
 
-int sys_get_znode_idx(system* sys, char id[8]); //return the znode index given id
+int sys_get_znode_idx(sys_t* sys, char id[8]); //return the znode index given id
 
-int sys_get_znode_num(system* sys); //get the actual number of znodes in the list
-message* sys_sync(system *sys, message *msg); //synchronize the system by ack msg, return sync msg or NULL
+int sys_get_znode_num(sys_t* sys); //get the actual number of znodes in the list
+message* sys_sync(sys_t *sys, message *msg); //synchronize the sys_t by ack msg, return sync msg or NULL
 
-void sys_save(system *sys, char* save_file); //save the current system status to file 
-void sys_load(system *sys, char* save_file); //save the current system status to file 
+void sys_save(sys_t *sys, char* save_file); //save the current sys_t status to file 
+void sys_load(sys_t *sys, char* save_file); //save the current sys_t status to file 
 #endif

@@ -23,7 +23,7 @@
 #define TIMER_PULSE 1000 //pulse ack waiting time in milli-second
 #define TIMER_RESET 100 //pulse ack waiting time in hour 
 #define TIMER_REQ 2000 //request waiting time in milli-second
-#define TIMER_REQ 30000 //synchronization time in milli-second
+#define TIMER_SYNC 30000 //synchronization time in milli-second
 
 #define INET_STAT_ON 1 //remote inet (client) stat
 #define INET_STAT_OFF 0 //remote inet (client) stat
@@ -82,8 +82,8 @@ static message_queue* msg_q_tx_h; //head
 static message_queue* msg_q_tx_req; //message queue tail for saving send req msg
 static message_queue* msg_q_tx_req_h; //head
 
-//system
-static system sys;
+//sys_t
+static sys_t sys;
 
 //inet flags
 static int inet_stat;

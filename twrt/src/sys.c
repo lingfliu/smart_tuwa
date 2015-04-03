@@ -42,9 +42,9 @@ void znode_flush(znode* znd){
     memset(znd, 0, sizeof(znode));
 }
 
-//system operation
+//sys_t operation
 //////////////////////////////////////////////////////
-void sys_get_id(system* sys, char* id_file){
+void sys_get_id(sys_t* sys, char* id_file){
     FILE* fp;
     fp = fopen(id_file, "r");
     if(fp == NULL){
@@ -54,7 +54,7 @@ void sys_get_id(system* sys, char* id_file){
     fclose(fp);
 }
 
-void sys_get_lic(system* sys, char* lic_file){
+void sys_get_lic(sys_t* sys, char* lic_file){
     FILE *fp;
     fp = fopen(lic_file, "r");
     if(fp == NULL){
@@ -64,9 +64,9 @@ void sys_get_lic(system* sys, char* lic_file){
     fclose(fp);
 }
 
-//initialize an empty system
-int sys_init(system* sys){
-    memset(sys, 0, sizeof(system));
+//initialize an empty sys_t
+int sys_init(sys_t* sys){
+    memset(sys, 0, sizeof(sys_t));
 
     sys_get_id(sys, FILE_ID_SYS);
     sys_get_lic(sys, FILE_LIC); 
@@ -75,7 +75,7 @@ int sys_init(system* sys){
 }
 
 
-int sys_znode_update(system* sys, message* msg){
+int sys_znode_update(sys_t* sys, message* msg){
     int idx = -1;
     int idx_empty = -1;
     int m;
@@ -108,7 +108,7 @@ int sys_znode_update(system* sys, message* msg){
     }
 }
 
-int sys_get_znode_idx(system *sys, char id[8]){
+int sys_get_znode_idx(sys_t *sys, char id[8]){
     int m;
     int idx = -1;
     for(m = 0; m < PROC_ZNODE_MAX; m++){
@@ -122,7 +122,7 @@ int sys_get_znode_idx(system *sys, char id[8]){
     return idx;
 }
 
-int sys_get_znode_num(system *sys){
+int sys_get_znode_num(sys_t *sys){
     int num = 0;
     int m;
     for(m = 0; m < PROC_ZNODE_MAX; m++){
@@ -132,7 +132,7 @@ int sys_get_znode_num(system *sys){
     return num;
 }
 
-message* sys_sync(system *sys, message *msg){
+message* sys_sync(sys_t *sys, message *msg){
    int stamp; 
    memcpy(stamp, msg->data, 4);
    int idx;
@@ -160,7 +160,7 @@ message* sys_sync(system *sys, message *msg){
    }
 }
 
-void sys_save(system *sys, char* save_file){
+void sys_save(sys_t *sys, char* save_file){
     int m;
     int fp;
     fp = open(save_file, O_CREAT | O_WRONLY | O_TRUNC);
@@ -180,7 +180,7 @@ void sys_save(system *sys, char* save_file){
 
 }
 
-void sys_load(system *sys, char* save_file){
+void sys_load(sys_t *sys, char* save_file){
     int m;
     int fp;
     fp = open(save_file, O_RDONLY);
