@@ -17,6 +17,7 @@
 #define DEV_CURTAIN_1 6
 #define DEV_CURTAIN_2 7
 #define DEV_SOCK_1 8
+#define DEV_SOCK_4 9
 
 #define DEV_SENSOR_SMOKE 101
 #define DEV_SENSOR_CO 102
@@ -25,10 +26,16 @@
 #define DEV_SENSOR_HUMI 105
 #define DEV_SENSOR_TEHU 106
 #define DEV_SENSOR_INFRA 107
+#define DEV_SENSOR_LUMI 108
+#define DEV_SENSOR_PM25 109
+#define DEV_SENSOR_MAGLOCK 110
+#define DEV_SENSOR_FLAME 111
+#define DEV_SENSOR_RAIN 112
 
 #define DEV_MECH_VALVE 201 
 #define DEV_THEME_4 202 
 #define DEV_INFRACTRL 203
+#define DEV_ALARM 204
 
 
 //////////////////////////////////////////////////
@@ -129,7 +136,7 @@
 #define DEFAULT_VER 1 //default version of twrt
 #define DEFAULT_MODEL 1 //default vendor of all devices
 
-#define NULL_DEV '\x00\x00\x00\x00\x00\x00\x00\x00'
+#define NULL_DEV "00000000" 
 //////////////////////////////////////////
 //structs and operations
 //////////////////////////////////////////
@@ -152,7 +159,7 @@ void message_flush(message *msg);//flush message's data
 void message_copy(message *msg_dst, message *msg_src);
 
 //message translation
-int bytes2message(buffer_byte_ring* bytes, message* msg); //return the length of the message
+int bytes2message(buffer_ring_byte* bytes, message* msg); //return the length of the message
 int message2bytes(message* msg, char** bytes); //return the length of the byte
 
 //message properties
@@ -162,10 +169,11 @@ int message_tx_dest(message* msg); //get tx message destination
 //fifo message queue
 //////////////////////////////////////////
 #define MSG_Q_MAX_LEN  100 //max length of a message queue
+
 typedef struct message_queue{
     message* msg;
-    message_queue* prev;
-    message_queue* next;
+    struct message_queue* prev;
+    struct message_queue* next;
     struct timeval time;
 }message_queue;
 
