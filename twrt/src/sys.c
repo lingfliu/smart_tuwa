@@ -12,14 +12,14 @@ int znode_isempty(znode *znd){
 int znode_copy(znode* znode_dst, znode* znode_src){
     if(znode_isempty(znode_src))
 	return -1;
-    memcpy(znode_dst, znode_src);
+    memcpy(znode_dst, znode_src, sizeof(znode));
     znode_dst->status = realloc(znode_dst->status, znode_dst->status_len);
     memcpy(znode_dst->status, znode_src->status, znode_dst->status_len);
     return 0;
 }
 
 void znode_create(znode* znd, message *msg){
-    memcpy(znd->id, msg->id_dev, MSG_LEN_ID_DEV);
+    memcpy(znd->id, msg->dev_id, MSG_LEN_ID_DEV);
     znd->type = msg->dev_type;
     znd->model = DEFAULT_MODEL;
     znd->ver = DEFAULT_VER;
@@ -48,9 +48,11 @@ void sys_get_id(sys_t* sys, char* id_file){
     FILE* fp;
     fp = fopen(id_file, "r");
     if(fp == NULL){
-	perror("Cannot read id file, abort.");
+		perror("Cannot read id file, abort.");
     }
-    fread(sys->id, sizeof(char), MSG_LEN_ID_GW, fp);
+    if(fread(sys->id, sizeof(char), MSG_LEN_ID_GW, fp)!= MSG_LEN_ID_GW){
+		perror("read error");
+	}
     fclose(fp);
 }
 
@@ -58,9 +60,11 @@ void sys_get_lic(sys_t* sys, char* lic_file){
     FILE *fp;
     fp = fopen(lic_file, "r");
     if(fp == NULL){
-	perror("Cannot read id file, abort.");
+		perror("Cannot read id file, abort.");
     }
-    fread(sys->lic, sizeof(char), SYS_LEN_LIC, fp);
+    if(fread(sys->lic, sizeof(char), SYS_LEN_LIC, fp) != SYS_LEN_LIC){
+		perror("lic read error");
+	}
     fclose(fp);
 }
 
@@ -70,7 +74,7 @@ int sys_init(sys_t* sys){
 
     sys_get_id(sys, FILE_ID_SYS);
     sys_get_lic(sys, FILE_LIC); 
-    sys->lic_valid = LIC_UNKNOWN;
+    sys->lic_status= LIC_UNKNOWN;
     sys->server_status = SERVER_DISCONNECT;
 }
 
@@ -80,7 +84,7 @@ int sys_znode_update(sys_t* sys, message* msg){
     int idx_empty = -1;
     int m;
     for(m = 0; m < PROC_ZNODE_MAX; m++){
-	if(!memcmp(msg->dev_id, sys->znode_list[m]->id, MSG_LEN_ID_DEV)){ //if id_dev equal
+	if(!memcmp(msg->dev_id, sys->znode_list[m].id, MSG_LEN_ID_DEV)){ //if id_dev equal
 	    idx = m;
 	    break;
 	}else{
@@ -89,7 +93,7 @@ int sys_znode_update(sys_t* sys, message* msg){
     }
     if(idx<0){//not in the list 
 	for(m = 0; m<PROC_ZNODE_MAX; m++){
-	    if(znode_isempty(sys->znode_list[m])){
+	    if(znode_isempty(&(sys->znode_list[m]))){
 		idx_empty = m;
 		break;
 	    }else{
@@ -99,11 +103,11 @@ int sys_znode_update(sys_t* sys, message* msg){
 	if(idx_empty<0){ //znode list is full, do nothing
 	    return -1; 
 	}else{ //add new node in the list;
-	    znode_create(sys->znode_list[idx_empty], msg);
+	    znode_create(&(sys->znode_list[idx_empty]), msg);
 	    return idx_empty;
 	}
     }else{ //already in the list, update
-	znode_update(sys->znode_list[idx], msg);
+	znode_update(&(sys->znode_list[idx]), msg);
 	return idx;
     }
 }
@@ -112,7 +116,7 @@ int sys_get_znode_idx(sys_t *sys, char id[8]){
     int m;
     int idx = -1;
     for(m = 0; m < PROC_ZNODE_MAX; m++){
-	if(!memcmp(sys->znode_list[m]->id, id, MSG_LEN_ID_DEV)){
+	if(!memcmp(sys->znode_list[m].id, id, MSG_LEN_ID_DEV)){
 	    idx = m;
 	    break;
 	}else{
@@ -126,7 +130,7 @@ int sys_get_znode_num(sys_t *sys){
     int num = 0;
     int m;
     for(m = 0; m < PROC_ZNODE_MAX; m++){
-	if(!znode_isempty(sys->znode_list[m]))
+	if(!znode_isempty(&(sys->znode_list[m])))
 	    num++;
     }
     return num;
@@ -137,7 +141,7 @@ message* sys_sync(sys_t *sys, message *msg){
    memcpy(stamp, msg->data, 4);
    int idx;
 
-   if(!memcmp(msg->id_dev, NULL_DEV)){ //root sync
+   if(!memcmp(msg->dev_id, NULL_DEV, 8)){ //root sync
        if(sys->u_stamp < stamp){ //if msg contains newer status, update
 	   memcpy(sys->status, msg->data+4, SYS_LEN_STATUS);
 	   return NULL;
@@ -152,50 +156,73 @@ message* sys_sync(sys_t *sys, message *msg){
    if(idx<0){
        return NULL;
    }
-   if(sys->znode_list[idx]->u_stamp < stamp){ //if msg contains newer status, update
-       memcpy(sys->znode_list[idx]->status, msg->data+4, msg->data_len-4);
+   if(sys->znode_list[idx].u_stamp < stamp){ //if msg contains newer status, update
+       memcpy(sys->znode_list[idx].status, msg->data+4, msg->data_len-4);
        return NULL;
    }else{ //if local status is newer, send back a sync msg
-       return message_create_sync(sys->znode_list[idx]->status_len, sys->znode_list[idx]->status, sys->znode_list[idx]->u_stamp, sys->id, sys->znode_list[idx]->id, sys->tx_msg_stamp++);
+       return message_create_sync(sys->znode_list[idx].status_len, sys->znode_list[idx].status, sys->znode_list[idx].u_stamp, sys->id, sys->znode_list[idx].id, sys->tx_msg_stamp++);
    }
 }
 
 void sys_save(sys_t *sys, char* save_file){
     int m;
     int fp;
-    fp = open(save_file, O_CREAT | O_WRONLY | O_TRUNC);
+    fp = open(save_file, O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
     
     if(fp == -1)
 	perror("save file open error");
-    //save the file as 
-    write(fp, sys->status, SYS_LEN_STATUS);
-    write(fp, sys->u_stamp, MSG_LEN_STAMP);
-    write(fp, sys->cookie, SYS_LEN_COOKIE);
-    
-    for(m = 0; m<PROC_ZNODE_MAX; m++){
-	write(fp, sys->znode_list[m]->id, MSG_LEN_ID_DEV);
-	write(fp, sys->znode_list[m]->type, MSG_LEN_DEV_TYPE);
-	write(fp, sys->znode_list[m]->u_stamp, MSG_LEN_STAMP);
-    }
+	//save the file as 
+	if(write(fp, sys->status, SYS_LEN_STATUS) != SYS_LEN_STATUS){
+		perror("write error");
+	}
+	if(write(fp, sys->u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+		perror("write error");
+	}
+	if(write(fp, sys->cookie, SYS_LEN_COOKIE) != SYS_LEN_COOKIE){
+		perror("write error");
+	}
+	for(m = 0; m<PROC_ZNODE_MAX; m++){
+		if(write(fp, sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
+			perror("write error");
+		}
+		if(write(fp, sys->znode_list[m].type, MSG_LEN_DEV_TYPE) != MSG_LEN_DEV_TYPE){
+			perror("write error");
+		}
+		if(write(fp, sys->znode_list[m].u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+			perror("write error");
+		}
+	}
 
 }
 
 void sys_load(sys_t *sys, char* save_file){
-    int m;
-    int fp;
-    fp = open(save_file, O_RDONLY);
-    
-    if(fp == -1)
-	perror("save file open error");
+	int m;
+	int fp;
+	fp = open(save_file, O_RDONLY);
 
-    //save the file as 
-    read(fp, sys->status, SYS_LEN_STATUS);
-    read(fp, sys->u_stamp, MSG_LEN_STAMP);
-    read(fp, sys->cookie, SYS_LEN_COOKIE);
-    
-    for(m = 0; m<PROC_ZNODE_MAX; m++){
-	read(fp, sys->znode_list[m]->id, MSG_LEN_ID_DEV);
-	read(fp, sys->znode_list[m]->type, MSG_LEN_DEV_TYPE);
-	read(fp, sys->znode_list[m]->u_stamp, MSG_LEN_STAMP);
-    }
+	if(fp == -1)
+		perror("save file open error");
+
+	//save the file as 
+	if(read(fp, sys->status, SYS_LEN_STATUS) != SYS_LEN_STATUS){
+		perror("read error");
+	}
+	if(read(fp, sys->u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+		perror("read error");
+	}
+	if(read(fp, sys->cookie, SYS_LEN_COOKIE) != SYS_LEN_COOKIE){
+		perror("read error");
+	}
+
+	for(m = 0; m<PROC_ZNODE_MAX; m++){
+		if(read(fp, sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
+			perror("read error");
+		}
+		if(read(fp, sys->znode_list[m].type, MSG_LEN_DEV_TYPE) != MSG_LEN_DEV_TYPE){
+			perror("read error");
+		}
+		if(read(fp, sys->znode_list[m].u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+			perror("read error");
+		}
+	}
 }

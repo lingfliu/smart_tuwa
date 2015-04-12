@@ -47,10 +47,10 @@ int main(int argn, char* argv[]){
     pthread_mutex_init(&mut_msg_tx, NULL);
     pthread_cond_init(&cond_msg_tx, NULL);
 
-    pthread_create(thrd_client_rx, NULL, run_client_rx, NULL);
-    pthread_create(thrd_trans_client, NULL, run_trans_client, NULL);
-    pthread_create(thrd_sys_msg_rx, NULL, run_sys_msg_rx, NULL);
-    pthread_create(thrd_sys_msg_tx, NULL, run_sys_msg_tx, NULL);
+    pthread_create(&thrd_client_rx, NULL, run_client_rx, NULL);
+    pthread_create(&thrd_trans_client, NULL, run_trans_client, NULL);
+    pthread_create(&thrd_sys_msg_rx, NULL, run_sys_msg_rx, NULL);
+    pthread_create(&thrd_sys_msg_tx, NULL, run_sys_msg_tx, NULL);
 
     while(sys.lic_status == LIC_UNKNOWN){//wait until the gw get authed
 	usleep(50000); //sleep 50ms 
@@ -74,9 +74,9 @@ int main(int argn, char* argv[]){
 
     //4. if lic is valid, retrieve stamp from the web
     /////////////////////////////////////
-    messag_destroy(msg);
+    message_destroy(msg);
     msg = message_create_req_stamp(sys.id);
-    while(sys.U_stamp <= 0){//wait until the gw get stamp
+    while(sys.u_stamp <= 0){//wait until the gw get stamp
 	if(message_queue_getlen(msg_q_tx_req)==0){ //if previous auth req is not responded
 	    message_queue_put(msg_q_tx, msg); //send another one
 	}
@@ -91,15 +91,15 @@ int main(int argn, char* argv[]){
     //5. start serial threads
     /////////////////////////////////////
     //open serial port
-    serial_open(&serial);
+    serial_open(&srl);
 
 
     pthread_mutex_init(&mut_serial,NULL);
     pthread_cond_init(&cond_serial, NULL);
 
-    pthread_create(thrd_serial_rx, NULL, run_serial_rx, NULL);
-    pthread_create(thrd_trans_serial, NULL, run_trans_serial, NULL);
-    pthread_create(thrd_sys_ptask, NULL, run_sys_ptask, NULL);
+    pthread_create(&thrd_serial_rx, NULL, run_serial_rx, NULL);
+    pthread_create(&thrd_trans_serial, NULL, run_trans_serial, NULL);
+    pthread_create(&thrd_sys_ptask, NULL, run_sys_ptask, NULL);
 
     for(;;);
 }
@@ -112,7 +112,7 @@ void *run_serial_rx(){
 	    pthread_mutex_lock(&mut_serial);
 	    len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
 	    if(len>0){
-		buffer_ring_byte_put(buffer_serial, read_serial, len);
+		buffer_ring_byte_put(&buff_serial, read_serial, len);
 		pthread_cond_signal(&cond_serial);
 	    }else if(len == 0){
 		//continue
@@ -216,7 +216,7 @@ void *run_sys_msg_tx(){
 	    msg_q_tx_h = message_queue_get(msg_q_tx_h, msg);
 	    if(message_isreq(msg)){ //put req msg into req queue, add timeval to the req
 		msg_q_tx_req = message_queue_put(msg_q_tx_req, msg);
-		gettimeofday(msg_q_tx_req->time, NULL);
+		gettimeofday(&(msg_q_tx_req->time), NULL);
 	    }
 
 	    switch(message_tx_dest(msg)){
@@ -385,7 +385,7 @@ int handle_msg_rx(message *msg){
 	    }
 
 	case DATA_ACK_AUTH_GW:
-	    pthread_mutext_lock(&mut_msg_tx);
+	    pthread_mutex_lock(&mut_msg_tx);
 	    val = message_queue_del_stamp(&msg_q_tx_req_h, msg->stamp);
 	    if(val > 0){//if stamp still in the queue 
 		if(memcmp(msg->data, sys.id, MSG_LEN_ID_GW)){//if head not equals to the gw id
@@ -394,16 +394,16 @@ int handle_msg_rx(message *msg){
 		}else{
 		    sys.lic_status = LIC_INVALID;
 		}
-		pthread_mutext_unlock(&mut_msg_tx);
+		pthread_mutex_unlock(&mut_msg_tx);
 		result = 0;
 	    }else{//otherwise donothing
-		pthread_mutext_unlock(&mut_msg_tx);
+		pthread_mutex_unlock(&mut_msg_tx);
 		result = -1;
 	    }
 	    break;
 
 	case DATA_ACK_AUTH_DEV:
-	    pthread_mutext_lock(&mut_msg_tx);
+	    pthread_mutex_lock(&mut_msg_tx);
 	    val = message_queue_del_stamp(&msg_q_tx_req_h, msg->stamp);
 	    idx = sys_get_znode_idx(&sys, msg->data);
 	    if(val > 0){//if stamp still in the queue 
@@ -412,10 +412,10 @@ int handle_msg_rx(message *msg){
 		}else{
 		    //to-do
 		}
-		pthread_mutext_unlock(&mut_msg_tx);
+		pthread_mutex_unlock(&mut_msg_tx);
 		result = 0;
 	    }else{//otherwise donothing
-		pthread_mutext_unlock(&mut_msg_tx);
+		pthread_mutex_unlock(&mut_msg_tx);
 		result = -1;
 	    }
 	    break;
@@ -461,15 +461,11 @@ void on_inet_client_disconnect(){
 int timediff(struct timeval time_before, struct timeval time_after){
     int val;
     struct timeval tdiff;
-    time_substract(&tdiff, &time_before, &time_after);
-    val = (int) (tdiff.tv_sec*1000+tdiff.tv_usec/1000);
     return val;
 }
 
 int timediff_hour(struct timeval time_before, struct timeval time_after){
     int val;
     struct timeval tdiff;
-    time_substract(&tdiff, &time_before, &time_after);
-    val = (int) (tdiff.tv_sec/3600);
     return val;
 }

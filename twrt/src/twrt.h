@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
+#include <sys/time.h>
 #include <pthread.h>
 #include <errno.h>
 
@@ -91,7 +91,7 @@ static int inet_stat;
 //functions
 void on_inet_client_disconnect(); //handling when disconnected from the server 
 int handle_msg_rx(message *msg); //rx msg handling
-void on_req_failed(struct_message *msg); //req msg failed handling
+void on_req_failed(message *msg); //req msg failed handling
 
 //time functions
 int timediff(struct timeval time1, struct timeval time2);

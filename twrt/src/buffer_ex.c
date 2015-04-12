@@ -21,9 +21,9 @@ void buffer_ring_byte_del(buffer_ring_byte* buff){
 }
 
 void buffer_ring_byte_flush(buffer_ring_byte* buff){
-    memset(buff->data, 0, len);
+    memset(buff->data, 0, buff->len);
     buff->p_head = buff->data;
-    buff->tail = buff->data+len-1;
+    buff->p_tail = buff->data+buff->len-1;
     buff->p_c = buff->data;
     buff->p_rw = buff->data;
     buff->overflow = 0;
@@ -51,7 +51,7 @@ void buffer_ring_byte_put(buffer_ring_byte* buff, char* bytes, int len){
 
 char* buffer_ring_byte_get(buffer_ring_byte* buff, char* bytes, int len){
     int m;
-    int len_available=buffer_ring_byte_len(buff);
+    int len_available=buffer_ring_byte_getlen(buff);
     if(len>len_available || len == 0)
 	return bytes;
 
@@ -70,7 +70,7 @@ char* buffer_ring_byte_get(buffer_ring_byte* buff, char* bytes, int len){
 }
 
 char* buffer_ring_byte_read(buffer_ring_byte* buff, char* bytes, int len){
-    if(len>buffer_ring_byte_len(buff) || len == 0)
+    if(len>buffer_ring_byte_getlen(buff) || len == 0)
 	return bytes;
     bytes = realloc(bytes, len);
     int m;

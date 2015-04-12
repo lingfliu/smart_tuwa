@@ -20,7 +20,7 @@ typedef struct{
     int type;
     int proc;   
     int fd;
-    struct sockaddr_t ip_addr;
+    struct sockaddr_in ip_addr;
 }inet;
 
 //int inet_server_config(int port, int proc_type, struct_serial* inet_server);
@@ -30,9 +30,7 @@ typedef struct{
 //int on_inet_server_tx_ack(struct_inet* inet_client, char* bytes, int len, char* ack);
 //int inet_server_close(struct_inet* inet_server);
 
-int inet_client_config(char* ip, int port, int proc_type, serial* inet_client);
-int inet_client_connect(inet* inet_client);//for a long connection
-int on_inet_client_disconnect(inet *inet_client);
-//int on_inet_client_tx(struct_inet* inet_client, char* buff, int len);
-int inet_client_close(inet *inet_client);
+int inet_client_config(char* ip, int port, int proc_type, inet* client);
+int inet_client_connect(inet* client);//for a long connection
+int inet_client_close(inet *client);
 #endif

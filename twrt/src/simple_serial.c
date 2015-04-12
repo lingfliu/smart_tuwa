@@ -1,10 +1,9 @@
 #include "simple_serial.h"
 
-serial* serial_config(char* name, int type, char* baudrate, serial* serial){
-    strcpy(name, cfg->serial_name);
+void serial_config(char* name, int type, char* baudrate, serial* serial){
+    strcpy(name, name);
     serial->type = type;
-    strcpy(serial->baudrate, cfg->serial_baudrate);
-    return serial;
+    strcpy(serial->baudrate, baudrate);
 }
 
 int serial_open(serial* serial){
@@ -18,7 +17,7 @@ int serial_open(serial* serial){
     }
     if(fcntl(fd, F_SETFL, FNDELAY) < 0){
 	perror("fcntl set failed\n");
-	return -1
+	return -1;
     }// set serial into non-blocking mode
     if(isatty(STDIN_FILENO) == 0 ){
         printf("standard input is not a terminal device\n");
@@ -55,9 +54,9 @@ int serial_open(serial* serial){
     }else if(!strcmp(serial->baudrate, "57600")){
 	    cfsetospeed(&tio, B57600);
 	    cfsetispeed(&tio, B57600);
-    }else if(!strcmp(serial->baudrate, "115000")){
-	    cfsetospeed(&tio, B115000);
-	    cfsetispeed(&tio, B115000);
+    }else if(!strcmp(serial->baudrate, "115200")){
+	    cfsetospeed(&tio, B115200);
+	    cfsetispeed(&tio, B115200);
     }else{
 	perror("unsupported serial baudrate");
 	return -1;
@@ -65,7 +64,7 @@ int serial_open(serial* serial){
 
     tcflush(fd, TCIOFLUSH); //flush input & output
 
-    if(tcgetattr(fd,serial->tio_bak)!=0){
+    if(tcgetattr(fd,&serial->tio_bak)!=0){
 	perror("serial set error\n");
 	return -1;
     } //bak up previous tio
@@ -82,6 +81,6 @@ int serial_open(serial* serial){
 
 int serial_close(serial* serial){
     //flush serial
-    tcsetattr(serial->fd, TCSANOW, serial->tio_bak); //restore tio
+    tcsetattr(serial->fd, TCSANOW, &serial->tio_bak); //restore tio
     return close(serial->fd);
 }
