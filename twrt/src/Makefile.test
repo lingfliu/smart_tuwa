@@ -1,0 +1,14 @@
+CC = gcc
+CFLAGS = -O2 -g 
+LIBS = -lpthread
+
+OBJS = test.o
+test: $(OBJS) 
+	$(CC) $(OBJS) -o test
+
+test.o: test.c
+	$(CC) $(CFLAGS) $(LIBS) -c test.c -o test.o
+
+.PHONY: clean
+	rm $(OBJS) 
+	rm test
