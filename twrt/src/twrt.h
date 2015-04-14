@@ -21,7 +21,7 @@
 #define MSG_Q_LEN 50  //length of message queue
 
 #define TIMER_PULSE 1000 //pulse ack waiting time in milli-second
-#define TIMER_RESET 100 //pulse ack waiting time in hour 
+#define TIMER_RESET 72 //pulse ack waiting time in hour 
 #define TIMER_REQ 2000 //request waiting time in milli-second
 #define TIMER_SYNC 30000 //synchronization time in milli-second
 
@@ -84,9 +84,6 @@ static message_queue* msg_q_tx_req_h; //head
 
 //sys_t
 static sys_t sys;
-
-//inet flags
-static int inet_stat;
 
 //functions
 void on_inet_client_disconnect(); //handling when disconnected from the server 

@@ -14,9 +14,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define SERIAL_TYPE_UART 0
-#define SERIAL_TYPE_SPI 1
-#define SERIAL_TYPE_USB 2
+#define SERIAL_TYPE_UART 1
+#define SERIAL_TYPE_SPI 2
+#define SERIAL_TYPE_USB 3
 
 #define SERIAL_BUFF_LEN 255 //buffer length for write/read
 

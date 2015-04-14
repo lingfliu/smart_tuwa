@@ -15,16 +15,18 @@
 #define FILE_STAT "/etc/smart_tuwa/stat_sys"
 #define FILE_LOG "/etc/smart_tuwa/log"
 
-#define CFG_ITEM_SERIAL_NAME "SERIAL_NAME"
-#define CFG_ITEM_SERIAL_TYPE "SERIAL_TYPE"
-#define CFG_ITEM_SERIAL_BAUDRATE "SERIAL_BAUDRATE"
-#define CFG_ITEM_INET_SERVER_IP "INET_SERVER_IP"
-#define CFG_ITEM_INET_SERVER_PORT "INET_SERVER_PORT"
-#define CFG_ITEM_INET_SERVER_PROC "INET_SERVER_PROC"
-#define CFG_ITEM_INET_CLIENT_PORT "INET_CLIENT_PORT"
-#define CFG_ITEM_INET_CLIENT_PROC "INET_CLIENT_PROC"
+#define CFG_SERIAL_NAME "SERIAL_NAME"
+#define CFG_SERIAL_TYPE "SERIAL_TYPE"
+#define CFG_SERIAL_BAUDRATE "SERIAL_BAUDRATE"
+#define CFG_SERVER_IP "SERVER_IP"
+#define CFG_SERVER_PORT "SERVER_PORT"
+#define CFG_SERVER_PROC "SERVER_PROC"
+#define CFG_HOST_PORT "HOST_PORT"
+#define CFG_HOST_PROC "HOST_PROC"
 
-#define CFG_BUFF_LEN 100 
+
+#define CFG_BUFF_LEN 50 
+
 typedef struct{
     //serial config
     char serial_name[20];
@@ -32,11 +34,11 @@ typedef struct{
     char serial_baudrate[20]; 
 
     //inet config
-    char inet_server_ip[20];
-    int inet_server_port;
-    int inet_server_proc;   
-    int inet_client_port;
-    int inet_client_proc;
+    char server_ip[20];
+    int server_port;
+    int server_proc;   
+    int host_port;
+    int host_proc;
 
 }config;
 
