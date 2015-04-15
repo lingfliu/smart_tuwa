@@ -411,7 +411,7 @@ message* message_create_pulse(char id_gw[8], long stamp){
 	return msg;
 }
 
-message* message_create_req_stamp(char id_gw[8]){
+message* message_create_req_stamp(char id_gw[8], long stamp){
 	message *msg = message_create();
 	msg->data = realloc(msg->data, 1);
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
@@ -419,7 +419,7 @@ message* message_create_req_stamp(char id_gw[8]){
 	msg->data_type = DATA_REQ_STAMP;
 	memset(msg->data, 0, 1);
 	msg->data_len = 1;
-	msg->stamp = 0;
+	msg->stamp = stamp;
 	return msg;
 }
 

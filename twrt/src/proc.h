@@ -204,6 +204,6 @@ message* message_create_req_auth_gw(int lic_len, char* lic, char id_gw[8], long 
 message* message_create_req_auth_dev(char id_gw[8], char id_dev[8], long stamp);
 message* message_create_req_user(char id_gw[8], char id_user[8], long stamp);
 message* message_create_pulse(char id_gw[8], long stamp);
-message* message_create_req_stamp(char id_gw[8]);
+message* message_create_req_stamp(char id_gw[8], long stamp);
 
 #endif

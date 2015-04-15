@@ -13,6 +13,9 @@
 #define SERVER_DISCONNECT 2
 #define SERVER_NORESPONSE 3
 
+#define SERIAL_ON 1
+#define SERIAL_OFF 0
+
 #define SYS_REG_NO 0
 #define SYS_REG_OK 0
 
@@ -70,6 +73,9 @@ typedef struct{
 
     //server status
     int server_status;
+
+	//serial status
+	int serial_status;
 }sys_t;
 
 //sys_t operation

@@ -22,7 +22,7 @@
 
 #define TIMER_PULSE 1000 //pulse ack waiting time in milli-second
 #define TIMER_RESET 72 //pulse ack waiting time in hour 
-#define TIMER_REQ 2000 //request waiting time in milli-second
+#define TIMER_REQ 5000 //request waiting time in milli-second
 #define TIMER_SYNC 30000 //synchronization time in milli-second
 
 #define NET__ON 1 //net (client, znet) stat
@@ -53,9 +53,9 @@ static pthread_cond_t cond_serial;
 static pthread_mutex_t mut_client; // lock for buffer_client
 static pthread_cond_t cond_client;
 static pthread_mutex_t mut_msg_rx; //lock for msg_q_rx
-static pthread_cond_t cond_msg_rx;
 static pthread_mutex_t mut_msg_tx; //lock for msg_q_tx
-static pthread_cond_t cond_msg_tx;
+
+static pthread_mutex_t mut_sys; //lock for the main thread, sys
 
 //runnables
 void *run_serial_rx();
@@ -71,8 +71,8 @@ void *run_sys_ptask();
 //buffers
 static buffer_ring_byte buff_serial; //buffer for serial reading
 static buffer_ring_byte buff_client; //buffer for inet client reading
-char read_serial[BUFF_RW_LEN];  //buffer for serial read & write io
-char read_client[BUFF_RW_LEN]; //buffer for client read & write io
+char read_serial[BUFF_RW_LEN];  //buffer for serial read io
+char read_client[BUFF_RW_LEN]; //buffer for client read io
 
 //message queues
 static message_queue* msg_q_rx;  //message queue tail for saving rx msg
@@ -88,7 +88,6 @@ static sys_t sys;
 //functions
 void on_inet_client_disconnect(); //handling when disconnected from the server 
 int handle_msg_rx(message *msg); //rx msg handling
-void on_req_failed(message *msg); //req msg failed handling
 
 //time functions
 int timediff(struct timeval time1, struct timeval time2);

@@ -1,11 +1,12 @@
 #include "twrt.h"
 
 int main(int argn, char* argv[]){
-	message *msg;
-	char* bytes;
-	int len;
-	int len_rx;
-	int timer;
+	message *msg_auth;
+	message *msg_stamp;
+
+	//int len;
+	//int len_rx;
+	//int timer;
 
 	//1. config the sys_t and the io
 	/////////////////////////////////////
@@ -44,96 +45,57 @@ int main(int argn, char* argv[]){
 	printf("LIC=%s\n",sys.lic);
 	//*************************************************
 
-	//3. initialize inet threads and sys_msg threads
+	//3. connect server, open serial, initialize threads
 	/////////////////////////////////////
+
+	//mutex for the main thread
+	pthread_mutex_init(&mut_sys, NULL);
+
 	//connect the server
 	while(inet_client_connect(&client)<0){
-		sleep(1);
+		sleep(2);
 	}//retry if not connected
+	sys.server_status == SERVER_CONNECT;
 
-	//first gw quth msg, put into msg_q_tx
-	msg = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, 0);
-	message_queue_put(msg_q_tx, msg);
 
+	//initialize inet threads and mut
 	pthread_mutex_init(&mut_client, NULL);
 	pthread_cond_init(&cond_client, NULL);
-	pthread_mutex_init(&mut_msg_rx, NULL);
-	pthread_cond_init(&cond_msg_rx, NULL);
-	pthread_mutex_init(&mut_msg_tx, NULL);
-	pthread_cond_init(&cond_msg_tx, NULL);
 
 	pthread_create(&thrd_client_rx, NULL, run_client_rx, NULL);
 	pthread_create(&thrd_trans_client, NULL, run_trans_client, NULL);
-	pthread_create(&thrd_sys_msg_rx, NULL, run_sys_msg_rx, NULL);
-	pthread_create(&thrd_sys_msg_tx, NULL, run_sys_msg_tx, NULL);
 
-	while(sys.lic_status == LIC_UNKNOWN){//wait until the gw get authed
-		usleep(50000); //sleep 50ms 
-		pthread_mutex_lock(&mut_msg_tx);
-		if(message_queue_getlen(msg_q_tx_req)==0){ //if previous auth req is not responded and is flushed
-			msg_q_tx = message_queue_put(msg_q_tx, msg); //send another one
-		}
-		pthread_mutex_unlock(&mut_msg_tx);
-	}
-	//check the lic validity
-	if(sys.lic_status == LIC_INVALID){
-		perror("lic invalid");
-		exit -1;
-	}
+	pthread_mutex_init(&mut_msg_rx, NULL);
+	pthread_mutex_init(&mut_msg_tx, NULL);
 
-	//flush all auth msg
-	pthread_mutex_lock(&mut_msg_tx);
-	pthread_mutex_lock(&mut_msg_rx);
-	msg_q_rx = message_queue_flush(msg_q_rx); 
-	msg_q_tx = message_queue_flush(msg_q_tx); 
-	msg_q_tx_req = message_queue_flush(msg_q_tx_req); 
-	pthread_mutex_unlock(&mut_msg_rx);
-	pthread_mutex_unlock(&mut_msg_tx);
 
-	message_destroy(msg);//clear the create auth gw message
-
-	//4. if lic is valid, retrieve stamp from the web
-	/////////////////////////////////////
-	msg = message_create_req_stamp(sys.id);
-	while(sys.u_stamp <= 0){//wait until the gw get stamp
-		if(message_queue_getlen(msg_q_tx_req)==0){ //if previous auth req is not responded
-			message_queue_put(msg_q_tx, msg); //send another one
-		}
-		usleep(50000); //sleep 50ms 
-	}
-
-	//flush all req stamp msg
-	pthread_mutex_lock(&mut_msg_tx);
-	pthread_mutex_lock(&mut_msg_rx);
-	msg_q_rx = message_queue_flush(msg_q_rx); 
-	msg_q_tx = message_queue_flush(msg_q_tx); 
-	msg_q_tx_req = message_queue_flush(msg_q_tx_req); 
-	pthread_mutex_unlock(&mut_msg_rx);
-	pthread_mutex_unlock(&mut_msg_tx);
-
-	message_flush(msg);//clear the create auth gw message
-
-	//5. start serial threads
-	/////////////////////////////////////
 	//open serial port
-	serial_open(&srl);
+	while(serial_open(&srl) < 0 )
+		usleep(50000);
+	sys.serial_status == SERIAL_ON;
 
 	pthread_mutex_init(&mut_serial,NULL);
 	pthread_cond_init(&cond_serial, NULL);
 
 	pthread_create(&thrd_serial_rx, NULL, run_serial_rx, NULL);
 	pthread_create(&thrd_trans_serial, NULL, run_trans_serial, NULL);
-	pthread_create(&thrd_sys_ptask, NULL, run_sys_ptask, NULL); //start system periodic task
 
-	msg = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, 0); //create auth gw msg in case of disconnect
+	//start system periodic task
+	pthread_create(&thrd_sys_ptask, NULL, run_sys_ptask, NULL); 
+
+	//initialize sys_msg threads
+	pthread_create(&thrd_sys_msg_rx, NULL, run_sys_msg_rx, NULL);
+	pthread_create(&thrd_sys_msg_tx, NULL, run_sys_msg_tx, NULL);
+
+	msg_auth = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, 0); //create auth gw message
+	msg_stamp = message_create_req_stamp(sys.id, sys.tx_msg_stamp++); //create auth gw message
+
 	while(1){
 		if(sys.lic_status == LIC_UNKNOWN){
 			sleep(2); //sleep 2 s 
 			pthread_mutex_lock(&mut_msg_tx);
-			if(message_queue_find_stamp(msg_q_tx_req, msg->stamp) == 0){ //if previous auth req is not responded and is flushed
-				message_destroy(msg);
-				msg = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, 0); //create auth gw msg in case of disconnect
-				message_queue_put(msg_q_tx, msg);
+			if(message_queue_find_stamp(msg_q_tx_req, msg_auth->stamp) == 0){ //if previous auth req is not responded and is flushed
+				message_queue_put(msg_q_tx, msg_auth);
 			}
 			pthread_mutex_unlock(&mut_msg_tx);
 		}
@@ -142,16 +104,15 @@ int main(int argn, char* argv[]){
 			return -1;
 		}
 
-		message_destroy(msg);
-		msg = message_create_req_stamp(sys.id);
+		//this will only run once 
 		if(sys.lic_status == LIC_VALID && sys.u_stamp < 0){
-			sleep(2);
+			sleep(1);
 			pthread_mutex_lock(&mut_msg_tx);
-			if(message_queue_find_stamp(msg_q_tx_req, msg->stamp) == 0){
-				message_destroy(msg);
-				msg = message_create_req_stamp(sys.id);
-				message_queue_put(msg_q_tx, msg);
+			if(message_queue_find_stamp(msg_q_tx_req, msg_stamp->stamp) == 0){
+				msg_stamp->stamp = sys.tx_msg_stamp++;
+				message_queue_put(msg_q_tx, msg_stamp);
 			}
+			pthread_mutex_unlock(&mut_msg_tx);
 		}
 	}
 }
@@ -208,10 +169,10 @@ void *run_trans_serial(){
 		pthread_cond_wait(&cond_serial, &mut_serial);
 		//translate bytes into message
 		while(bytes2message(&buff_serial, msg)>0){
-			usleep(1);
+			usleep(1000);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
-			message_destroy(msg);
+			message_flush(msg);
 			pthread_mutex_unlock(&mut_msg_rx);
 		}
 		pthread_mutex_unlock(&mut_serial);
@@ -248,7 +209,6 @@ void *run_sys_msg_rx(){
 			message_flush(msg);
 		}else{
 			pthread_mutex_unlock(&mut_msg_rx);//unlock msg_q_rx first
-			message_flush(msg);
 		}
 	}
 }
@@ -274,7 +234,7 @@ void *run_sys_msg_tx(){
 					if(sys.lic_status != LIC_VALID){//if not authed, do not send
 						break;
 					}else{
-						pthread_create(thrd_serial_tx, NULL, run_serial_tx, msg);
+						pthread_create(thrd_serial_tx, NULL, run_serial_tx, (void*) msg);
 						pthread_join(thrd_serial_tx, NULL);
 						break;
 					}
