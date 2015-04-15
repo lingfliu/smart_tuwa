@@ -51,6 +51,7 @@ int main(int argn, char* argv[]){
 		sleep(1);
 	}//retry if not connected
 
+	//first gw quth msg, put into msg_q_tx
 	msg = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, 0);
 	message_queue_put(msg_q_tx, msg);
 
@@ -81,14 +82,18 @@ int main(int argn, char* argv[]){
 	}
 
 	//flush all auth msg
+	pthread_mutex_lock(&mut_msg_tx);
+	pthread_mutex_lock(&mut_msg_rx);
 	msg_q_rx = message_queue_flush(msg_q_rx); 
 	msg_q_tx = message_queue_flush(msg_q_tx); 
 	msg_q_tx_req = message_queue_flush(msg_q_tx_req); 
+	pthread_mutex_unlock(&mut_msg_rx);
+	pthread_mutex_unlock(&mut_msg_tx);
 
+	message_destroy(msg);//clear the create auth gw message
 
 	//4. if lic is valid, retrieve stamp from the web
 	/////////////////////////////////////
-	message_destroy(msg);
 	msg = message_create_req_stamp(sys.id);
 	while(sys.u_stamp <= 0){//wait until the gw get stamp
 		if(message_queue_getlen(msg_q_tx_req)==0){ //if previous auth req is not responded
@@ -98,9 +103,15 @@ int main(int argn, char* argv[]){
 	}
 
 	//flush all req stamp msg
+	pthread_mutex_lock(&mut_msg_tx);
+	pthread_mutex_lock(&mut_msg_rx);
 	msg_q_rx = message_queue_flush(msg_q_rx); 
 	msg_q_tx = message_queue_flush(msg_q_tx); 
 	msg_q_tx_req = message_queue_flush(msg_q_tx_req); 
+	pthread_mutex_unlock(&mut_msg_rx);
+	pthread_mutex_unlock(&mut_msg_tx);
+
+	message_flush(msg);//clear the create auth gw message
 
 	//5. start serial threads
 	/////////////////////////////////////
@@ -114,14 +125,43 @@ int main(int argn, char* argv[]){
 	pthread_create(&thrd_trans_serial, NULL, run_trans_serial, NULL);
 	pthread_create(&thrd_sys_ptask, NULL, run_sys_ptask, NULL); //start system periodic task
 
-	for(;;);
+	msg = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, 0); //create auth gw msg in case of disconnect
+	while(1){
+		if(sys.lic_status == LIC_UNKNOWN){
+			sleep(2); //sleep 2 s 
+			pthread_mutex_lock(&mut_msg_tx);
+			if(message_queue_find_stamp(msg_q_tx_req, msg->stamp) == 0){ //if previous auth req is not responded and is flushed
+				message_destroy(msg);
+				msg = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, 0); //create auth gw msg in case of disconnect
+				message_queue_put(msg_q_tx, msg);
+			}
+			pthread_mutex_unlock(&mut_msg_tx);
+		}
+
+		if(sys.lic_status == LIC_INVALID){
+			return -1;
+		}
+
+		message_destroy(msg);
+		msg = message_create_req_stamp(sys.id);
+		if(sys.lic_status == LIC_VALID && sys.u_stamp < 0){
+			sleep(2);
+			pthread_mutex_lock(&mut_msg_tx);
+			if(message_queue_find_stamp(msg_q_tx_req, msg->stamp) == 0){
+				message_destroy(msg);
+				msg = message_create_req_stamp(sys.id);
+				message_queue_put(msg_q_tx, msg);
+			}
+		}
+	}
 }
 
 void *run_serial_rx(){
+	pthread_detach(pthread_self());
 	int len;
 	while(1){
 		usleep(5000);
-		if(sys.server_status == SERVER_CONNECT && sys.lic_status == LIC_VALID){
+		if(sys.lic_status == LIC_VALID){ //if server is disconnected, serial will keep working as long as the license is valid
 			pthread_mutex_lock(&mut_serial);
 			len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
 			if(len>0){
@@ -130,7 +170,7 @@ void *run_serial_rx(){
 			}else if(len == 0){
 				//continue
 			}else{
-				//if i/o errror
+				//if i/o error
 				serial_close(&srl);
 				while(serial_open(&srl) < 0)
 					usleep(5000); //wait 5 ms and try open serial again
@@ -151,7 +191,6 @@ void *run_client_rx(){
 				buffer_ring_byte_put(&buff_client, read_client, len);
 				pthread_cond_signal(&cond_client);
 			}else if(len == 0){//if disconnected, reconnect
-				sys.server_status = SERVER_DISCONNECT;//stop the thread 
 				on_inet_client_disconnect();
 			}else if(errno == EAGAIN | errno == EINTR ){
 				//continue
@@ -187,10 +226,10 @@ void *run_trans_client(){
 	pthread_cond_wait(&cond_client, &mut_client);
 	//translate bytes into message
 	while(bytes2message(&buff_client, msg)>0){
-	    usleep(1);
+	    usleep(1000);
 	    pthread_mutex_lock(&mut_msg_rx);
 	    msg_q_rx = message_queue_put(msg_q_rx, msg);
-	    message_destroy(msg);
+	    message_flush(msg);
 	    pthread_mutex_unlock(&mut_msg_rx);
 	}
 	pthread_mutex_unlock(&mut_client);
@@ -206,10 +245,10 @@ void *run_sys_msg_rx(){
 			msg_q_rx_h = message_queue_get(msg_q_rx_h, msg); //read from the head
 			pthread_mutex_unlock(&mut_msg_rx);//unlock msg_q_rx first
 			handle_msg_rx(msg);
-			message_destroy(msg);
+			message_flush(msg);
 		}else{
 			pthread_mutex_unlock(&mut_msg_rx);//unlock msg_q_rx first
-			message_destroy(msg);
+			message_flush(msg);
 		}
 	}
 }
@@ -254,7 +293,7 @@ void *run_sys_msg_tx(){
 				default://if unknown, flush the message from the queue
 					break;
 			}
-			message_destroy(msg);
+			message_flush(msg);
 		}
 	}
 }
@@ -276,10 +315,27 @@ void *run_client_tx(void *arg){
 	message *msg = (message*)arg;
 	char *bytes;
 	int len = message2bytes(msg, &bytes);
-	if(send(client.fd, bytes, len, 0)<=0){
-		perror("failed to send to server");
-		free(bytes); //don't forget to free the mem
-		pthread_exit(0);
+	int ret; 
+	int pos = 0;
+	while(pos < len && sys.server_status == SERVER_CONNECT){
+		ret = send(client.fd, bytes+pos, len - pos, 0);
+		if(ret == len - pos){
+			free(bytes); //don't forget to free the mem
+			pthread_exit(0);
+		}
+		if(ret == 0){
+			if(errno == EAGAIN || errno == EINTR){ //buff is full or interrupted
+				usleep(1);
+				continue;
+			}
+			if(errno == ECONNRESET){ //connection broke
+				on_inet_client_disconnect();
+			}
+			free(bytes); //don't forget to free the mem
+			pthread_exit(0);
+		}else{
+			pos += ret;
+		}
 	}
 	free(bytes); //don't forget to free the mem
 	pthread_exit(0);
@@ -447,27 +503,14 @@ int handle_msg_rx(message *msg){
 
 void on_inet_client_disconnect(){
     int m;
-    //when disconnected clear the cookie and set lic status as unknown
+    //when disconnected, clear the cookie and set lic status as unknown
+	sys.server_status = SERVER_DISCONNECT;
     sys.lic_status = LIC_UNKNOWN;
     memset(sys.cookie, 0, SYS_LEN_COOKIE);
-
-    pthread_mutex_lock(&mut_msg_rx);
-    pthread_mutex_lock(&mut_msg_tx);
     
-    //flush the message queue
-    msg_q_rx = message_queue_flush(msg_q_rx);
-    msg_q_rx_h = msg_q_rx;
-    msg_q_tx = message_queue_flush(msg_q_tx);
-    msg_q_tx_h = msg_q_tx;
-    msg_q_tx_req = message_queue_flush(msg_q_tx_req);
-    msg_q_tx_req_h = msg_q_tx_req;
-
     while(inet_client_connect(&client) < 0)
-	sleep(1); //sleep 1 second and try again
+		sleep(1); //sleep 1 second and try again
     sys.server_status = SERVER_CONNECT;
-
-    pthread_mutex_unlock(&mut_msg_rx);
-    pthread_mutex_unlock(&mut_msg_tx);
 }
 
 int timediff(struct timeval time_before, struct timeval time_after){

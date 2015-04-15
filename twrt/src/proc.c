@@ -133,7 +133,9 @@ int message2bytes(message* msg, char** bytes){
 ///////////////////////////////////////////////////
 //message queue functions
 message_queue* message_queue_create(){
-	return calloc(sizeof(message_queue), sizeof(char));
+	message_queue* msg_q = calloc(sizeof(message_queue), sizeof(char));
+	message_create(msg_q->msg);
+	return msg_q;
 }
 
 message_queue* message_queue_flush(message_queue* msg_q){
@@ -226,7 +228,7 @@ int message_queue_del(message_queue **msg_q){
 	}
 }
 
-int message_queue_del_stamp(message_queue **msg_q_p, int stamp){
+int message_queue_del_stamp(message_queue **msg_q_p, long stamp){
 	message_queue *msg_q = *msg_q_p;
 	message_queue *msg_q_item;
 	msg_q = message_queue_to_head(msg_q);
@@ -285,6 +287,24 @@ int message_queue_del_stamp(message_queue **msg_q_p, int stamp){
 		*msg_q_p = msg_q; //update the msg_q_p
 		return cnt;
 	}
+}
+int message_queue_find_stamp(message_queue* msg_q, long stamp){ //find if stamp is in the queue, return to number of finding 
+	int num = 0;
+	if(message_queue_getlen(msg_q) == 0)
+		return 0;
+	if(message_queue_getlen(msg_q) == 1)
+		if(msg_q->msg->stamp == stamp)
+			return 1;
+		else
+			return 0;
+	message_queue* msg_q_h = message_queue_to_head(msg_q);
+	message_queue* msg_q_t = message_queue_to_tail(msg_q);
+	while(msg_q_h != msg_q_t){
+		if(msg_q_h->msg->stamp == stamp)
+			num ++;
+		msg_q_h = msg_q_h->next;
+	}
+	return num;
 }
 
 int message_queue_getlen(message_queue* msg_q){

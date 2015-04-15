@@ -192,7 +192,8 @@ int message_queue_getlen(message_queue* msg_q); //get the length of queue
 //operations for req message queue
 ////////////////////////////////////////////////////
 int message_queue_del(message_queue** msg_q);//delete a message queue item at current position msg_q, return to the current position of the msg_q 
-int message_queue_del_stamp(message_queue** msg_q, int stamp); //delete all messages with stamp in the queue, return to number of deletion
+int message_queue_del_stamp(message_queue** msg_q, long stamp); //delete all messages with stamp in the queue, return to number of deletion
+int message_queue_find_stamp(message_queue* msg_q, long stamp); //find if stamp is in the queue, return to number of finding 
 
 //message create
 ////////////////////////////////////////////////////
