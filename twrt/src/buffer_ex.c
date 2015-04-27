@@ -7,7 +7,7 @@
 void buffer_ring_byte_create(buffer_ring_byte *buff, int len){
     buff->len = len;
     buff->data = realloc(buff->data, sizeof(char)*len);
-    memset(buff->data, 0, len);
+    memset(buff->data, 0, sizeof(char)*len);
     buff->p_head = buff->data;
     buff->p_tail = buff->data+len-1;
     buff->p_c = buff->data;
@@ -21,7 +21,7 @@ void buffer_ring_byte_del(buffer_ring_byte* buff){
 }
 
 void buffer_ring_byte_flush(buffer_ring_byte* buff){
-    memset(buff->data, 0, buff->len);
+    memset(buff->data, 0, sizeof(char)*buff->len);
     buff->p_head = buff->data;
     buff->p_tail = buff->data+buff->len-1;
     buff->p_c = buff->data;

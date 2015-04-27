@@ -4,6 +4,7 @@ int main(int argn, char* argv[]){
 	message *msg_auth;
 	message *msg_stamp;
 
+	int res;
 	//int len;
 	//int len_rx;
 	//int timer;
@@ -62,8 +63,12 @@ int main(int argn, char* argv[]){
 	pthread_mutex_init(&mut_client, NULL);
 	pthread_cond_init(&cond_client, NULL);
 
-	pthread_create(&thrd_client_rx, NULL, run_client_rx, NULL);
-	pthread_create(&thrd_trans_client, NULL, run_trans_client, NULL);
+	res = pthread_create(&thrd_client_rx, NULL, run_client_rx, NULL);
+	if(res<0)
+		return -1;
+	res = pthread_create(&thrd_trans_client, NULL, run_trans_client, NULL);
+	if(res<0)
+		return -1;
 
 	pthread_mutex_init(&mut_msg_rx, NULL);
 	pthread_mutex_init(&mut_msg_tx, NULL);
@@ -77,8 +82,12 @@ int main(int argn, char* argv[]){
 	pthread_mutex_init(&mut_serial,NULL);
 	pthread_cond_init(&cond_serial, NULL);
 
-	pthread_create(&thrd_serial_rx, NULL, run_serial_rx, NULL);
-	pthread_create(&thrd_trans_serial, NULL, run_trans_serial, NULL);
+	res = pthread_create(&thrd_serial_rx, NULL, run_serial_rx, NULL);
+	if(res<0)
+		return -1;
+	res = pthread_create(&thrd_trans_serial, NULL, run_trans_serial, NULL);
+	if(res<0)
+		return -1;
 
 	//start system periodic task
 	pthread_create(&thrd_sys_ptask, NULL, run_sys_ptask, NULL); 
@@ -214,6 +223,7 @@ void *run_sys_msg_rx(){
 }
 
 void *run_sys_msg_tx(){
+	int res;
 	message *msg = message_create();
 
 	while(1){
@@ -234,19 +244,33 @@ void *run_sys_msg_tx(){
 					if(sys.lic_status != LIC_VALID){//if not authed, do not send
 						break;
 					}else{
-						pthread_create(thrd_serial_tx, NULL, run_serial_tx, (void*) msg);
+						res = pthread_create(&thrd_serial_tx, NULL, run_serial_tx, (void*) msg);
+						if(res<0){
+							perror("pthread_create error");
+							break;
+						}
+							
 						pthread_join(thrd_serial_tx, NULL);
 						break;
 					}
 				case MSG_TO_SERVER:
 					if(sys.lic_status != LIC_VALID){//if not authed, send only auth msg
 						if(msg->data_type == DATA_REQ_AUTH_GW){
-							pthread_create(thrd_client_tx, NULL, run_serial_tx, (void*) msg);
+							res = pthread_create(&thrd_client_tx, NULL, run_serial_tx, (void*) msg);
+							if(res<0){
+								perror("pthread_create error");
+								break;
+							}
+
 							pthread_join(thrd_client_tx, NULL);
 						}
 						break;
 					}else{
-						pthread_create(thrd_client_tx, NULL, run_serial_tx, (void*) msg);
+						res = pthread_create(&thrd_client_tx, NULL, run_serial_tx, (void*) msg);
+						if(res<0){
+							perror("pthread_create error");
+							break;
+						}
 						pthread_join(thrd_client_tx, NULL);
 						break;
 					}
@@ -449,7 +473,7 @@ int handle_msg_rx(message *msg){
 			break;
 
 		case DATA_ACK_STAMP:
-			memcpy(sys.u_stamp, msg->data, 4);
+			memcpy(&(sys.u_stamp), &(msg->data), sizeof(char)*4);
 			for(idx = 0; idx < PROC_ZNODE_MAX; idx++)
 				sys.znode_list[idx].u_stamp = sys.u_stamp;
 			result = 0;

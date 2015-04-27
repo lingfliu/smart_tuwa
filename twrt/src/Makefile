@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O2 -g -w
+CFLAGS = -O2 -g 
 LIBS = -pthread
 
 OBJ = twrt.o config.o string_ex.o simple_serial.o simple_inet.o proc.o sys.o buffer_ex.o 

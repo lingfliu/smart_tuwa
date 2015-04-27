@@ -8,12 +8,12 @@
 #include "simple_serial.h"
 #include "simple_inet.h"
 
-#define FILE_CFG "/etc/smart_tuwa/config"//config file
+#define FILE_CFG "/etc/twrt/config"//config file
 #define FILE_CFG_PARSER '='// config parser
-#define FILE_LIC "/etc/smart_tuwa/lic"
-#define FILE_ID_SYS "/etc/smart_tuwa/id_sys"
-#define FILE_STAT "/etc/smart_tuwa/stat_sys"
-#define FILE_LOG "/etc/smart_tuwa/log"
+#define FILE_LIC "/etc/twrt/lic"
+#define FILE_ID_SYS "/etc/twrt/id_sys"
+#define FILE_STAT "/etc/twrt/stat_sys"
+#define FILE_LOG "/etc/twrt/log"
 
 #define CFG_SERIAL_NAME "SERIAL_NAME"
 #define CFG_SERIAL_TYPE "SERIAL_TYPE"

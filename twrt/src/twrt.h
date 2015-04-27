@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <errno.h>
-
+#include <string.h>
 #include "simple_serial.h"
 #include "simple_inet.h"
 #include "proc.h"

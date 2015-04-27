@@ -138,10 +138,10 @@ int sys_get_znode_num(sys_t *sys){
 
 message* sys_sync(sys_t *sys, message *msg){
    int stamp; 
-   memcpy(stamp, msg->data, 4);
+   memcpy(&stamp, msg->data, 4);
    int idx;
 
-   if(!memcmp(msg->dev_id, NULL_DEV, 8)){ //root sync
+   if(!memcmp(&(msg->dev_id), NULL_DEV, 8)){ //root sync
        if(sys->u_stamp < stamp){ //if msg contains newer status, update
 	   memcpy(sys->status, msg->data+4, SYS_LEN_STATUS);
 	   return NULL;
@@ -172,23 +172,23 @@ void sys_save(sys_t *sys, char* save_file){
     if(fp == -1)
 	perror("save file open error");
 	//save the file as 
-	if(write(fp, sys->status, SYS_LEN_STATUS) != SYS_LEN_STATUS){
+	if(write(fp, (char*) sys->status, SYS_LEN_STATUS) != SYS_LEN_STATUS){
 		perror("write error");
 	}
-	if(write(fp, sys->u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+	if(write(fp, (char*) sys->u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
 		perror("write error");
 	}
-	if(write(fp, sys->cookie, SYS_LEN_COOKIE) != SYS_LEN_COOKIE){
+	if(write(fp, (char*) sys->cookie, SYS_LEN_COOKIE) != SYS_LEN_COOKIE){
 		perror("write error");
 	}
 	for(m = 0; m<PROC_ZNODE_MAX; m++){
-		if(write(fp, sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
+		if(write(fp, (char*) sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
 			perror("write error");
 		}
-		if(write(fp, sys->znode_list[m].type, MSG_LEN_DEV_TYPE) != MSG_LEN_DEV_TYPE){
+		if(write(fp, (char*) sys->znode_list[m].type, MSG_LEN_DEV_TYPE) != MSG_LEN_DEV_TYPE){
 			perror("write error");
 		}
-		if(write(fp, sys->znode_list[m].u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+		if(write(fp, (char*) sys->znode_list[m].u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
 			perror("write error");
 		}
 	}
@@ -204,24 +204,24 @@ void sys_load(sys_t *sys, char* save_file){
 		perror("save file open error");
 
 	//save the file as 
-	if(read(fp, sys->status, SYS_LEN_STATUS) != SYS_LEN_STATUS){
+	if(read(fp, (char*) sys->status, SYS_LEN_STATUS) != SYS_LEN_STATUS){
 		perror("read error");
 	}
-	if(read(fp, sys->u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+	if(read(fp, (char*) sys->u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
 		perror("read error");
 	}
-	if(read(fp, sys->cookie, SYS_LEN_COOKIE) != SYS_LEN_COOKIE){
+	if(read(fp, (char*) sys->cookie, SYS_LEN_COOKIE) != SYS_LEN_COOKIE){
 		perror("read error");
 	}
 
 	for(m = 0; m<PROC_ZNODE_MAX; m++){
-		if(read(fp, sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
+		if(read(fp, (char*) sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
 			perror("read error");
 		}
-		if(read(fp, sys->znode_list[m].type, MSG_LEN_DEV_TYPE) != MSG_LEN_DEV_TYPE){
+		if(read(fp, (char*) sys->znode_list[m].type, MSG_LEN_DEV_TYPE) != MSG_LEN_DEV_TYPE){
 			perror("read error");
 		}
-		if(read(fp, sys->znode_list[m].u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+		if(read(fp, (char*) sys->znode_list[m].u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
 			perror("read error");
 		}
 	}
