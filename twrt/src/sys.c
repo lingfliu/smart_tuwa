@@ -83,33 +83,33 @@ int sys_znode_update(sys_t* sys, message* msg){
     int idx = -1;
     int idx_empty = -1;
     int m;
-    for(m = 0; m < PROC_ZNODE_MAX; m++){
-	if(!memcmp(msg->dev_id, sys->znode_list[m].id, MSG_LEN_ID_DEV)){ //if id_dev equal
-	    idx = m;
-	    break;
-	}else{
-	    continue;
+	for(m = 0; m < PROC_ZNODE_MAX; m++){
+		if(!memcmp(msg->dev_id, sys->znode_list[m].id, MSG_LEN_ID_DEV)){ //if id_dev equal
+			idx = m;
+			break;
+		}else{
+			continue;
+		}
 	}
-    }
-    if(idx<0){//not in the list 
-	for(m = 0; m<PROC_ZNODE_MAX; m++){
-	    if(znode_isempty(&(sys->znode_list[m]))){
-		idx_empty = m;
-		break;
-	    }else{
-		continue;
-	    }
+	if(idx<0){//not in the list 
+		for(m = 0; m<PROC_ZNODE_MAX; m++){
+			if(znode_isempty(&(sys->znode_list[m]))){
+				idx_empty = m;
+				break;
+			}else{
+				continue;
+			}
+		}
+		if(idx_empty<0){ //znode list is full, do nothing
+			return -1; 
+		}else{ //add new node in the list;
+			znode_create(&(sys->znode_list[idx_empty]), msg);
+			return idx_empty;
+		}
+	}else{ //already in the list, update
+		znode_update(&(sys->znode_list[idx]), msg);
+		return idx;
 	}
-	if(idx_empty<0){ //znode list is full, do nothing
-	    return -1; 
-	}else{ //add new node in the list;
-	    znode_create(&(sys->znode_list[idx_empty]), msg);
-	    return idx_empty;
-	}
-    }else{ //already in the list, update
-	znode_update(&(sys->znode_list[idx]), msg);
-	return idx;
-    }
 }
 
 int sys_get_znode_idx(sys_t *sys, char id[8]){
@@ -142,25 +142,25 @@ message* sys_sync(sys_t *sys, message *msg){
    int idx;
 
    if(!memcmp(&(msg->dev_id), NULL_DEV, 8)){ //root sync
-       if(sys->u_stamp < stamp){ //if msg contains newer status, update
-	   memcpy(sys->status, msg->data+4, SYS_LEN_STATUS);
-	   return NULL;
-       }else if(sys->u_stamp == stamp){
-	   return NULL;
-       }else{ //if local is newer, send back a sync msg
-	   return message_create_sync(SYS_LEN_STATUS, sys->status, sys->u_stamp, sys->id, NULL_DEV, sys->tx_msg_stamp++);
-       }
+	   if(sys->u_stamp < stamp){ //if msg contains newer status, update
+		   memcpy(sys->status, msg->data+4, SYS_LEN_STATUS);
+		   return NULL;
+	   }else if(sys->u_stamp == stamp){
+		   return NULL;
+	   }else{ //if local is newer, send back a sync msg
+		   return message_create_sync(SYS_LEN_STATUS, sys->status, sys->u_stamp, sys->id, NULL_DEV, sys->tx_msg_stamp++);
+	   }
    }
 
    idx = sys_get_znode_idx(sys, msg->dev_id);
    if(idx<0){
-       return NULL;
+	   return NULL;
    }
    if(sys->znode_list[idx].u_stamp < stamp){ //if msg contains newer status, update
-       memcpy(sys->znode_list[idx].status, msg->data+4, msg->data_len-4);
-       return NULL;
+	   memcpy(sys->znode_list[idx].status, msg->data+4, msg->data_len-4);
+	   return NULL;
    }else{ //if local status is newer, send back a sync msg
-       return message_create_sync(sys->znode_list[idx].status_len, sys->znode_list[idx].status, sys->znode_list[idx].u_stamp, sys->id, sys->znode_list[idx].id, sys->tx_msg_stamp++);
+	   return message_create_sync(sys->znode_list[idx].status_len, sys->znode_list[idx].status, sys->znode_list[idx].u_stamp, sys->id, sys->znode_list[idx].id, sys->tx_msg_stamp++);
    }
 }
 
@@ -172,23 +172,23 @@ void sys_save(sys_t *sys, char* save_file){
     if(fp == -1)
 	perror("save file open error");
 	//save the file as 
-	if(write(fp, (char*) sys->status, SYS_LEN_STATUS) != SYS_LEN_STATUS){
+	if(write(fp, &(sys->status), sizeof(sys->status)) != sizeof(sys->status)){
 		perror("write error");
 	}
-	if(write(fp, (char*) sys->u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+	if(write(fp, &(sys->u_stamp), sizeof(sys->u_stamp)) != sizeof(sys->u_stamp)){
 		perror("write error");
 	}
-	if(write(fp, (char*) sys->cookie, SYS_LEN_COOKIE) != SYS_LEN_COOKIE){
+	if(write(fp, sys->cookie, sizeof(sys->cookie)) != sizeof(sys->cookie)){
 		perror("write error");
 	}
 	for(m = 0; m<PROC_ZNODE_MAX; m++){
-		if(write(fp, (char*) sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
+		if(write(fp, sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
 			perror("write error");
 		}
-		if(write(fp, (char*) sys->znode_list[m].type, MSG_LEN_DEV_TYPE) != MSG_LEN_DEV_TYPE){
+		if(write(fp, &(sys->znode_list[m].type), sizeof(int)) != sizeof(int)){
 			perror("write error");
 		}
-		if(write(fp, (char*) sys->znode_list[m].u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+		if(write(fp, &(sys->znode_list[m].u_stamp), sizeof(long)) != sizeof(long)){
 			perror("write error");
 		}
 	}
@@ -204,24 +204,24 @@ void sys_load(sys_t *sys, char* save_file){
 		perror("save file open error");
 
 	//save the file as 
-	if(read(fp, (char*) sys->status, SYS_LEN_STATUS) != SYS_LEN_STATUS){
+	if(read(fp, sys->status, SYS_LEN_STATUS) != SYS_LEN_STATUS){
 		perror("read error");
 	}
-	if(read(fp, (char*) sys->u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+	if(read(fp, &(sys->u_stamp), sizeof(long)) != sizeof(long)){
 		perror("read error");
 	}
-	if(read(fp, (char*) sys->cookie, SYS_LEN_COOKIE) != SYS_LEN_COOKIE){
+	if(read(fp, sys->cookie, SYS_LEN_COOKIE) != SYS_LEN_COOKIE){
 		perror("read error");
 	}
 
 	for(m = 0; m<PROC_ZNODE_MAX; m++){
-		if(read(fp, (char*) sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
+		if(read(fp, sys->znode_list[m].id, MSG_LEN_ID_DEV) != MSG_LEN_ID_DEV){
 			perror("read error");
 		}
-		if(read(fp, (char*) sys->znode_list[m].type, MSG_LEN_DEV_TYPE) != MSG_LEN_DEV_TYPE){
+		if(read(fp, &(sys->znode_list[m].type), sizeof(int)) != sizeof(int)){
 			perror("read error");
 		}
-		if(read(fp, (char*) sys->znode_list[m].u_stamp, MSG_LEN_STAMP) != MSG_LEN_STAMP){
+		if(read(fp, &(sys->znode_list[m].u_stamp), sizeof(long)) != sizeof(long)){
 			perror("read error");
 		}
 	}

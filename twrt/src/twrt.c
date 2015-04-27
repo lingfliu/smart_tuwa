@@ -4,11 +4,6 @@ int main(int argn, char* argv[]){
 	message *msg_auth;
 	message *msg_stamp;
 
-	int res;
-	//int len;
-	//int len_rx;
-	//int timer;
-
 	//1. config the sys_t and the io
 	/////////////////////////////////////
 	get_config(&cfg);
@@ -54,21 +49,27 @@ int main(int argn, char* argv[]){
 
 	//connect the server
 	while(inet_client_connect(&client)<0){
-		sleep(2);
-	}//retry if not connected
+		printf("Retrying server connection.\n");
+		sleep(1);
+	}
+	
 	sys.server_status == SERVER_CONNECT;
 
+	//send(client.fd,"Test this",9,0);
 
 	//initialize inet threads and mut
 	pthread_mutex_init(&mut_client, NULL);
 	pthread_cond_init(&cond_client, NULL);
 
-	res = pthread_create(&thrd_client_rx, NULL, run_client_rx, NULL);
-	if(res<0)
+	if(pthread_create(&thrd_client_rx, NULL, run_client_rx, NULL) < 0){
+		perror("thrd_client_rx create");
 		return -1;
-	res = pthread_create(&thrd_trans_client, NULL, run_trans_client, NULL);
-	if(res<0)
+	}
+
+	if(pthread_create(&thrd_trans_client, NULL, run_trans_client, NULL) < 0){
+		perror("thrd_trans_client create");
 		return -1;
+	}
 
 	pthread_mutex_init(&mut_msg_rx, NULL);
 	pthread_mutex_init(&mut_msg_tx, NULL);
@@ -76,32 +77,45 @@ int main(int argn, char* argv[]){
 
 	//open serial port
 	while(serial_open(&srl) < 0 )
-		usleep(50000);
+		sleep(1);
 	sys.serial_status == SERIAL_ON;
 
 	pthread_mutex_init(&mut_serial,NULL);
 	pthread_cond_init(&cond_serial, NULL);
 
-	res = pthread_create(&thrd_serial_rx, NULL, run_serial_rx, NULL);
-	if(res<0)
+	if(pthread_create(&thrd_serial_rx, NULL, run_serial_rx, NULL) < 0){
+		perror("thrd_serial_rx create");
 		return -1;
-	res = pthread_create(&thrd_trans_serial, NULL, run_trans_serial, NULL);
-	if(res<0)
+	}
+
+	if(pthread_create(&thrd_trans_serial, NULL, run_trans_serial, NULL) < 0){
+		perror("thrd_trans_serial create");
 		return -1;
+	}
 
 	//start system periodic task
-	pthread_create(&thrd_sys_ptask, NULL, run_sys_ptask, NULL); 
+	if(pthread_create(&thrd_sys_ptask, NULL, run_sys_ptask, NULL) < 0){
+		perror("thrd_sys_ptask create");
+		return -1;
+	}
 
 	//initialize sys_msg threads
-	pthread_create(&thrd_sys_msg_rx, NULL, run_sys_msg_rx, NULL);
-	pthread_create(&thrd_sys_msg_tx, NULL, run_sys_msg_tx, NULL);
+	if(pthread_create(&thrd_sys_msg_rx, NULL, run_sys_msg_rx, NULL) <0){
+		perror("thrd_sys_msg_rx create");
+		return -1;
+	}
+
+	if(pthread_create(&thrd_sys_msg_tx, NULL, run_sys_msg_tx, NULL) < 0){
+		perror("thrd_sys_msg_tx create");
+		return -1;
+	}
 
 	msg_auth = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, 0); //create auth gw message
 	msg_stamp = message_create_req_stamp(sys.id, sys.tx_msg_stamp++); //create auth gw message
 
 	while(1){
+		sleep(2);
 		if(sys.lic_status == LIC_UNKNOWN){
-			sleep(2); //sleep 2 s 
 			pthread_mutex_lock(&mut_msg_tx);
 			if(message_queue_find_stamp(msg_q_tx_req, msg_auth->stamp) == 0){ //if previous auth req is not responded and is flushed
 				message_queue_put(msg_q_tx, msg_auth);
@@ -110,12 +124,12 @@ int main(int argn, char* argv[]){
 		}
 
 		if(sys.lic_status == LIC_INVALID){
+			printf("Lic not authed.\n");
 			return -1;
 		}
 
 		//this will only run once 
 		if(sys.lic_status == LIC_VALID && sys.u_stamp < 0){
-			sleep(1);
 			pthread_mutex_lock(&mut_msg_tx);
 			if(message_queue_find_stamp(msg_q_tx_req, msg_stamp->stamp) == 0){
 				msg_stamp->stamp = sys.tx_msg_stamp++;
@@ -189,21 +203,21 @@ void *run_trans_serial(){
 }
 
 void *run_trans_client(){
-    message *msg = message_create();
-    while(1){
-	usleep(1000);
-	pthread_mutex_lock(&mut_client);
-	pthread_cond_wait(&cond_client, &mut_client);
-	//translate bytes into message
-	while(bytes2message(&buff_client, msg)>0){
-	    usleep(1000);
-	    pthread_mutex_lock(&mut_msg_rx);
-	    msg_q_rx = message_queue_put(msg_q_rx, msg);
-	    message_flush(msg);
-	    pthread_mutex_unlock(&mut_msg_rx);
+	message *msg = message_create();
+	while(1){
+		usleep(1000);
+		pthread_mutex_lock(&mut_client);
+		pthread_cond_wait(&cond_client, &mut_client);
+		//translate bytes into message
+		while(bytes2message(&buff_client, msg)>0){
+			usleep(1000);
+			pthread_mutex_lock(&mut_msg_rx);
+			msg_q_rx = message_queue_put(msg_q_rx, msg);
+			message_flush(msg);
+			pthread_mutex_unlock(&mut_msg_rx);
+		}
+		pthread_mutex_unlock(&mut_client);
 	}
-	pthread_mutex_unlock(&mut_client);
-    }
 }
 
 void *run_sys_msg_rx(){
@@ -244,31 +258,26 @@ void *run_sys_msg_tx(){
 					if(sys.lic_status != LIC_VALID){//if not authed, do not send
 						break;
 					}else{
-						res = pthread_create(&thrd_serial_tx, NULL, run_serial_tx, (void*) msg);
-						if(res<0){
-							perror("pthread_create error");
+						if(pthread_create(&thrd_serial_tx, NULL, run_serial_tx, (void*) msg) < 0){
+							perror("thrd_serial_tx create");
 							break;
 						}
-							
 						pthread_join(thrd_serial_tx, NULL);
 						break;
 					}
 				case MSG_TO_SERVER:
 					if(sys.lic_status != LIC_VALID){//if not authed, send only auth msg
 						if(msg->data_type == DATA_REQ_AUTH_GW){
-							res = pthread_create(&thrd_client_tx, NULL, run_serial_tx, (void*) msg);
-							if(res<0){
-								perror("pthread_create error");
+							if(pthread_create(&thrd_client_tx, NULL, run_serial_tx, (void*) msg) < 0){
+								perror("thrd_client_tx create");
 								break;
 							}
-
 							pthread_join(thrd_client_tx, NULL);
 						}
 						break;
 					}else{
-						res = pthread_create(&thrd_client_tx, NULL, run_serial_tx, (void*) msg);
-						if(res<0){
-							perror("pthread_create error");
+						if(pthread_create(&thrd_client_tx, NULL, run_serial_tx, (void*) msg) < 0){
+							perror("thrd_client_tx create");
 							break;
 						}
 						pthread_join(thrd_client_tx, NULL);
@@ -329,67 +338,72 @@ void* run_sys_ptask(){
 	pthread_detach(pthread_self());
 
     struct timeval timer;
-    message* msg;
+    message* msg = message_create();
     int m;
     int num;
 
-    while(1){	
-	//periodic tasks
-	usleep(5000);
-	gettimeofday(&timer, NULL);
+	while(1){	
+		//periodic tasks
+		usleep(50000);
+		gettimeofday(&timer, NULL);
 
-	//req msg cleaning
-	pthread_mutex_lock(&mut_msg_tx);
-	while(timediff(msg_q_tx_req_h->time, timer)>=TIMER_REQ){
-	    msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
-	    message_destroy(msg);
+		//req msg cleaning
+		pthread_mutex_lock(&mut_msg_tx);
+		while(timediff(msg_q_tx_req_h->time, timer)>=TIMER_REQ){
+			msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
+			message_flush(msg);
+		}
+		pthread_mutex_unlock(&mut_msg_tx);
+
+		//sync the gw and znet
+		if(timediff(sys.timer_sync, timer)>TIMER_SYNC){
+			for(m = 0; m<PROC_ZNODE_MAX; m++){//synchronize the znodes
+				if(!znode_isempty(&(sys.znode_list[m]))){
+					message_destroy(msg); //destroy old message before cerating one
+					msg = message_create_sync(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.znode_list[m].u_stamp, sys.id, sys.znode_list[m].id, 0);
+					pthread_mutex_lock(&mut_msg_tx);
+					msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
+					pthread_mutex_unlock(&mut_msg_tx);
+				}
+			}
+			//synchronize the root
+			message_destroy(msg);
+			msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0);
+			pthread_mutex_lock(&mut_msg_tx);
+			msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
+			pthread_mutex_unlock(&mut_msg_tx);
+
+			//reset the timer
+			sys.timer_sync = timer;
+		}
+
+		message_flush(msg);
+
+		//tcp pulse
+		if(timediff(timer, sys.timer_pulse)>TIMER_PULSE){
+			message_destroy(msg);
+			msg = message_create_pulse(sys.id, 0);
+			pthread_mutex_lock(&mut_msg_tx);
+			msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
+			gettimeofday(&(sys.timer_pulse), NULL); //update the timer
+			pthread_mutex_unlock(&mut_msg_tx);
+
+			//reset the timer
+			sys.timer_pulse = timer;
+		}
+
+		message_flush(msg);
+
+		/*
+		//reset
+		if(timediff_hour(timer, sys->timer_reset)>TIMER_RESET){
+		msg = message_create_pulse(sys->id_gw, 0);
+		pthread_mutex_lock(&mut_msg_tx);
+		msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
+		sys->timer_pulse = gettimeofday(); //update the timer
+		pthread_mutex_unlock(&mut_msg_tx);
+		}*/
 	}
-	pthread_mutex_unlock(&mut_msg_tx);
-
-	//sync the gw and znet
-	if(timediff(sys.timer_sync, timer)>TIMER_SYNC){
-	   for(m = 0; m<PROC_ZNODE_MAX; m++){//synchronize the znodes
-	       if(!znode_isempty(&(sys.znode_list[m]))){
-		   msg = message_create_sync(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.znode_list[m].u_stamp, sys.id, sys.znode_list[m].id, 0);
-		   pthread_mutex_lock(&mut_msg_tx);
-		   msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
-		   pthread_mutex_unlock(&mut_msg_tx);
-		   message_destroy(msg);
-	       }
-	   }
-	   //synchronize the root
-	   msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0);
-	   pthread_mutex_lock(&mut_msg_tx);
-	   msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
-	   pthread_mutex_unlock(&mut_msg_tx);
-	   message_destroy(msg);
-	   
-	   //reset the timer
-	   sys.timer_sync = timer;
-	}
-
-	//tcp pulse
-	if(timediff(timer, sys.timer_pulse)>TIMER_PULSE){
-	    msg = message_create_pulse(sys.id, 0);
-	    pthread_mutex_lock(&mut_msg_tx);
-	    msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
-	    gettimeofday(&(sys.timer_pulse), NULL); //update the timer
-	    pthread_mutex_unlock(&mut_msg_tx);
-
-	    //reset the timer
-	    sys.timer_pulse = timer;
-	}
-
-	/*
-	//reset
-	if(timediff_hour(timer, sys->timer_reset)>TIMER_RESET){
-	    msg = message_create_pulse(sys->id_gw, 0);
-	    pthread_mutex_lock(&mut_msg_tx);
-	    msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
-	    sys->timer_pulse = gettimeofday(); //update the timer
-	    pthread_mutex_unlock(&mut_msg_tx);
-	}*/
-    }
 }
 
 //message handle function
@@ -497,14 +511,16 @@ void on_inet_client_disconnect(){
     sys.server_status = SERVER_CONNECT;
 }
 
-int timediff(struct timeval time_before, struct timeval time_after){
-    int val;
-    struct timeval tdiff;
+long timediff(struct timeval time_before, struct timeval time_after){
+    long val;
+	long sec = (time_after.tv_sec - time_before.tv_sec)*1000; 
+	long usec = (time_after.tv_usec - time_before.tv_usec)/1000;
+	val = sec+usec;
     return val;
 }
 
-int timediff_hour(struct timeval time_before, struct timeval time_after){
-    int val;
-    struct timeval tdiff;
+long timediff_hour(struct timeval time_before, struct timeval time_after){
+    long val;
+	val = (time_after.tv_sec - time_before.tv_sec)/3600; 
     return val;
 }

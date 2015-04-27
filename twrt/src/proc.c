@@ -117,15 +117,15 @@ int message2bytes(message* msg, char** bytes){
 	*bytes = realloc(*bytes, len); 
 
 	//conver the prefix
-	memcpy(bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW);
-	memcpy(bytes+MSG_POS_STAMP, &(msg->stamp), MSG_LEN_STAMP);
-	memcpy(bytes+MSG_POS_ID_GW, &(msg->gateway_id), MSG_LEN_ID_GW);
-	memcpy(bytes+MSG_POS_ID_DEV, &(msg->dev_id), MSG_LEN_ID_DEV);
-	memcpy(bytes+MSG_POS_DEV_TYPE, &(msg->dev_type), MSG_LEN_DEV_TYPE);
-	memcpy(bytes+MSG_POS_DATA_TYPE, &(msg->data_type), MSG_LEN_DATA_TYPE);
-	memcpy(bytes+MSG_POS_DATA_LEN, &(msg->data_len), MSG_LEN_DATA_LEN);
+	memcpy(*bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW);
+	memcpy(*bytes+MSG_POS_STAMP, &(msg->stamp), MSG_LEN_STAMP);
+	memcpy(*bytes+MSG_POS_ID_GW, &(msg->gateway_id), MSG_LEN_ID_GW);
+	memcpy(*bytes+MSG_POS_ID_DEV, &(msg->dev_id), MSG_LEN_ID_DEV);
+	memcpy(*bytes+MSG_POS_DEV_TYPE, &(msg->dev_type), MSG_LEN_DEV_TYPE);
+	memcpy(*bytes+MSG_POS_DATA_TYPE, &(msg->data_type), MSG_LEN_DATA_TYPE);
+	memcpy(*bytes+MSG_POS_DATA_LEN, &(msg->data_len), MSG_LEN_DATA_LEN);
 
-	memcpy(bytes+MSG_LEN_FIXED, &(msg->data), msg->data_len); //conver the data
+	memcpy(*bytes+MSG_LEN_FIXED, &(msg->data), msg->data_len); //conver the data
 
 	return len;
 }

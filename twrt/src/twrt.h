@@ -90,7 +90,7 @@ void on_inet_client_disconnect(); //handling when disconnected from the server
 int handle_msg_rx(message *msg); //rx msg handling
 
 //time functions
-int timediff(struct timeval time1, struct timeval time2);
-int timediff_hour(struct timeval time1, struct timeval time2);
+long timediff(struct timeval time1, struct timeval time2);
+long timediff_hour(struct timeval time1, struct timeval time2);
 
 #endif
