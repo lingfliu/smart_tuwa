@@ -48,14 +48,35 @@ int main(int argn, char* argv[]){
 	pthread_mutex_init(&mut_sys, NULL);
 
 	//connect the server
-	while(inet_client_connect(&client)<0){
-		printf("Retrying server connection.\n");
-		sleep(1);
+	while(inet_client_connect(&client) == -1){
+		if(errno == EINPROGRESS){ //connection is in progress 
+			printf("Connecting\n");
+			inet_timeout.tv_sec = 2; //set timeout as in 2 seconds
+			inet_timeout.tv_usec = 0;
+			FD_ZERO(&inet_fds);
+			FD_SET(client.fd, &inet_fds);
+			retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
+			if(retval == -1 || retval == 0){ //error or timeout
+				printf("Connection timeout\n");
+				inet_client_close(&client);
+				sys.server_status = SERVER_DISCONNECT;
+				continue;
+			}else{
+				printf("Connected\n");
+				sys.server_status = SERVER_CONNECT;
+				break;
+			}
+		}else{ //retry connecting to the server
+			printf("Connection error errno=%d\n",errno); 
+			sys.server_status = SERVER_DISCONNECT;
+			inet_client_close(&client);
+			sleep(2); //sleep 1 second and try again
+			continue;
+		}
 	}
-	
-	sys.server_status == SERVER_CONNECT;
 
-	//send(client.fd,"Test this",9,0);
+	//for(;;)
+		//send(client.fd,"Test this",9,0);
 
 	//initialize inet threads and mut
 	pthread_mutex_init(&mut_client, NULL);
@@ -165,6 +186,7 @@ void *run_serial_rx(){
 }
 
 void *run_client_rx(){
+	pthread_detach(pthread_self());
 	int len;
 	while(1){
 		usleep(5000);
@@ -185,6 +207,7 @@ void *run_client_rx(){
 }
 
 void *run_trans_serial(){
+	pthread_detach(pthread_self());
 	message *msg = message_create();
 	while(1){
 		usleep(1000);
@@ -203,6 +226,7 @@ void *run_trans_serial(){
 }
 
 void *run_trans_client(){
+	pthread_detach(pthread_self());
 	message *msg = message_create();
 	while(1){
 		usleep(1000);
@@ -221,6 +245,7 @@ void *run_trans_client(){
 }
 
 void *run_sys_msg_rx(){
+	pthread_detach(pthread_self());
 	message *msg = message_create();
 	while(1){
 		usleep(1000);
@@ -237,6 +262,7 @@ void *run_sys_msg_rx(){
 }
 
 void *run_sys_msg_tx(){
+	pthread_detach(pthread_self());
 	int res;
 	message *msg = message_create();
 
@@ -506,9 +532,36 @@ void on_inet_client_disconnect(){
     sys.lic_status = LIC_UNKNOWN;
     memset(sys.cookie, 0, SYS_LEN_COOKIE);
     
-    while(inet_client_connect(&client) < 0)
-		sleep(1); //sleep 1 second and try again
-    sys.server_status = SERVER_CONNECT;
+	inet_client_close(&client); //close the connection first
+	//connect the server
+	while(inet_client_connect(&client) == -1){
+		if(errno == EINPROGRESS){ //connection is in progress 
+			printf("Connecting\n");
+			inet_timeout.tv_sec = 2; //set timeout as in 2 seconds
+			inet_timeout.tv_usec = 0;
+			FD_ZERO(&inet_fds);
+			FD_SET(client.fd, &inet_fds);
+			retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
+			if(retval == -1 || retval == 0){ //error or timeout
+				printf("Connection timeout\n");
+				inet_client_close(&client);
+				sys.server_status = SERVER_DISCONNECT;
+				continue;
+			}else{
+				printf("Connected\n");
+				sys.server_status = SERVER_CONNECT;
+			    return;	
+			}
+		}else{ //retry connecting to the server
+			printf("Connection error errno=%d\n",errno); 
+			sys.server_status = SERVER_DISCONNECT;
+			inet_client_close(&client);
+			sleep(2); //sleep 1 second and try again
+			continue;
+		}
+	}
+	printf("Connected\n");
+	sys.server_status = SERVER_CONNECT;
 }
 
 long timediff(struct timeval time_before, struct timeval time_after){
