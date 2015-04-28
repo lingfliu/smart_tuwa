@@ -21,7 +21,7 @@
 #define SERIAL_BUFF_LEN 255 //buffer length for write/read
 
 typedef struct{
-    char name[50];
+    char name[20];
     int fd;
     int type;
     char baudrate[20];
