@@ -39,5 +39,27 @@ int inet_client_connect(inet *client){
 }
 
 int inet_client_close(inet* client){
-    return close(client->fd);
+	int retval;
+	retval = close(client->fd);
+	//reset the socket fd
+	switch(client->proc){
+		case INET_PROC_TCP:
+			if((client->fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+				perror("create socket failed\n");
+				return -1;
+			}
+			break;
+		case INET_PROC_UDP:
+			if((client->fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
+				perror("create socket failed\n");
+				return -1;
+			}
+			break;
+		default:
+			perror("Unknown proctocol\n");
+			return -1;
+	}
+	int flags = fcntl(client->fd, F_GETFL, 0);
+	fcntl(client->fd, F_SETFL, flags | O_NONBLOCK);//set the socket as non-block 
+	return retval;
 }

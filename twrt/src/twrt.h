@@ -33,6 +33,13 @@ static config cfg;
 static serial srl;
 static inet client;
 
+//variables for socket connection
+static fd_set inet_fds;
+static struct timeval inet_timeout;
+
+//result for multiple uses
+static int retval;
+
 //threads
 static pthread_t thrd_serial_rx;
 static pthread_t thrd_serial_tx;
