@@ -1,16 +1,16 @@
 #include "simple_serial.h"
 
-void serial_config(char* name, int type, char* baudrate, serial* serial){
-    strcpy(name, name);
-    serial->type = type;
-    strcpy(serial->baudrate, baudrate);
+void serial_config(char* name, int type, char* baudrate, serial* srl){
+    strcpy(srl->name, name);
+    srl->type = type;
+    strcpy(srl->baudrate, baudrate);
 }
 
-int serial_open(serial* serial){
+int serial_open(serial* srl){
     int fd;//file descriptor
     struct termios tio;//terminal io setting
 
-    fd = open(serial->name, O_RDWR | O_NOCTTY | O_NDELAY);//non-block serial port
+    fd = open(srl->name, O_RDWR | O_NOCTTY | O_NDELAY);//non-block serial port
     if(fd < 0){
 	perror("serial open failed\n");
 	return -1;
@@ -26,7 +26,7 @@ int serial_open(serial* serial){
     bzero(&tio, sizeof(tio)); //reset the tio
 
     //set serial mode
-    switch(serial->type){
+    switch(srl->type){
 	case SERIAL_TYPE_UART:
 	    tio.c_iflag = IGNPAR | ICRNL;
 	    tio.c_oflag = 0;
@@ -48,13 +48,13 @@ int serial_open(serial* serial){
     }
     
     //set baudrate
-    if(!strcmp(serial->baudrate, "9600")){
+    if(!strcmp(srl->baudrate, "9600")){
 	    cfsetospeed(&tio, B9600);
 	    cfsetispeed(&tio, B9600);
-    }else if(!strcmp(serial->baudrate, "57600")){
+    }else if(!strcmp(srl->baudrate, "57600")){
 	    cfsetospeed(&tio, B57600);
 	    cfsetispeed(&tio, B57600);
-    }else if(!strcmp(serial->baudrate, "115200")){
+    }else if(!strcmp(srl->baudrate, "115200")){
 	    cfsetospeed(&tio, B115200);
 	    cfsetispeed(&tio, B115200);
     }else{
@@ -64,7 +64,7 @@ int serial_open(serial* serial){
 
     tcflush(fd, TCIOFLUSH); //flush input & output
 
-    if(tcgetattr(fd,&serial->tio_bak)!=0){
+    if(tcgetattr(fd,&srl->tio_bak)!=0){
 	perror("serial set error\n");
 	return -1;
     } //bak up previous tio
@@ -74,13 +74,13 @@ int serial_open(serial* serial){
 	return -1;
     } //set tio to fd after all data are flushed
 
-    serial->fd = fd;//save fd
-    serial->tio = tio; //save current tio
+    srl->fd = fd;//save fd
+    srl->tio = tio; //save current tio
     return 0;//open sucessfully, return;
 }
 
-int serial_close(serial* serial){
+int serial_close(serial* srl){
     //flush serial
-    tcsetattr(serial->fd, TCSANOW, &serial->tio_bak); //restore tio
-    return close(serial->fd);
+    tcsetattr(srl->fd, TCSANOW, &srl->tio_bak); //restore tio
+    return close(srl->fd);
 }
