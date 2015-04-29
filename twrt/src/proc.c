@@ -2,28 +2,46 @@
 
 message* message_create(){
 	message *msg = calloc(sizeof(message), sizeof(char));
+	msg->data = NULL; //create empty message
 	return msg;
 }
 
 void message_destroy(message *msg){
-	memset(msg->data, 0, msg->data_len);
-	free(msg->data);
-	memset(msg,0,sizeof(message));
-	free(msg);
+	if(msg->data == NULL) //empty message do nothing
+		//memset(msg,0,sizeof(message));
+		free(msg);
+	else{
+		//memset(msg->data, 0, msg->data_len);
+		free(msg->data);
+		//memset(msg,0,sizeof(message));
+		free(msg);
+	}
+
 }
 
 void message_flush(message *msg){//flush message without destroying it
-	memset(msg->data, 0, msg->data_len);
-	free(msg->data);
-	memset(msg, 0, sizeof(message));
+	if(msg->data == NULL) //empty message do nothing
+		memset(msg, 0, sizeof(message));
+	else{
+		//memset(msg->data, 0, msg->data_len);
+		free(msg->data);
+		memset(msg, 0, sizeof(message));
+		msg->data = NULL;
+	}
 }
 
 void message_copy(message *msg_dst, message *msg_src){
 	message_flush(msg_dst);
+	
 	memcpy(msg_dst, msg_src, sizeof(message));
-	msg_dst->data = NULL;
-	msg_dst->data = realloc(msg_dst->data, sizeof(char)*msg_src->data_len);
-	memcpy(msg_dst->data, msg_src->data, sizeof(char)*msg_src->data_len);
+
+	msg_dst->data = NULL; //reset data
+	if(msg_src->data == NULL) //if src message is empty 
+		return;
+	else{
+		msg_dst->data = calloc(sizeof(char)*msg_src->data_len, sizeof(char));
+		memcpy(msg_dst->data, msg_src->data, sizeof(char)*msg_src->data_len);
+	}
 }
 
 int message_isreq(message *msg){
@@ -77,8 +95,8 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 
 	//locate the header
 	buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
-	while(!memcmp(pre_bytes, MSG_HEADER_GW, 4)){//locate the header
-		buffer_ring_byte_get(bytes, NULL, 1); //remove one byte
+	while(!memcmp(pre_bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW)){//locate the header
+		buffer_ring_byte_get(bytes, pre_bytes, 1); //remove one byte
 		if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN)
 			return 0; 
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
@@ -88,12 +106,13 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 	else{
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_FIXED); //read the fixed length 
 		memcpy(&data_len, pre_bytes+MSG_POS_DATA_LEN, sizeof(int)); //get data length
-		if(buffer_ring_byte_getlen(bytes)<data_len+MSG_LEN_FIXED) //if all data in the bytes
+		if(buffer_ring_byte_getlen(bytes)<data_len+MSG_LEN_FIXED) //if all data in the buffer
 			return 0;
 		else{ //start read the data
 			buffer_ring_byte_get(bytes, pre_bytes, MSG_LEN_FIXED);
 
 			data = calloc(data_len, sizeof(char));
+
 			buffer_ring_byte_get(bytes, data, data_len);
 
 			memcpy(&(msg->stamp), pre_bytes+MSG_POS_STAMP, MSG_LEN_STAMP);
@@ -102,7 +121,9 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 			memcpy(&(msg->dev_type), pre_bytes+MSG_POS_DEV_TYPE, MSG_LEN_DEV_TYPE);
 			memcpy(&(msg->data_type), pre_bytes+MSG_POS_DATA_TYPE, MSG_LEN_DATA_TYPE);
 			memcpy(&(msg->data_len), pre_bytes+MSG_POS_DATA_LEN, MSG_LEN_DATA_LEN);
-			msg->data = realloc(msg->data, data_len);
+			if(msg->data != NULL)
+				free(msg->data);
+			msg->data = calloc(sizeof(char)*data_len, sizeof(char));
 			memcpy(msg->data, data, data_len);
 
 			free(data);//free the temp data buffer
@@ -114,7 +135,7 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 int message2bytes(message* msg, char** bytes){
 	int len;
 	len = MSG_LEN_FIXED+msg->data_len;
-	*bytes = realloc(*bytes, len); 
+	*bytes = calloc(len,sizeof(char)); 
 
 	//conver the prefix
 	memcpy(*bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW);
@@ -134,7 +155,8 @@ int message2bytes(message* msg, char** bytes){
 //message queue functions
 message_queue* message_queue_create(){
 	message_queue* msg_q = calloc(sizeof(message_queue), sizeof(char));
-	message_create(msg_q->msg);
+	//msg_q->msg = NULL;
+	msg_q->msg.data = NULL;
 	return msg_q;
 }
 
@@ -146,10 +168,12 @@ message_queue* message_queue_flush(message_queue* msg_q){
 		msg_q_item = msg_q;
 		msg_q = msg_q->next;//move to next msg
 		msg_q->prev = msg_q; //set the next msg as the head
-		message_destroy(msg_q_item->msg); //delete current msg
+		//message_destroy(msg_q_item->msg); //delete current msg
+		message_flush(&(msg_q_item->msg));
 		free(msg_q_item); //free current msg_q
 	}
-	message_destroy(msg_q->msg); //keep the last item in the queue
+	//message_destroy(msg_q->msg); //keep the last item in the queue
+	message_flush(&(msg_q->msg));
 	return msg_q;
 }
 
@@ -159,21 +183,21 @@ void message_queue_destroy(message_queue* msg_q){
 }
 
 void message_queue_init(message_queue *msg_q){
-	memset(msg_q, 0, sizeof(message_queue));
-	msg_q->msg = NULL;
 	msg_q->prev = msg_q;
 	msg_q->next = msg_q;
 }
 
 message_queue* message_queue_put(message_queue* msg_q, message* msg){
-	if(message_queue_getlen(msg_q)<=0){
-		message_copy(msg_q->msg, msg); //empty queue
+	if(message_queue_getlen(msg_q)==0){
+		//msg_q->msg = message_create();
+		message_copy(&(msg_q->msg), msg); //empty queue
 	}else{
 		msg_q->next = message_queue_create();
 		msg_q->next->prev = msg_q;
 		msg_q = msg_q->next;
 		msg_q->next = msg_q;
-		message_copy(msg_q->msg, msg);
+		//msg_q->msg = message_create();
+		message_copy(&(msg_q->msg), msg);
 	}
 	return msg_q;
 }
@@ -181,14 +205,16 @@ message_queue* message_queue_put(message_queue* msg_q, message* msg){
 message_queue* message_queue_get(message_queue* msg_q, message* msg){
 	message_queue *msg_q_item;
 	int len = message_queue_getlen(msg_q);
-	if(len <= 0){
-		msg = NULL;
+	if(len == 0){
+		message_flush(msg);
 	}else if(len == 1){
-		message_copy(msg, msg_q->msg);
-		message_destroy(msg_q->msg);
+		message_copy(msg, &(msg_q->msg));
+		//message_destroy(msg_q->msg);
+		message_flush(&(msg_q->msg));
 	}else{
-		message_copy(msg,msg_q->msg);
-		message_destroy(msg_q->msg);
+		message_copy(msg,&(msg_q->msg));
+		//message_destroy(msg_q->msg);
+		message_flush(&(msg_q->msg));
 		msg_q_item = msg_q;
 		msg_q = msg_q->next; //move to the next item 
 		msg_q->prev = msg_q;
@@ -199,10 +225,11 @@ message_queue* message_queue_get(message_queue* msg_q, message* msg){
 
 int message_queue_del(message_queue **msg_q){
 	message_queue *msg_q_item;
-	if((*msg_q)->msg == NULL && (*msg_q)->prev == (*msg_q)->next) //if is empty queue
+	if((*msg_q)->msg.data == NULL && (*msg_q)->prev == (*msg_q)->next) //if is empty queue
 		return 0;
 	else{
-		message_destroy((*msg_q)->msg); //delete the message
+		//message_destroy((*msg_q)->msg); //delete the message
+		message_flush(&((*msg_q)->msg));
 
 		//then delete the message queue item
 		if((*msg_q)->prev == *msg_q && (*msg_q)->next == *msg_q) //one message in the queue
@@ -239,17 +266,19 @@ int message_queue_del_stamp(message_queue **msg_q_p, long stamp){
 	if(len <=0){ //no msg
 		return 0;
 	}else if(len==1){ //one msg
-		if(msg_q->msg->stamp == stamp){
+		if(msg_q->msg.stamp == stamp){
 			cnt++;
-			message_destroy(msg_q->msg); //remove the message
+			//message_destroy(msg_q->msg); //remove the message
+			message_flush(&(msg_q->msg));
 			memset(&(msg_q->time), 0, sizeof(struct timeval));//reset the time
 		}
 		return cnt;
 	}else{
 		while(msg_q->next != msg_q){ //if not the last one
-			if(msg_q->msg->stamp == stamp){
+			if(msg_q->msg.stamp == stamp){
 				cnt++;
-				message_destroy(msg_q->msg);
+				//message_destroy(msg_q->msg);
+				message_flush(&(msg_q->msg));
 				msg_q_item = msg_q;
 
 				if(msg_q->prev == msg_q) //if the first one
@@ -269,15 +298,17 @@ int message_queue_del_stamp(message_queue **msg_q_p, long stamp){
 
 		//check the last item
 		if(msg_q->prev == msg_q){//check if only one in the queue
-			if(msg_q->msg->stamp == stamp){
+			if(msg_q->msg.stamp == stamp){
 				cnt++;
-				message_destroy(msg_q->msg); //remove the message
+				//message_destroy(msg_q->msg); //remove the message
+				message_flush(&(msg_q->msg));
 				memset(&(msg_q->time), 0, sizeof(struct timeval));//reset the time
 			}
 		}else{
-			if(msg_q->msg->stamp == stamp){
+			if(msg_q->msg.stamp == stamp){
 				cnt++;
-				message_destroy(msg_q->msg);
+				//message_destroy(msg_q->msg);
+				message_flush(&(msg_q->msg));
 				msg_q_item = msg_q;
 				msg_q = msg_q->prev;
 				msg_q->next = msg_q;
@@ -293,14 +324,14 @@ int message_queue_find_stamp(message_queue* msg_q, long stamp){ //find if stamp 
 	if(message_queue_getlen(msg_q) == 0)
 		return 0;
 	if(message_queue_getlen(msg_q) == 1)
-		if(msg_q->msg->stamp == stamp)
+		if(msg_q->msg.stamp == stamp)
 			return 1;
 		else
 			return 0;
 	message_queue* msg_q_h = message_queue_to_head(msg_q);
 	message_queue* msg_q_t = message_queue_to_tail(msg_q);
 	while(msg_q_h != msg_q_t){
-		if(msg_q_h->msg->stamp == stamp)
+		if(msg_q_h->msg.stamp == stamp)
 			num ++;
 		msg_q_h = msg_q_h->next;
 	}
@@ -310,10 +341,10 @@ int message_queue_find_stamp(message_queue* msg_q, long stamp){ //find if stamp 
 int message_queue_getlen(message_queue* msg_q){
 	msg_q = message_queue_to_head(msg_q);
 	int len=0;
-	if(msg_q->next == msg_q && msg_q->prev == msg_q){
-		if(msg_q->msg == NULL)
+	if(msg_q->next == msg_q && msg_q->prev == msg_q){ //one or empty queue
+		if(msg_q->msg.data == NULL)
 			return 0;
-		if(msg_q->msg != NULL)
+		if(msg_q->msg.data != NULL)
 			return 1;
 	}
 

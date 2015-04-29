@@ -86,8 +86,8 @@
 //////////////////////////////////////////////////
 //define the header of the packet
 //////////////////////////////////////////////////
-#define MSG_HEADER_GW "\x0d\x0d\x0d\x0d" //for packets over gw server and znet, 4 bytes
-#define MSG_HEADER_FE "\x0d" //for packets over znode and fe, 1 byte
+#define MSG_HEADER_GW "AADD" //for packets over gw server and znet, 4 bytes
+#define MSG_HEADER_FE "A" //for packets over znode and fe, 1 byte
 
 //////////////////////////////////////////////////
 //Protocol defined constants
@@ -156,7 +156,7 @@ typedef struct{
 message* message_create(); //memory allocation of a new message
 void message_destroy(message *msg); //memory destroy of a message
 void message_flush(message *msg);//flush message's data
-void message_copy(message *msg_dst, message *msg_src);
+void message_copy(message *msg_dst, message *msg_src); //copy one message to another message
 
 //message translation
 int bytes2message(buffer_ring_byte* bytes, message* msg); //return the length of the message
@@ -171,7 +171,7 @@ int message_tx_dest(message* msg); //get tx message destination
 #define MSG_Q_MAX_LEN  100 //max length of a message queue
 
 typedef struct message_queue{
-    message* msg;
+    message msg;
     struct message_queue* prev;
     struct message_queue* next;
     struct timeval time;
@@ -181,7 +181,7 @@ message_queue* message_queue_create(); //create a message queue item
 message_queue* message_queue_flush(message_queue* msg_q); //flush the queue
 void message_queue_destroy(message_queue* msg_q); //destroy the whole queue
 
-void message_queue_init(message_queue* msg_q); //initiate an empty message queue
+void message_queue_init(message_queue* msg_q); //initiate an empty message queue's head
 message_queue* message_queue_put(message_queue* msg_q, message* msg); //put one message to the tail fo the queue
 message_queue* message_queue_get(message_queue* msg_q, message* msg); //get one message from the head of the queue 
 
