@@ -16,7 +16,7 @@ void get_config(config* cfg){
 
 void parse_config(config* cfg, char* str){
 	//remove blank lines
-	int n;
+	int n = 0;
 	int idx_parser;
 	int str_len = strlen(str);
 	char cfg_name[CFG_BUFF_LEN]="";

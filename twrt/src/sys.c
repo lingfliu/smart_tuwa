@@ -69,7 +69,7 @@ void sys_get_lic(sys_t* sys, char* lic_file){
 }
 
 //initialize an empty sys_t
-int sys_init(sys_t* sys){
+void sys_init(sys_t* sys){
     memset(sys, 0, sizeof(sys_t));
 
     sys_get_id(sys, FILE_ID_SYS);

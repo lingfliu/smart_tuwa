@@ -6,18 +6,18 @@ int inet_client_config(char* ip, int port, int proc_type, inet* client){
     switch(client->proc){
 	case INET_PROC_TCP:
 	    if((client->fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-		perror("create socket failed\n");
+		perror("create socket failed");
 		return -1;
 	    }
 	    break;
 	case INET_PROC_UDP:
 	    if((client->fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
-		perror("create socket failed\n");
+		perror("create socket failed");
 		return -1;
 	    }
 	    break;
 	default:
-	    perror("Unknown proctocol\n");
+	    perror("Unknown proctocol");
 	    return -1;
     }
 

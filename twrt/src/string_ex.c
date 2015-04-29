@@ -7,7 +7,6 @@ char* strtrim(char* str){
     int str_len = strlen(str);
     int idx_head = 0;
     int idx_tail = str_len-1;
-    char* str_tmp = malloc(sizeof(char)*str_len);
 
     //null string
     if(str_len == 0)

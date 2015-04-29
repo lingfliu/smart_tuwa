@@ -82,7 +82,7 @@ typedef struct{
 void sys_get_id(sys_t *sys, char* id_file); //get GW id from file
 
 void sys_get_lic(sys_t *sys, char* lic_file); //get license from file
-int sys_init(sys_t *sys); //initial empty sys_t
+void sys_init(sys_t *sys); //initial empty sys_t
 void sys_reset(sys_t *sys); //reset & flush the sys_t to its initial status
 
 int sys_znode_update(sys_t* sys, message* msg); //update the znode status in sys_t, if znode is not found, add into the znode_list, return the index of the updated znode
