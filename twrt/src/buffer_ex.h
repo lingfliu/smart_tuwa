@@ -19,8 +19,8 @@ void buffer_ring_byte_flush(buffer_ring_byte* buff); //flush the bytes and reset
 void buffer_ring_byte_del(buffer_ring_byte* buff); //del the ring buffer / remove data
 
 void buffer_ring_byte_put(buffer_ring_byte* buff, char* bytes, int len); 
-char* buffer_ring_byte_get(buffer_ring_byte* buff, char* bytes, int len);
-char* buffer_ring_byte_read(buffer_ring_byte* buff, char* bytes, int len);
+void buffer_ring_byte_get(buffer_ring_byte* buff, char* bytes, int len);
+void buffer_ring_byte_read(buffer_ring_byte* buff, char* bytes, int len);
 
 int buffer_ring_byte_getlen(buffer_ring_byte* buff);//len available
 #endif
