@@ -29,16 +29,16 @@ int main(int argn, char* argv[]){
 
 	//*************************************************
 	//test code for config
-	printf("SERIAL_NAME=%s\n",cfg.serial_name);
-	printf("SERIAL_TYPE=%d\n",cfg.serial_type);
-	printf("SERIAL_BAUDRATE=%s\n",cfg.serial_baudrate);
-	printf("SERVER_IP=%s\n",cfg.server_ip);
-	printf("SERVER_PORT=%d\n",cfg.server_port);
-	printf("SERVER_PROC=%d\n",cfg.server_proc);
-	printf("HOST_PORT=%d\n",cfg.host_port);
-	printf("HOST_PROC=%d\n",cfg.host_proc);
-	printf("ID_SYS=%s\n",sys.id);
-	printf("LIC=%s\n",sys.lic);
+	//printf("SERIAL_NAME=%s\n",cfg.serial_name);
+	//printf("SERIAL_TYPE=%d\n",cfg.serial_type);
+	//printf("SERIAL_BAUDRATE=%s\n",cfg.serial_baudrate);
+	//printf("SERVER_IP=%s\n",cfg.server_ip);
+	//printf("SERVER_PORT=%d\n",cfg.server_port);
+	//printf("SERVER_PROC=%d\n",cfg.server_proc);
+	//printf("HOST_PORT=%d\n",cfg.host_port);
+	//printf("HOST_PROC=%d\n",cfg.host_proc);
+	//printf("ID_SYS=%s\n",sys.id);
+	//printf("LIC=%s\n",sys.lic);
 	//*************************************************
 
 	//3. connect server, open serial, initialize threads
@@ -50,24 +50,24 @@ int main(int argn, char* argv[]){
 	//connect the server
 	while(inet_client_connect(&client) == -1){
 		if(errno == EINPROGRESS){ //connection is in progress 
-			printf("Connecting\n");
+			//printf("Connecting\n");
 			inet_timeout.tv_sec = 2; //set timeout as in 2 seconds
 			inet_timeout.tv_usec = 0;
 			FD_ZERO(&inet_fds);
 			FD_SET(client.fd, &inet_fds);
 			retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 			if(retval == -1 || retval == 0){ //error or timeout
-				printf("Connection timeout\n");
+				//printf("Connection timeout\n");
 				inet_client_close(&client);
 				sys.server_status = SERVER_DISCONNECT;
 				continue;
 			}else{
-				printf("Connected\n");
+				//printf("Connected\n");
 				sys.server_status = SERVER_CONNECT;
 				break;
 			}
 		}else{ //retry connecting to the server
-			printf("Connection error errno=%d\n",errno); 
+			//printf("Connection error errno=%d\n",errno); 
 			sys.server_status = SERVER_DISCONNECT;
 			inet_client_close(&client);
 			sleep(2); //sleep 1 second and try again
@@ -75,10 +75,30 @@ int main(int argn, char* argv[]){
 		}
 	}
 
-	//for(;;)
-		//send(client.fd,"Test this",9,0);
 
-	//initialize inet threads and mut
+	//open serial port
+	while(serial_open(&srl) < 0 )
+		sleep(1);
+
+	//printf("Serial port opened\n");
+	sys.serial_status = SERIAL_ON;
+
+
+	//initialize sys_msg thread, mut, and cond
+	pthread_mutex_init(&mut_msg_rx, NULL);
+	pthread_mutex_init(&mut_msg_tx, NULL);
+
+	if(pthread_create(&thrd_sys_msg_rx, NULL, run_sys_msg_rx, NULL) <0){
+		perror("thrd_sys_msg_rx create");
+		return -1;
+	}
+
+	if(pthread_create(&thrd_sys_msg_tx, NULL, run_sys_msg_tx, NULL) < 0){
+		perror("thrd_sys_msg_tx create");
+		return -1;
+	}
+
+	//initialize inet threads, mut, and cond
 	pthread_mutex_init(&mut_client, NULL);
 	pthread_cond_init(&cond_client, NULL);
 
@@ -92,15 +112,8 @@ int main(int argn, char* argv[]){
 		return -1;
 	}
 
-	pthread_mutex_init(&mut_msg_rx, NULL);
-	pthread_mutex_init(&mut_msg_tx, NULL);
 
-
-	//open serial port
-	while(serial_open(&srl) < 0 )
-		sleep(1);
-	sys.serial_status == SERIAL_ON;
-
+	//initialize serial threads, mut, and cond
 	pthread_mutex_init(&mut_serial,NULL);
 	pthread_cond_init(&cond_serial, NULL);
 
@@ -109,25 +122,19 @@ int main(int argn, char* argv[]){
 		return -1;
 	}
 
+
 	if(pthread_create(&thrd_trans_serial, NULL, run_trans_serial, NULL) < 0){
 		perror("thrd_trans_serial create");
 		return -1;
 	}
 
-	//start system periodic task
+
+	//initialize system periodic task
+	gettimeofday(&(sys.timer_pulse), NULL);
+	gettimeofday(&(sys.timer_reset), NULL);
+	gettimeofday(&(sys.timer_sync), NULL);
 	if(pthread_create(&thrd_sys_ptask, NULL, run_sys_ptask, NULL) < 0){
 		perror("thrd_sys_ptask create");
-		return -1;
-	}
-
-	//initialize sys_msg threads
-	if(pthread_create(&thrd_sys_msg_rx, NULL, run_sys_msg_rx, NULL) <0){
-		perror("thrd_sys_msg_rx create");
-		return -1;
-	}
-
-	if(pthread_create(&thrd_sys_msg_tx, NULL, run_sys_msg_tx, NULL) < 0){
-		perror("thrd_sys_msg_tx create");
 		return -1;
 	}
 
@@ -138,14 +145,18 @@ int main(int argn, char* argv[]){
 		sleep(2);
 		if(sys.lic_status == LIC_UNKNOWN){
 			pthread_mutex_lock(&mut_msg_tx);
+			retval = message_queue_find_stamp(msg_q_tx_req, msg_auth->stamp);
 			if(message_queue_find_stamp(msg_q_tx_req, msg_auth->stamp) == 0){ //if previous auth req is not responded and is flushed
-				message_queue_put(msg_q_tx, msg_auth);
+				//printf("Sending auth\n");
+				msg_q_tx = message_queue_put(msg_q_tx, msg_auth);
+			}else{
+				//printf("Waiting for auth ack\n");
 			}
 			pthread_mutex_unlock(&mut_msg_tx);
 		}
 
 		if(sys.lic_status == LIC_INVALID){
-			printf("Lic not authed.\n");
+			//printf("Lic not authed.\n");
 			return -1;
 		}
 
@@ -154,7 +165,7 @@ int main(int argn, char* argv[]){
 			pthread_mutex_lock(&mut_msg_tx);
 			if(message_queue_find_stamp(msg_q_tx_req, msg_stamp->stamp) == 0){
 				msg_stamp->stamp = sys.tx_msg_stamp++;
-				message_queue_put(msg_q_tx, msg_stamp);
+				msg_q_tx = message_queue_put(msg_q_tx, msg_stamp);
 			}
 			pthread_mutex_unlock(&mut_msg_tx);
 		}
@@ -198,7 +209,7 @@ void *run_client_rx(){
 				pthread_cond_signal(&cond_client);
 			}else if(len == 0){//if disconnected, reconnect
 				on_inet_client_disconnect();
-			}else if(errno == EAGAIN | errno == EINTR ){
+			}else if(errno == EAGAIN || errno == EINTR ){
 				//continue
 			}
 			pthread_mutex_unlock(&mut_client);
@@ -214,6 +225,7 @@ void *run_trans_serial(){
 		pthread_mutex_lock(&mut_serial);
 		pthread_cond_wait(&cond_serial, &mut_serial);
 		//translate bytes into message
+		//printf("start translate\n");
 		while(bytes2message(&buff_serial, msg)>0){
 			usleep(1000);
 			pthread_mutex_lock(&mut_msg_rx);
@@ -229,12 +241,13 @@ void *run_trans_client(){
 	pthread_detach(pthread_self());
 	message *msg = message_create();
 	while(1){
-		usleep(1000);
+		usleep(5000);
 		pthread_mutex_lock(&mut_client);
 		pthread_cond_wait(&cond_client, &mut_client);
 		//translate bytes into message
 		while(bytes2message(&buff_client, msg)>0){
-			usleep(1000);
+			//printf("converted message from buffer\n");
+			usleep(5000);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
 			message_flush(msg);
@@ -250,7 +263,7 @@ void *run_sys_msg_rx(){
 	while(1){
 		usleep(1000);
 		pthread_mutex_lock(&mut_msg_rx);
-		if(message_queue_getlen(msg_q_rx_h)>0){
+		if(message_queue_getlen(msg_q_rx_h) > 0){
 			msg_q_rx_h = message_queue_get(msg_q_rx_h, msg); //read from the head
 			pthread_mutex_unlock(&mut_msg_rx);//unlock msg_q_rx first
 			handle_msg_rx(msg);
@@ -263,13 +276,12 @@ void *run_sys_msg_rx(){
 
 void *run_sys_msg_tx(){
 	pthread_detach(pthread_self());
-	int res;
 	message *msg = message_create();
 
 	while(1){
 		usleep(1000);
 		pthread_mutex_lock(&mut_msg_tx);
-		if(message_queue_getlen(msg_q_tx_h)<=0){//if empty, do nothing
+		if(message_queue_getlen(msg_q_tx_h) == 0){//if empty, do nothing
 			pthread_mutex_unlock(&mut_msg_tx);
 		}else{
 			msg_q_tx_h = message_queue_get(msg_q_tx_h, msg);
@@ -294,18 +306,20 @@ void *run_sys_msg_tx(){
 				case MSG_TO_SERVER:
 					if(sys.lic_status != LIC_VALID){//if not authed, send only auth msg
 						if(msg->data_type == DATA_REQ_AUTH_GW){
-							if(pthread_create(&thrd_client_tx, NULL, run_serial_tx, (void*) msg) < 0){
+							if(pthread_create(&thrd_client_tx, NULL, run_client_tx, (void*) msg) < 0){
 								perror("thrd_client_tx create");
 								break;
 							}
+							//printf("Sending to server\n");
 							pthread_join(thrd_client_tx, NULL);
 						}
 						break;
 					}else{
-						if(pthread_create(&thrd_client_tx, NULL, run_serial_tx, (void*) msg) < 0){
+						if(pthread_create(&thrd_client_tx, NULL, run_client_tx, (void*) msg) < 0){
 							perror("thrd_client_tx create");
 							break;
 						}
+						//printf("Sending to server\n");
 						pthread_join(thrd_client_tx, NULL);
 						break;
 					}
@@ -321,7 +335,9 @@ void *run_serial_tx(void *arg){
 	message *msg = (message*)arg;
 	char *bytes;
 	int len = message2bytes(msg, &bytes);
-	if(send(srl.fd, bytes, len, 0)<=0){
+	if(len == 0)
+		return;
+	if(write(srl.fd, bytes, len)<=0){
 		perror("failed to send to znet");
 		free(bytes); //don't forget to free the mem
 		pthread_exit(0);
@@ -336,6 +352,10 @@ void *run_client_tx(void *arg){
 	int len = message2bytes(msg, &bytes);
 	int ret; 
 	int pos = 0;
+
+	if(len == 0)
+		return;
+
 	while(pos < len && sys.server_status == SERVER_CONNECT){
 		ret = send(client.fd, bytes+pos, len - pos, 0);
 		if(ret == len - pos){
@@ -348,7 +368,9 @@ void *run_client_tx(void *arg){
 				continue;
 			}
 			if(errno == ECONNRESET){ //connection broke
+				free(bytes);
 				on_inet_client_disconnect();
+				pthread_exit(0);
 			}
 			free(bytes); //don't forget to free the mem
 			pthread_exit(0);
@@ -366,23 +388,35 @@ void* run_sys_ptask(){
     struct timeval timer;
     message* msg = message_create();
     int m;
-    int num;
 
 	while(1){	
 		//periodic tasks
-		usleep(50000);
+		sleep(1);
 		gettimeofday(&timer, NULL);
 
 		//req msg cleaning
 		pthread_mutex_lock(&mut_msg_tx);
-		while(timediff(msg_q_tx_req_h->time, timer)>=TIMER_REQ){
+		//printf("start req cleaning\n");
+		//if no req in the queue
+		if(message_queue_getlen(msg_q_tx_req_h) == 0){
+			//printf("no req in the queue\n");
+		}else{
+			retval = message_queue_getlen(msg_q_tx_req_h); 
 			msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
-			message_flush(msg);
+			while(timediff(msg_q_tx_req_h->time, timer)>=TIMER_REQ){
+				msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
+				message_flush(msg);
+				if(message_queue_getlen(msg_q_tx_req_h) == 0) //if queue is empty
+					break;
+			}
 		}
+		//printf("finish req cleaning\n");
 		pthread_mutex_unlock(&mut_msg_tx);
 
 		//sync the gw and znet
+		
 		if(timediff(sys.timer_sync, timer)>TIMER_SYNC){
+			//printf("start sync znet\n");
 			for(m = 0; m<PROC_ZNODE_MAX; m++){//synchronize the znodes
 				if(!znode_isempty(&(sys.znode_list[m]))){
 					message_destroy(msg); //destroy old message before cerating one
@@ -393,6 +427,7 @@ void* run_sys_ptask(){
 				}
 			}
 			//synchronize the root
+			//printf("start sync znet\n");
 			message_destroy(msg);
 			msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0);
 			pthread_mutex_lock(&mut_msg_tx);
@@ -400,13 +435,14 @@ void* run_sys_ptask(){
 			pthread_mutex_unlock(&mut_msg_tx);
 
 			//reset the timer
-			sys.timer_sync = timer;
+			gettimeofday(&(sys.timer_sync), NULL);
 		}
-
-		message_flush(msg);
+		
 
 		//tcp pulse
-		if(timediff(timer, sys.timer_pulse)>TIMER_PULSE){
+		
+		if(timediff(sys.timer_pulse, timer)>TIMER_PULSE){
+			//printf("sending pulse to server\n");
 			message_destroy(msg);
 			msg = message_create_pulse(sys.id, 0);
 			pthread_mutex_lock(&mut_msg_tx);
@@ -415,11 +451,9 @@ void* run_sys_ptask(){
 			pthread_mutex_unlock(&mut_msg_tx);
 
 			//reset the timer
-			sys.timer_pulse = timer;
+			gettimeofday(&(sys.timer_pulse), NULL);
 		}
-
-		message_flush(msg);
-
+		
 		/*
 		//reset
 		if(timediff_hour(timer, sys->timer_reset)>TIMER_RESET){
@@ -436,7 +470,7 @@ void* run_sys_ptask(){
 int handle_msg_rx(message *msg){
 	message *msg_tx;
 	int idx;
-	int result;
+	int result = 0;
 	int val;
 	switch(msg->data_type){
 		case DATA_STAT: 
@@ -472,6 +506,7 @@ int handle_msg_rx(message *msg){
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);
+				message_destroy(msg_tx);
 				result = 0;
 				break;
 			}
@@ -506,7 +541,7 @@ int handle_msg_rx(message *msg){
 				}
 				pthread_mutex_unlock(&mut_msg_tx);
 				result = 0;
-			}else{//otherwise donothing
+			}else{//otherwise do nothing
 				pthread_mutex_unlock(&mut_msg_tx);
 				result = -1;
 			}
@@ -520,13 +555,13 @@ int handle_msg_rx(message *msg){
 			break;
 
 		default:
+			result = 0;
 			break;
 	}
 	return result;
 }
 
 void on_inet_client_disconnect(){
-    int m;
     //when disconnected, clear the cookie and set lic status as unknown
 	sys.server_status = SERVER_DISCONNECT;
     sys.lic_status = LIC_UNKNOWN;
@@ -536,31 +571,31 @@ void on_inet_client_disconnect(){
 	//connect the server
 	while(inet_client_connect(&client) == -1){
 		if(errno == EINPROGRESS){ //connection is in progress 
-			printf("Connecting\n");
+			//printf("Connecting\n");
 			inet_timeout.tv_sec = 2; //set timeout as in 2 seconds
 			inet_timeout.tv_usec = 0;
 			FD_ZERO(&inet_fds);
 			FD_SET(client.fd, &inet_fds);
 			retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 			if(retval == -1 || retval == 0){ //error or timeout
-				printf("Connection timeout\n");
+				//printf("Connection timeout\n");
 				inet_client_close(&client);
 				sys.server_status = SERVER_DISCONNECT;
 				continue;
 			}else{
-				printf("Connected\n");
+				//printf("Connected\n");
 				sys.server_status = SERVER_CONNECT;
 			    return;	
 			}
 		}else{ //retry connecting to the server
-			printf("Connection error errno=%d\n",errno); 
+			//printf("Connection error errno=%d\n",errno); 
 			sys.server_status = SERVER_DISCONNECT;
 			inet_client_close(&client);
 			sleep(2); //sleep 1 second and try again
 			continue;
 		}
 	}
-	printf("Connected\n");
+	//printf("Connected\n");
 	sys.server_status = SERVER_CONNECT;
 }
 
