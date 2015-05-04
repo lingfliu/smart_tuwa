@@ -70,12 +70,19 @@ void sys_get_lic(sys_t* sys, char* lic_file){
 
 //initialize an empty sys_t
 void sys_init(sys_t* sys){
+	int m;
     memset(sys, 0, sizeof(sys_t));
 
     sys_get_id(sys, FILE_ID_SYS);
     sys_get_lic(sys, FILE_LIC); 
     sys->lic_status= LIC_UNKNOWN;
     sys->server_status = SERVER_DISCONNECT;
+	sys->u_stamp = -1; //status stamp
+	sys->tx_msg_stamp = 0;
+
+	for(m = 0; m < PROC_ZNODE_MAX; m++){
+		memcpy(sys->znode_list[m].id, NULL_DEV, MSG_LEN_ID_DEV);
+	}	
 }
 
 

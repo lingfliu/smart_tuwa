@@ -47,7 +47,7 @@ void message_copy(message *msg_dst, message *msg_src){
 int message_isreq(message *msg){
 	switch(msg->data_type){
 		case DATA_REQ_SYNC:
-			return 1;
+			return 0;
 		case DATA_REQ_AUTH_GW:
 			return 1;
 		case DATA_REQ_AUTH_DEV:
@@ -55,7 +55,7 @@ int message_isreq(message *msg){
 		case DATA_REQ_STAMP:
 			return 1;
 		case DATA_REQ_PULSE:
-			return 1;
+			return 0;
 		default:
 			return 0;
 	}
@@ -90,25 +90,34 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 	char pre_bytes[50];
 	char *data;
 
+	int val;
+
 	if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN)
 		return 0;//if not sufficient for a msg, return
 
 	//locate the header
 	buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
-	while(!memcmp(pre_bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW)){//locate the header
+	while(memcmp(pre_bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW)){//locate the header
+		//printf("Header not matching, remove one byte\n");
 		buffer_ring_byte_get(bytes, pre_bytes, 1); //remove one byte
 		if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN)
 			return 0; 
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
 	}
-	if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN)
+	if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN){
+		//printf("Buffer insufficient 1\n");
 		return 0;  //header found, but lenght is not long enough
-	else{
+	}else{
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_FIXED); //read the fixed length 
-		memcpy(&data_len, pre_bytes+MSG_POS_DATA_LEN, sizeof(int)); //get data length
-		if(buffer_ring_byte_getlen(bytes)<data_len+MSG_LEN_FIXED) //if all data in the buffer
+
+		data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //temporal coversion
+
+		//memcpy(&data_len, pre_bytes+MSG_POS_DATA_LEN+1, 1); //get data length
+		if(buffer_ring_byte_getlen(bytes)<data_len+MSG_LEN_FIXED){ //if all data in the buffer
+			//printf("Buffer insufficient 2\n");
 			return 0;
-		else{ //start read the data
+		}else{ //start read the data
+			//printf("Yes finally one message\n");
 			buffer_ring_byte_get(bytes, pre_bytes, MSG_LEN_FIXED);
 
 			data = calloc(data_len, sizeof(char));
@@ -120,7 +129,7 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 			memcpy(&(msg->dev_id), pre_bytes+MSG_POS_ID_DEV, MSG_LEN_ID_DEV);
 			memcpy(&(msg->dev_type), pre_bytes+MSG_POS_DEV_TYPE, MSG_LEN_DEV_TYPE);
 			memcpy(&(msg->data_type), pre_bytes+MSG_POS_DATA_TYPE, MSG_LEN_DATA_TYPE);
-			memcpy(&(msg->data_len), pre_bytes+MSG_POS_DATA_LEN, MSG_LEN_DATA_LEN);
+			memcpy(&(msg->data_len), pre_bytes+MSG_POS_DATA_LEN+1, 1);//only receive the lower 8bits
 			if(msg->data != NULL)
 				free(msg->data);
 			msg->data = calloc(sizeof(char)*data_len, sizeof(char));
@@ -134,6 +143,7 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 
 int message2bytes(message* msg, char** bytes){
 	int len;
+	char val;
 	len = MSG_LEN_FIXED+msg->data_len;
 	*bytes = calloc(len,sizeof(char)); 
 
@@ -144,8 +154,7 @@ int message2bytes(message* msg, char** bytes){
 	memcpy(*bytes+MSG_POS_ID_DEV, &(msg->dev_id), MSG_LEN_ID_DEV);
 	memcpy(*bytes+MSG_POS_DEV_TYPE, &(msg->dev_type), MSG_LEN_DEV_TYPE);
 	memcpy(*bytes+MSG_POS_DATA_TYPE, &(msg->data_type), MSG_LEN_DATA_TYPE);
-	memcpy(*bytes+MSG_POS_DATA_LEN, &(msg->data_len), MSG_LEN_DATA_LEN);
-
+	memcpy(*bytes+MSG_POS_DATA_LEN+1, &(msg->data_len), 1);
 	memcpy(*bytes+MSG_LEN_FIXED, &(msg->data), msg->data_len); //conver the data
 
 	return len;
@@ -328,6 +337,7 @@ int message_queue_find_stamp(message_queue* msg_q, long stamp){ //find if stamp 
 			return 1;
 		else
 			return 0;
+	//for more than 2 msg
 	message_queue* msg_q_h = message_queue_to_head(msg_q);
 	message_queue* msg_q_t = message_queue_to_tail(msg_q);
 	while(msg_q_h != msg_q_t){
@@ -344,17 +354,17 @@ int message_queue_getlen(message_queue* msg_q){
 	if(msg_q->next == msg_q && msg_q->prev == msg_q){ //one or empty queue
 		if(msg_q->msg.data == NULL)
 			return 0;
-		if(msg_q->msg.data != NULL)
+		else
 			return 1;
 	}
-
-	len++;
-	while(msg_q->next != msg_q){
+	else{
 		len++;
-		msg_q=msg_q->next;
+		while(msg_q->next != msg_q){
+			len++;
+			msg_q=msg_q->next;
+		}
+		return len;
 	}
-
-	return len;
 }
 
 message_queue* message_queue_to_head(message_queue *msg_q){

@@ -138,16 +138,18 @@ int main(int argn, char* argv[]){
 		return -1;
 	}
 
-	msg_auth = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, 0); //create auth gw message
+	msg_auth = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, sys.tx_msg_stamp++); //create auth gw message
 	msg_stamp = message_create_req_stamp(sys.id, sys.tx_msg_stamp++); //create auth gw message
 
+	//for(;;)
+		//send(client.fd, "hello world",11,0);
 	while(1){
 		sleep(2);
 		if(sys.lic_status == LIC_UNKNOWN){
 			pthread_mutex_lock(&mut_msg_tx);
-			retval = message_queue_find_stamp(msg_q_tx_req, msg_auth->stamp);
-			if(message_queue_find_stamp(msg_q_tx_req, msg_auth->stamp) == 0){ //if previous auth req is not responded and is flushed
+			if(message_queue_find_stamp(msg_q_tx_req_h, msg_auth->stamp) == 0){ //if previous auth req is not responded and is flushed
 				//printf("Sending auth\n");
+				msg_auth->stamp = sys.tx_msg_stamp++;
 				msg_q_tx = message_queue_put(msg_q_tx, msg_auth);
 			}else{
 				//printf("Waiting for auth ack\n");
@@ -244,9 +246,10 @@ void *run_trans_client(){
 		usleep(5000);
 		pthread_mutex_lock(&mut_client);
 		pthread_cond_wait(&cond_client, &mut_client);
+			//printf("incoming bytes\n");
 		//translate bytes into message
 		while(bytes2message(&buff_client, msg)>0){
-			//printf("converted message from buffer\n");
+			printf("converted message from buffer\n");
 			usleep(5000);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
@@ -401,10 +404,15 @@ void* run_sys_ptask(){
 		if(message_queue_getlen(msg_q_tx_req_h) == 0){
 			//printf("no req in the queue\n");
 		}else{
-			retval = message_queue_getlen(msg_q_tx_req_h); 
-			msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
+			//retval = message_queue_getlen(msg_q_tx_req_h); 
+			//if(retval >1)
+				//printf("%d messages in req queue\n", retval);
+			//retval = timediff(msg_q_tx_req_h->time, timer);
+			//printf("timediff=%d\n",retval);
+
 			while(timediff(msg_q_tx_req_h->time, timer)>=TIMER_REQ){
 				msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
+				//printf("msg_q_tx_req head removed\n");
 				message_flush(msg);
 				if(message_queue_getlen(msg_q_tx_req_h) == 0) //if queue is empty
 					break;
@@ -515,9 +523,13 @@ int handle_msg_rx(message *msg){
 			pthread_mutex_lock(&mut_msg_tx);
 			val = message_queue_del_stamp(&msg_q_tx_req_h, msg->stamp);
 			if(val > 0){//if req still in the queue 
-				if(memcmp(msg->data, sys.id, MSG_LEN_ID_GW)){//if head not equals to the gw id
+				if(!memcmp(msg->data, sys.id, MSG_LEN_ID_GW)){//if head not equals to the gw id
 					sys.lic_status = LIC_VALID;
 					memcpy(sys.cookie, msg->data, SYS_LEN_COOKIE); 
+					//After lic validated, send back an empty stat message to server
+					msg_tx = message_create_stat(0,"",sys.id,NULL_DEV,sys.tx_msg_stamp++); 
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					message_destroy(msg_tx);
 				}else{
 					sys.lic_status = LIC_INVALID;
 				}

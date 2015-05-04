@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <stdio.h>
 #include "buffer_ex.h"
 
 //////////////////////////////////////////////////

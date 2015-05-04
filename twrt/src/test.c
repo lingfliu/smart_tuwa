@@ -9,9 +9,13 @@ typedef struct d_list{
 }d_list;
 
 int main(int argn, char* argv[]){
-    d_list queue;
-    queue.val = 2;
-    queue.prev = &queue;
-    queue.next = &queue;
-    printf("%d\n", queue.prev->val);
+	int a = 128;
+	char c[4];
+	memcpy(c,(char*) &a,4);
+	printf("%d %d\n",(unsigned int)c[0],(unsigned int) c[1]);
+
+	char *strs = "AADD0000AA00DD";
+	int res = !memcmp(strs, "AADD",4);
+	printf("%d\n",res);
+	return 0;
 }

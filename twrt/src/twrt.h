@@ -22,7 +22,7 @@
 
 #define TIMER_PULSE 1000 //pulse ack waiting time in milli-second
 #define TIMER_RESET 72 //pulse ack waiting time in hour 
-#define TIMER_REQ 5000 //request waiting time in milli-second
+#define TIMER_REQ 2000 //request waiting time in milli-second
 #define TIMER_SYNC 30000 //synchronization time in milli-second
 
 #define NET__ON 1 //net (client, znet) stat

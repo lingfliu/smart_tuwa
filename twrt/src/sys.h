@@ -59,7 +59,7 @@ typedef struct{
     long g_stamp;//extra sys stamp for satus update (not used yet)
 
     //stamp for tx msg
-    int tx_msg_stamp;
+    long tx_msg_stamp;
 
     //license
     char lic[SYS_LEN_LIC];
