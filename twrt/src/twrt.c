@@ -77,10 +77,12 @@ int main(int argn, char* argv[]){
 
 
 	//open serial port
-	while(serial_open(&srl) < 0 )
+	while(serial_open(&srl) < 0 ){
+		printf("serial open failed\n");
 		sleep(1);
+	}
 
-	//printf("Serial port opened\n");
+	printf("Serial port opened\n");
 	sys.serial_status = SERIAL_ON;
 
 
@@ -112,7 +114,6 @@ int main(int argn, char* argv[]){
 		return -1;
 	}
 
-
 	//initialize serial threads, mut, and cond
 	pthread_mutex_init(&mut_serial,NULL);
 	pthread_cond_init(&cond_serial, NULL);
@@ -121,7 +122,6 @@ int main(int argn, char* argv[]){
 		perror("thrd_serial_rx create");
 		return -1;
 	}
-
 
 	if(pthread_create(&thrd_trans_serial, NULL, run_trans_serial, NULL) < 0){
 		perror("thrd_trans_serial create");
@@ -183,17 +183,23 @@ void *run_serial_rx(){
 			pthread_mutex_lock(&mut_serial);
 			len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
 			if(len>0){
+				printf("bytes\n");
 				buffer_ring_byte_put(&buff_serial, read_serial, len);
 				pthread_cond_signal(&cond_serial);
-			}else if(len == 0){
-				//continue
-			}else{
-				//if i/o error
-				serial_close(&srl);
-				while(serial_open(&srl) < 0)
-					usleep(5000); //wait 5 ms and try open serial again
+				pthread_mutex_unlock(&mut_serial);
+			}else if(len == -1){
+				if(errno == EAGAIN || errno == EINTR){ //reading in progress
+					printf("no byte\n"); 
+					pthread_mutex_unlock(&mut_serial);
+					continue;
+				}else{ //io error 
+					printf("serial io error\n");
+					serial_close(&srl);
+					while(serial_open(&srl) < 0)
+						usleep(5000); //wait 5 ms and try open serial again
+					pthread_mutex_unlock(&mut_serial);
+				}
 			}
-			pthread_mutex_unlock(&mut_serial);
 		}
 	}
 }
@@ -249,7 +255,7 @@ void *run_trans_client(){
 			//printf("incoming bytes\n");
 		//translate bytes into message
 		while(bytes2message(&buff_client, msg)>0){
-			printf("converted message from buffer\n");
+			//printf("converted message from buffer\n");
 			usleep(5000);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
@@ -336,14 +342,35 @@ void *run_sys_msg_tx(){
 
 void *run_serial_tx(void *arg){
 	message *msg = (message*)arg;
-	char *bytes;
-	int len = message2bytes(msg, &bytes);
+	int len = MSG_LEN_FIXED+msg->data_len;
+	int pos = 0;
+	int ret;
+	char *bytes = calloc(len,sizeof(char));
+	message2bytes(msg, bytes);
+
 	if(len == 0)
-		return;
-	if(write(srl.fd, bytes, len)<=0){
-		perror("failed to send to znet");
-		free(bytes); //don't forget to free the mem
 		pthread_exit(0);
+
+	while(pos < len){
+	   ret = write(srl.fd, bytes+pos, len);
+	   if(ret == len-pos){
+		   free(bytes);
+		   pthread_exit(0);
+	   }
+	   if(ret == -1){
+		   if(errno == EAGAIN || errno == EINTR){
+			   usleep(5000);
+			   continue;
+		   }else{
+			   free(bytes); //don't forget to free the mem
+			   serial_close(&srl);
+			   while(serial_open(&srl) < 0)
+				   usleep(5000); //wait 5 ms and try open serial again
+			   pthread_exit(0);
+		   }
+	   }else{
+			pos += ret;
+	   }
 	}
 	free(bytes); //don't forget to free the mem
 	pthread_exit(0);
@@ -351,13 +378,15 @@ void *run_serial_tx(void *arg){
 
 void *run_client_tx(void *arg){
 	message *msg = (message*)arg;
-	char *bytes;
-	int len = message2bytes(msg, &bytes);
+	int len = MSG_LEN_FIXED+msg->data_len;
+	char *bytes = calloc(len,sizeof(char)); 
+	message2bytes(msg, bytes);
 	int ret; 
 	int pos = 0;
 
 	if(len == 0)
-		return;
+		pthread_exit(0);
+		//return;
 
 	while(pos < len && sys.server_status == SERVER_CONNECT){
 		ret = send(client.fd, bytes+pos, len - pos, 0);
@@ -365,7 +394,7 @@ void *run_client_tx(void *arg){
 			free(bytes); //don't forget to free the mem
 			pthread_exit(0);
 		}
-		if(ret == 0){
+		if(ret == -1){ //send failed
 			if(errno == EAGAIN || errno == EINTR){ //buff is full or interrupted
 				usleep(1);
 				continue;
@@ -377,7 +406,7 @@ void *run_client_tx(void *arg){
 			}
 			free(bytes); //don't forget to free the mem
 			pthread_exit(0);
-		}else{
+		}else{ //send partial data
 			pos += ret;
 		}
 	}
@@ -399,32 +428,21 @@ void* run_sys_ptask(){
 
 		//req msg cleaning
 		pthread_mutex_lock(&mut_msg_tx);
-		//printf("start req cleaning\n");
+
 		//if no req in the queue
 		if(message_queue_getlen(msg_q_tx_req_h) == 0){
-			//printf("no req in the queue\n");
 		}else{
-			//retval = message_queue_getlen(msg_q_tx_req_h); 
-			//if(retval >1)
-				//printf("%d messages in req queue\n", retval);
-			//retval = timediff(msg_q_tx_req_h->time, timer);
-			//printf("timediff=%d\n",retval);
-
 			while(timediff(msg_q_tx_req_h->time, timer)>=TIMER_REQ){
 				msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
-				//printf("msg_q_tx_req head removed\n");
 				message_flush(msg);
 				if(message_queue_getlen(msg_q_tx_req_h) == 0) //if queue is empty
 					break;
 			}
 		}
-		//printf("finish req cleaning\n");
 		pthread_mutex_unlock(&mut_msg_tx);
 
 		//sync the gw and znet
-		
 		if(timediff(sys.timer_sync, timer)>TIMER_SYNC){
-			//printf("start sync znet\n");
 			for(m = 0; m<PROC_ZNODE_MAX; m++){//synchronize the znodes
 				if(!znode_isempty(&(sys.znode_list[m]))){
 					message_destroy(msg); //destroy old message before cerating one
@@ -434,8 +452,8 @@ void* run_sys_ptask(){
 					pthread_mutex_unlock(&mut_msg_tx);
 				}
 			}
+
 			//synchronize the root
-			//printf("start sync znet\n");
 			message_destroy(msg);
 			msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0);
 			pthread_mutex_lock(&mut_msg_tx);
@@ -450,7 +468,6 @@ void* run_sys_ptask(){
 		//tcp pulse
 		
 		if(timediff(sys.timer_pulse, timer)>TIMER_PULSE){
-			//printf("sending pulse to server\n");
 			message_destroy(msg);
 			msg = message_create_pulse(sys.id, 0);
 			pthread_mutex_lock(&mut_msg_tx);
@@ -480,12 +497,18 @@ int handle_msg_rx(message *msg){
 	int idx;
 	int result = 0;
 	int val;
+	if(!message_isvalid(msg))
+		return;
+
 	switch(msg->data_type){
 		case DATA_STAT: 
 			//update stat
 			idx = sys_znode_update(&sys, msg);
 			//if msg is a valid stat msg, sync to server
 			if(idx>=0){
+				printf("%dth znode updated ",idx);
+				printf("type=%d,stat_len=%d\n",sys.znode_list[idx].type,sys.znode_list[idx].status_len);
+
 				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.tx_msg_stamp++);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
@@ -526,8 +549,9 @@ int handle_msg_rx(message *msg){
 				if(!memcmp(msg->data, sys.id, MSG_LEN_ID_GW)){//if head not equals to the gw id
 					sys.lic_status = LIC_VALID;
 					memcpy(sys.cookie, msg->data, SYS_LEN_COOKIE); 
-					//After lic validated, send back an empty stat message to server
-					msg_tx = message_create_stat(0,"",sys.id,NULL_DEV,sys.tx_msg_stamp++); 
+					//After lic validated, send back an null message to server
+					//printf("ack success, send back null message\n");//debug log
+					msg_tx = message_create_null(sys.id, sys.tx_msg_stamp++); 
 					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 					message_destroy(msg_tx);
 				}else{
@@ -539,6 +563,16 @@ int handle_msg_rx(message *msg){
 				pthread_mutex_unlock(&mut_msg_tx);
 				result = -1;
 			}
+			break;
+
+		case DATA_ACK_STAMP:
+			memcpy(&(sys.u_stamp), msg->data, 4);
+			for (idx = 0; idx < PROC_ZNODE_MAX; idx++){
+				if(!znode_isempty(&(sys.znode_list[idx]))){
+					sys.znode_list[idx].u_stamp = sys.u_stamp;
+				}
+			}
+			result = 0;
 			break;
 
 		case DATA_ACK_AUTH_DEV:
@@ -559,17 +593,11 @@ int handle_msg_rx(message *msg){
 			}
 			break;
 
-		case DATA_ACK_STAMP:
-			memcpy(&(sys.u_stamp), &(msg->data), sizeof(char)*4);
-			for(idx = 0; idx < PROC_ZNODE_MAX; idx++)
-				sys.znode_list[idx].u_stamp = sys.u_stamp;
-			result = 0;
-			break;
-
 		default:
 			result = 0;
 			break;
 	}
+
 	return result;
 }
 
