@@ -62,6 +62,7 @@
 
 #define DATA_SYS_RESET 101 //sys reset command
 
+#define DATA_NULL 201 
 //////////////////////////////////////////////////
 //data contents
 //////////////////////////////////////////////////
@@ -161,11 +162,12 @@ void message_copy(message *msg_dst, message *msg_src); //copy one message to ano
 
 //message translation
 int bytes2message(buffer_ring_byte* bytes, message* msg); //return the length of the message
-int message2bytes(message* msg, char** bytes); //return the length of the byte
+int message2bytes(message* msg, char* bytes); //return the length of the byte
 
 //message properties
 int message_isreq(message* msg); //check if message is req messgae
 int message_tx_dest(message* msg); //get tx message destination 
+int message_isvalid(message* msg);
 
 //fifo message queue
 //////////////////////////////////////////
@@ -206,5 +208,6 @@ message* message_create_req_auth_dev(char id_gw[8], char id_dev[8], long stamp);
 message* message_create_req_user(char id_gw[8], char id_user[8], long stamp);
 message* message_create_pulse(char id_gw[8], long stamp);
 message* message_create_req_stamp(char id_gw[8], long stamp);
+message* message_create_null(char id_gw[8], long stamp);
 
 #endif

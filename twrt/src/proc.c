@@ -84,13 +84,16 @@ int message_tx_dest(message* msg){ //get tx message destination
 	}
 }
 
+int message_isvalid(message *msg){
+	return 1;
+}
 //transfer bytes into one message from the beginning
 int bytes2message(buffer_ring_byte* bytes, message* msg){
 	int data_len;
 	char pre_bytes[50];
 	char *data;
 
-	int val;
+	//int val;
 
 	if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN)
 		return 0;//if not sufficient for a msg, return
@@ -141,21 +144,20 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 	}
 }
 
-int message2bytes(message* msg, char** bytes){
+int message2bytes(message* msg, char* bytes){
 	int len;
 	char val;
-	len = MSG_LEN_FIXED+msg->data_len;
-	*bytes = calloc(len,sizeof(char)); 
+	//*bytes = calloc(len,sizeof(char)); 
 
 	//conver the prefix
-	memcpy(*bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW);
-	memcpy(*bytes+MSG_POS_STAMP, &(msg->stamp), MSG_LEN_STAMP);
-	memcpy(*bytes+MSG_POS_ID_GW, &(msg->gateway_id), MSG_LEN_ID_GW);
-	memcpy(*bytes+MSG_POS_ID_DEV, &(msg->dev_id), MSG_LEN_ID_DEV);
-	memcpy(*bytes+MSG_POS_DEV_TYPE, &(msg->dev_type), MSG_LEN_DEV_TYPE);
-	memcpy(*bytes+MSG_POS_DATA_TYPE, &(msg->data_type), MSG_LEN_DATA_TYPE);
-	memcpy(*bytes+MSG_POS_DATA_LEN+1, &(msg->data_len), 1);
-	memcpy(*bytes+MSG_LEN_FIXED, &(msg->data), msg->data_len); //conver the data
+	memcpy(bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW);
+	memcpy(bytes+MSG_POS_STAMP, &(msg->stamp), MSG_LEN_STAMP);
+	memcpy(bytes+MSG_POS_ID_GW, &(msg->gateway_id), MSG_LEN_ID_GW);
+	memcpy(bytes+MSG_POS_ID_DEV, &(msg->dev_id), MSG_LEN_ID_DEV);
+	memcpy(bytes+MSG_POS_DEV_TYPE, &(msg->dev_type), MSG_LEN_DEV_TYPE);
+	memcpy(bytes+MSG_POS_DATA_TYPE, &(msg->data_type), MSG_LEN_DATA_TYPE);
+	memcpy(bytes+MSG_POS_DATA_LEN+1, &(msg->data_len), 1);
+	memcpy(bytes+MSG_LEN_FIXED, msg->data, msg->data_len); //conver the data
 
 	return len;
 }
@@ -410,7 +412,7 @@ message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
 	msg->data_type = DATA_REQ_SYNC;
 	memcpy(msg->data, &u_stamp, 4);
-	memcpy(msg->data+4, &stat_len, stat_len);
+	memcpy(msg->data+4, stat, stat_len);
 	msg->data_len = stat_len+4;
 	msg->stamp = stamp;
 	return msg;
@@ -468,5 +470,17 @@ message* message_create_req_user(char id_gw[8], char id_user[8], long stamp){
 	message *msg = message_create();
 	msg->data = realloc(msg->data, 1);
 	msg->data_len = 1;
+	return msg;
+}
+
+message* message_create_null(char id_gw[8], long stamp){
+	message *msg = message_create();
+	msg->data = realloc(msg->data, 1);
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
+	msg->data_type = DATA_NULL;
+	memset(msg->data, 0, 1);
+	msg->data_len = 1;
+	msg->stamp = stamp;
 	return msg;
 }
