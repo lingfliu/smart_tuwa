@@ -1,0 +1,19 @@
+N-Channel switches:
+DATA is formed by N bytes, each byte stands for stat/ctrl of a channel, default value: 0-100, 0 for off, 100 for on, and values between for dimmable light level
+
+Single channel sensors:
+DATA is formed by 1 byte, 0 for off, 100 for on
+
+Single chanel sensor with values:
+DATA is formed by 2 bytes, e.g. for temperature, use 1 byte for integer part and 1 byte for fraction part: 36.5 is represented as 35 50
+
+Multi-channel sensor with values:
+DATA is formed by N bytes, each byte corresponding to one channel sensor
+
+E.P.
+
+4 channel theme selectors contain two data types:
+under long-press mode (setting mode): DATA is formed by 1 byte, containing the index of the pressed key
+under short-press mode (operating mode): DATA is formed by 1 byte, containing the index of the pressed key
+
+The cntrolling datum are consistent with the status data
