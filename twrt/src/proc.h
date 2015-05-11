@@ -202,7 +202,7 @@ int message_queue_find_stamp(message_queue* msg_q, long stamp); //find if stamp 
 ////////////////////////////////////////////////////
 message* message_create_stat(int stat_len, char* stat, char id_gw[8], char id_dev[8], long stamp);
 message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], long stamp);
-message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], long stamp);
+message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type, long stamp);
 message* message_create_req_auth_gw(int lic_len, char* lic, char id_gw[8], long stamp);
 message* message_create_req_auth_dev(char id_gw[8], char id_dev[8], long stamp);
 message* message_create_req_user(char id_gw[8], char id_user[8], long stamp);

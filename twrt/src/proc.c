@@ -133,6 +133,8 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 			memcpy(&(msg->dev_type), pre_bytes+MSG_POS_DEV_TYPE, MSG_LEN_DEV_TYPE);
 			memcpy(&(msg->data_type), pre_bytes+MSG_POS_DATA_TYPE, MSG_LEN_DATA_TYPE);
 			memcpy(&(msg->data_len), pre_bytes+MSG_POS_DATA_LEN+1, 1);//only receive the lower 8bits
+			//printf("receive message data length = %d\n",msg->data_len);
+
 			if(msg->data != NULL)
 				free(msg->data);
 			msg->data = calloc(sizeof(char)*data_len, sizeof(char));
@@ -405,12 +407,13 @@ message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_de
 	return msg;
 }
 
-message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], long stamp){
+message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type, long stamp){
 	message *msg = message_create();
 	msg->data = realloc(msg->data, stat_len+4);
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
 	msg->data_type = DATA_REQ_SYNC;
+	msg->dev_type = dev_type;
 	memcpy(msg->data, &u_stamp, 4);
 	memcpy(msg->data+4, stat, stat_len);
 	msg->data_len = stat_len+4;
