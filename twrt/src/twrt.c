@@ -83,7 +83,7 @@ int main(int argn, char* argv[]){
 	}
 
 	printf("Serial port opened\n");
-	sys.serial_status = SERIAL_ON;
+	//sys.serial_status = SERIAL_ON;
 
 
 	//initialize sys_msg thread, mut, and cond
@@ -183,17 +183,17 @@ void *run_serial_rx(){
 			pthread_mutex_lock(&mut_serial);
 			len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
 			if(len>0){
-				printf("bytes\n");
+				//printf("incoming bytes\n");
 				buffer_ring_byte_put(&buff_serial, read_serial, len);
 				pthread_cond_signal(&cond_serial);
 				pthread_mutex_unlock(&mut_serial);
-			}else if(len == -1){
+			}else{
 				if(errno == EAGAIN || errno == EINTR){ //reading in progress
-					printf("no byte\n"); 
+					//printf("no byte\n"); 
 					pthread_mutex_unlock(&mut_serial);
 					continue;
 				}else{ //io error 
-					printf("serial io error\n");
+					//printf("serial io error\n");
 					serial_close(&srl);
 					while(serial_open(&srl) < 0)
 						usleep(5000); //wait 5 ms and try open serial again
@@ -228,18 +228,23 @@ void *run_client_rx(){
 void *run_trans_serial(){
 	pthread_detach(pthread_self());
 	message *msg = message_create();
+	int m;
 	while(1){
 		usleep(1000);
 		pthread_mutex_lock(&mut_serial);
 		pthread_cond_wait(&cond_serial, &mut_serial);
 		//translate bytes into message
-		//printf("start translate\n");
+		for(m = 0; m < 35; m++)
+			//printf("%d ",*(buff_serial.p_rw+m));
 		while(bytes2message(&buff_serial, msg)>0){
-			usleep(1000);
+			//printf("message incoming from serial\n");
+			//printf("sizeof(int) = %ld\n",sizeof(int));
+			//printf("dev_type=%d, data_type = %d, data_len=%d\n", msg->dev_type, msg->data_type, msg->data_len);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
 			message_flush(msg);
 			pthread_mutex_unlock(&mut_msg_rx);
+			usleep(1000);
 		}
 		pthread_mutex_unlock(&mut_serial);
 	}
@@ -252,15 +257,14 @@ void *run_trans_client(){
 		usleep(5000);
 		pthread_mutex_lock(&mut_client);
 		pthread_cond_wait(&cond_client, &mut_client);
-			//printf("incoming bytes\n");
 		//translate bytes into message
 		while(bytes2message(&buff_client, msg)>0){
 			//printf("converted message from buffer\n");
-			usleep(5000);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
 			message_flush(msg);
 			pthread_mutex_unlock(&mut_msg_rx);
+			usleep(1000);
 		}
 		pthread_mutex_unlock(&mut_client);
 	}
@@ -270,7 +274,7 @@ void *run_sys_msg_rx(){
 	pthread_detach(pthread_self());
 	message *msg = message_create();
 	while(1){
-		usleep(1000);
+		usleep(5000);
 		pthread_mutex_lock(&mut_msg_rx);
 		if(message_queue_getlen(msg_q_rx_h) > 0){
 			msg_q_rx_h = message_queue_get(msg_q_rx_h, msg); //read from the head
@@ -357,6 +361,7 @@ void *run_serial_tx(void *arg){
 		   free(bytes);
 		   pthread_exit(0);
 	   }
+
 	   if(ret == -1){
 		   if(errno == EAGAIN || errno == EINTR){
 			   usleep(5000);
@@ -394,9 +399,10 @@ void *run_client_tx(void *arg){
 			free(bytes); //don't forget to free the mem
 			pthread_exit(0);
 		}
+
 		if(ret == -1){ //send failed
 			if(errno == EAGAIN || errno == EINTR){ //buff is full or interrupted
-				usleep(1);
+				usleep(1000);
 				continue;
 			}
 			if(errno == ECONNRESET){ //connection broke
@@ -446,7 +452,7 @@ void* run_sys_ptask(){
 			for(m = 0; m<PROC_ZNODE_MAX; m++){//synchronize the znodes
 				if(!znode_isempty(&(sys.znode_list[m]))){
 					message_destroy(msg); //destroy old message before cerating one
-					msg = message_create_sync(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.znode_list[m].u_stamp, sys.id, sys.znode_list[m].id, 0);
+					msg = message_create_sync(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.znode_list[m].u_stamp, sys.id, sys.znode_list[m].id, sys.znode_list[m].type, 0);
 					pthread_mutex_lock(&mut_msg_tx);
 					msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
 					pthread_mutex_unlock(&mut_msg_tx);
@@ -455,7 +461,7 @@ void* run_sys_ptask(){
 
 			//synchronize the root
 			message_destroy(msg);
-			msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0);
+			msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0, 0);
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -505,11 +511,14 @@ int handle_msg_rx(message *msg){
 			//update stat
 			idx = sys_znode_update(&sys, msg);
 			//if msg is a valid stat msg, sync to server
+			//printf("stat msg, dev_type=%d, data_type = %d, data_len=%d\n", msg->dev_type, msg->data_type, msg->data_len);
+			//printf("%d\n",*(msg->data+3));
 			if(idx>=0){
-				printf("%dth znode updated ",idx);
-				printf("type=%d,stat_len=%d\n",sys.znode_list[idx].type,sys.znode_list[idx].status_len);
+				//printf("%dth znode updated ",idx);
+				//printf("type=%d,stat_len=%d\n",sys.znode_list[idx].type,sys.znode_list[idx].status_len);
 
-				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.tx_msg_stamp++);
+				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type, 0);
+				//printf("stat msg, dev_type=%d, data_type = %d, data_len=%d\n", msg->dev_type, msg->data_type, msg->data_len);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);

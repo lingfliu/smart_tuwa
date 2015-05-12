@@ -120,8 +120,9 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 			//printf("Buffer insufficient 2\n");
 			return 0;
 		}else{ //start read the data
-			//printf("Yes finally one message\n");
 			buffer_ring_byte_get(bytes, pre_bytes, MSG_LEN_FIXED);
+
+			printf("data length = %d\n",data_len);
 
 			data = calloc(data_len, sizeof(char));
 
@@ -409,7 +410,7 @@ message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_de
 
 message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type, long stamp){
 	message *msg = message_create();
-	msg->data = realloc(msg->data, stat_len+4);
+	msg->data = calloc(sizeof(char)*(stat_len+4), sizeof(char));
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
 	msg->data_type = DATA_REQ_SYNC;

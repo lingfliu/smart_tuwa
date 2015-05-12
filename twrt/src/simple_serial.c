@@ -12,16 +12,18 @@ int serial_open(serial* srl){
 
 	fd = open(srl->name, O_RDWR | O_NOCTTY | O_NONBLOCK);//non-block serial port
 	if(fd < 0){
-		perror("serial open failed\n");
+		printf("serial open failed\n");
 		return -1;
 	}
-	if(fcntl(fd, F_SETFL, FNDELAY) < 0){
-		perror("fcntl set failed\n");
-		return -1;
-	}// set serial into non-blocking mode
-	if(isatty(STDIN_FILENO) == 0 ){
+
+	//if(fcntl(fd, F_SETFL, FNDELAY) < 0){
+	//	perror("fcntl set failed\n");
+	//	return -1;
+	//}// set serial into non-blocking mode
+
+	//if(isatty(STDIN_FILENO) == 0 ){
 		//printf("standard input is not a terminal device\n");
-	}
+	//}
 
 	bzero(&tio, sizeof(tio)); //reset the tio
 
@@ -65,12 +67,12 @@ int serial_open(serial* srl){
 	tcflush(fd, TCIOFLUSH); //flush input & output
 
 	if(tcgetattr(fd,&srl->tio_bak)!=0){
-		perror("serial set error\n");
+		printf("serial set error\n");
 		return -1;
 	} //bak up previous tio
 
-	if(tcsetattr(fd, TCSAFLUSH, &tio)!=0){
-		perror("serial set error\n");
+	if(tcsetattr(fd, TCSAFLUSH, &tio)!=0){ 
+		printf("serial set error\n");
 		return -1;
 	} //set tio to fd after all data are flushed
 
