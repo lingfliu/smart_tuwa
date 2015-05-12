@@ -156,7 +156,7 @@ message* sys_sync(sys_t *sys, message *msg){
 	   }else if(sys->u_stamp == stamp){
 		   return NULL;
 	   }else{ //if local is newer, send back a sync msg
-		   return message_create_sync(SYS_LEN_STATUS, sys->status, sys->u_stamp, sys->id, NULL_DEV, sys->tx_msg_stamp++);
+		   return message_create_sync(SYS_LEN_STATUS, sys->status, sys->u_stamp, sys->id, NULL_DEV, 0, 0);
 	   }
    }
 
@@ -168,7 +168,7 @@ message* sys_sync(sys_t *sys, message *msg){
 	   memcpy(sys->znode_list[idx].status, msg->data+4, msg->data_len-4);
 	   return NULL;
    }else{ //if local status is newer, send back a sync msg
-	   return message_create_sync(sys->znode_list[idx].status_len, sys->znode_list[idx].status, sys->znode_list[idx].u_stamp, sys->id, sys->znode_list[idx].id, sys->tx_msg_stamp++);
+	   return message_create_sync(sys->znode_list[idx].status_len, sys->znode_list[idx].status, sys->znode_list[idx].u_stamp, sys->id, sys->znode_list[idx].id, sys->znode_list[idx].type, 0);
    }
 }
 
