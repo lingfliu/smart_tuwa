@@ -78,12 +78,9 @@ int main(int argn, char* argv[]){
 
 	//open serial port
 	while(serial_open(&srl) < 0 ){
-		printf("serial open failed\n");
+		//perror("serial open failed\n");
 		sleep(1);
 	}
-
-	printf("Serial port opened\n");
-	//sys.serial_status = SERIAL_ON;
 
 
 	//initialize sys_msg thread, mut, and cond
@@ -141,8 +138,6 @@ int main(int argn, char* argv[]){
 	msg_auth = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, sys.tx_msg_stamp++); //create auth gw message
 	msg_stamp = message_create_req_stamp(sys.id, sys.tx_msg_stamp++); //create auth gw message
 
-	//for(;;)
-		//send(client.fd, "hello world",11,0);
 	while(1){
 		sleep(2);
 		if(sys.lic_status == LIC_UNKNOWN){
@@ -235,11 +230,7 @@ void *run_trans_serial(){
 		pthread_cond_wait(&cond_serial, &mut_serial);
 		//translate bytes into message
 		for(m = 0; m < 35; m++)
-			//printf("%d ",*(buff_serial.p_rw+m));
 		while(bytes2message(&buff_serial, msg)>0){
-			//printf("message incoming from serial\n");
-			//printf("sizeof(int) = %ld\n",sizeof(int));
-			//printf("dev_type=%d, data_type = %d, data_len=%d\n", msg->dev_type, msg->data_type, msg->data_len);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
 			message_flush(msg);
@@ -259,7 +250,6 @@ void *run_trans_client(){
 		pthread_cond_wait(&cond_client, &mut_client);
 		//translate bytes into message
 		while(bytes2message(&buff_client, msg)>0){
-			//printf("converted message from buffer\n");
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
 			message_flush(msg);
@@ -323,7 +313,6 @@ void *run_sys_msg_tx(){
 								perror("thrd_client_tx create");
 								break;
 							}
-							//printf("Sending to server\n");
 							pthread_join(thrd_client_tx, NULL);
 						}
 						break;
@@ -332,7 +321,6 @@ void *run_sys_msg_tx(){
 							perror("thrd_client_tx create");
 							break;
 						}
-						//printf("Sending to server\n");
 						pthread_join(thrd_client_tx, NULL);
 						break;
 					}
@@ -511,14 +499,8 @@ int handle_msg_rx(message *msg){
 			//update stat
 			idx = sys_znode_update(&sys, msg);
 			//if msg is a valid stat msg, sync to server
-			//printf("stat msg, dev_type=%d, data_type = %d, data_len=%d\n", msg->dev_type, msg->data_type, msg->data_len);
-			//printf("%d\n",*(msg->data+3));
 			if(idx>=0){
-				//printf("%dth znode updated ",idx);
-				//printf("type=%d,stat_len=%d\n",sys.znode_list[idx].type,sys.znode_list[idx].status_len);
-
 				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type, 0);
-				//printf("stat msg, dev_type=%d, data_type = %d, data_len=%d\n", msg->dev_type, msg->data_type, msg->data_len);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);
@@ -559,7 +541,6 @@ int handle_msg_rx(message *msg){
 					sys.lic_status = LIC_VALID;
 					memcpy(sys.cookie, msg->data, SYS_LEN_COOKIE); 
 					//After lic validated, send back an null message to server
-					//printf("ack success, send back null message\n");//debug log
 					msg_tx = message_create_null(sys.id, sys.tx_msg_stamp++); 
 					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 					message_destroy(msg_tx);
@@ -620,31 +601,26 @@ void on_inet_client_disconnect(){
 	//connect the server
 	while(inet_client_connect(&client) == -1){
 		if(errno == EINPROGRESS){ //connection is in progress 
-			//printf("Connecting\n");
 			inet_timeout.tv_sec = 2; //set timeout as in 2 seconds
 			inet_timeout.tv_usec = 0;
 			FD_ZERO(&inet_fds);
 			FD_SET(client.fd, &inet_fds);
 			retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 			if(retval == -1 || retval == 0){ //error or timeout
-				//printf("Connection timeout\n");
 				inet_client_close(&client);
 				sys.server_status = SERVER_DISCONNECT;
 				continue;
 			}else{
-				//printf("Connected\n");
 				sys.server_status = SERVER_CONNECT;
 			    return;	
 			}
 		}else{ //retry connecting to the server
-			//printf("Connection error errno=%d\n",errno); 
 			sys.server_status = SERVER_DISCONNECT;
 			inet_client_close(&client);
 			sleep(2); //sleep 1 second and try again
 			continue;
 		}
 	}
-	//printf("Connected\n");
 	sys.server_status = SERVER_CONNECT;
 }
 

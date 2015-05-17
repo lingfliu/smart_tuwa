@@ -8,12 +8,9 @@ message* message_create(){
 
 void message_destroy(message *msg){
 	if(msg->data == NULL) //empty message do nothing
-		//memset(msg,0,sizeof(message));
 		free(msg);
 	else{
-		//memset(msg->data, 0, msg->data_len);
 		free(msg->data);
-		//memset(msg,0,sizeof(message));
 		free(msg);
 	}
 
@@ -23,7 +20,6 @@ void message_flush(message *msg){//flush message without destroying it
 	if(msg->data == NULL) //empty message do nothing
 		memset(msg, 0, sizeof(message));
 	else{
-		//memset(msg->data, 0, msg->data_len);
 		free(msg->data);
 		memset(msg, 0, sizeof(message));
 		msg->data = NULL;
@@ -101,31 +97,24 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 	//locate the header
 	buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
 	while(memcmp(pre_bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW)){//locate the header
-		//printf("Header not matching, remove one byte\n");
 		buffer_ring_byte_get(bytes, pre_bytes, 1); //remove one byte
 		if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN)
 			return 0; 
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
 	}
 	if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN){
-		//printf("Buffer insufficient 1\n");
 		return 0;  //header found, but lenght is not long enough
 	}else{
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_FIXED); //read the fixed length 
 
 		data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //temporal coversion
 
-		//memcpy(&data_len, pre_bytes+MSG_POS_DATA_LEN+1, 1); //get data length
 		if(buffer_ring_byte_getlen(bytes)<data_len+MSG_LEN_FIXED){ //if all data in the buffer
-			//printf("Buffer insufficient 2\n");
 			return 0;
 		}else{ //start read the data
 			buffer_ring_byte_get(bytes, pre_bytes, MSG_LEN_FIXED);
 
-			printf("data length = %d\n",data_len);
-
 			data = calloc(data_len, sizeof(char));
-
 			buffer_ring_byte_get(bytes, data, data_len);
 
 			memcpy(&(msg->stamp), pre_bytes+MSG_POS_STAMP, MSG_LEN_STAMP);
@@ -134,7 +123,6 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 			memcpy(&(msg->dev_type), pre_bytes+MSG_POS_DEV_TYPE, MSG_LEN_DEV_TYPE);
 			memcpy(&(msg->data_type), pre_bytes+MSG_POS_DATA_TYPE, MSG_LEN_DATA_TYPE);
 			memcpy(&(msg->data_len), pre_bytes+MSG_POS_DATA_LEN+1, 1);//only receive the lower 8bits
-			//printf("receive message data length = %d\n",msg->data_len);
 
 			if(msg->data != NULL)
 				free(msg->data);
@@ -150,7 +138,6 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 int message2bytes(message* msg, char* bytes){
 	int len;
 	char val;
-	//*bytes = calloc(len,sizeof(char)); 
 
 	//conver the prefix
 	memcpy(bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW);
@@ -169,7 +156,6 @@ int message2bytes(message* msg, char* bytes){
 //message queue functions
 message_queue* message_queue_create(){
 	message_queue* msg_q = calloc(sizeof(message_queue), sizeof(char));
-	//msg_q->msg = NULL;
 	msg_q->msg.data = NULL;
 	return msg_q;
 }
@@ -182,11 +168,9 @@ message_queue* message_queue_flush(message_queue* msg_q){
 		msg_q_item = msg_q;
 		msg_q = msg_q->next;//move to next msg
 		msg_q->prev = msg_q; //set the next msg as the head
-		//message_destroy(msg_q_item->msg); //delete current msg
 		message_flush(&(msg_q_item->msg));
 		free(msg_q_item); //free current msg_q
 	}
-	//message_destroy(msg_q->msg); //keep the last item in the queue
 	message_flush(&(msg_q->msg));
 	return msg_q;
 }
@@ -203,14 +187,12 @@ void message_queue_init(message_queue *msg_q){
 
 message_queue* message_queue_put(message_queue* msg_q, message* msg){
 	if(message_queue_getlen(msg_q)==0){
-		//msg_q->msg = message_create();
 		message_copy(&(msg_q->msg), msg); //empty queue
 	}else{
 		msg_q->next = message_queue_create();
 		msg_q->next->prev = msg_q;
 		msg_q = msg_q->next;
 		msg_q->next = msg_q;
-		//msg_q->msg = message_create();
 		message_copy(&(msg_q->msg), msg);
 	}
 	return msg_q;
@@ -223,11 +205,9 @@ message_queue* message_queue_get(message_queue* msg_q, message* msg){
 		message_flush(msg);
 	}else if(len == 1){
 		message_copy(msg, &(msg_q->msg));
-		//message_destroy(msg_q->msg);
 		message_flush(&(msg_q->msg));
 	}else{
 		message_copy(msg,&(msg_q->msg));
-		//message_destroy(msg_q->msg);
 		message_flush(&(msg_q->msg));
 		msg_q_item = msg_q;
 		msg_q = msg_q->next; //move to the next item 
@@ -242,8 +222,7 @@ int message_queue_del(message_queue **msg_q){
 	if((*msg_q)->msg.data == NULL && (*msg_q)->prev == (*msg_q)->next) //if is empty queue
 		return 0;
 	else{
-		//message_destroy((*msg_q)->msg); //delete the message
-		message_flush(&((*msg_q)->msg));
+		message_flush(&((*msg_q)->msg)); //delete message data
 
 		//then delete the message queue item
 		if((*msg_q)->prev == *msg_q && (*msg_q)->next == *msg_q) //one message in the queue
@@ -282,7 +261,6 @@ int message_queue_del_stamp(message_queue **msg_q_p, long stamp){
 	}else if(len==1){ //one msg
 		if(msg_q->msg.stamp == stamp){
 			cnt++;
-			//message_destroy(msg_q->msg); //remove the message
 			message_flush(&(msg_q->msg));
 			memset(&(msg_q->time), 0, sizeof(struct timeval));//reset the time
 		}
@@ -314,14 +292,12 @@ int message_queue_del_stamp(message_queue **msg_q_p, long stamp){
 		if(msg_q->prev == msg_q){//check if only one in the queue
 			if(msg_q->msg.stamp == stamp){
 				cnt++;
-				//message_destroy(msg_q->msg); //remove the message
 				message_flush(&(msg_q->msg));
 				memset(&(msg_q->time), 0, sizeof(struct timeval));//reset the time
 			}
 		}else{
 			if(msg_q->msg.stamp == stamp){
 				cnt++;
-				//message_destroy(msg_q->msg);
 				message_flush(&(msg_q->msg));
 				msg_q_item = msg_q;
 				msg_q = msg_q->prev;
@@ -415,7 +391,7 @@ message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
 	msg->data_type = DATA_REQ_SYNC;
 	msg->dev_type = dev_type;
-	memcpy(msg->data, &u_stamp, 4);
+	memcpy((void*) msg->data, (void*) &u_stamp, 4);
 	memcpy(msg->data+4, stat, stat_len);
 	msg->data_len = stat_len+4;
 	msg->stamp = stamp;

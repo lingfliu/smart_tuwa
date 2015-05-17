@@ -9,13 +9,17 @@ typedef struct d_list{
 }d_list;
 
 int main(int argn, char* argv[]){
-	int a = 128;
+	long a = 128;
 	char c[4];
-	memcpy(c,(char*) &a,4);
-	printf("%d %d\n",(unsigned int)c[0],(unsigned int) c[1]);
+	//memcpy(c,(char*) &a,4);
+	//printf("%d %d\n",(unsigned int)c[0],(unsigned int) c[1]);
 
 	char *strs = "AADD0000AA00DD";
 	int res = !memcmp(strs, "AADD",4);
 	printf("%d\n",res);
+
+	memcpy(c, (char*) &a, 4);
+	memcpy((char*) &a, c, 4);
+	printf("%ld\n",a);
 	return 0;
 }

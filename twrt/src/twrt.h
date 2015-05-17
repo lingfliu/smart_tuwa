@@ -25,8 +25,8 @@
 #define TIMER_REQ 2000 //request waiting time in milli-second
 #define TIMER_SYNC 30000 //synchronization time in milli-second
 
-#define NET__ON 1 //net (client, znet) stat
-#define NET_OFF 0 //net (client, znet) stat
+//#define NET_ON 1 //net (client, znet) stat
+//#define NET_OFF 0 //net (client, znet) stat
 
 //configs and io entities
 static config cfg;
