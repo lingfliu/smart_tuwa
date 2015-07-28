@@ -25,6 +25,7 @@ void znode_create(znode* znd, message *msg){
     znd->ver = DEFAULT_VER;
     znd->status_len = msg->data_len;
     znd->status = realloc(znd->status, msg->data_len);
+	//printf("status_len = %d", msg->data_len);
     memcpy(znd->status, msg->data, msg->data_len);
     znd->net_status = ZNET_ON;
     znd->u_stamp = 0;

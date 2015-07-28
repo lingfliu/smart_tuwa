@@ -372,12 +372,13 @@ message* message_create_stat(int stat_len, char* stat, char id_gw[8], char id_de
 	return msg;
 }
 
-message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], long stamp){
+message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], int dev_type, long stamp){
 	message *msg = message_create();
 	msg->data = realloc(msg->data, ctrl_len);
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
 	msg->data_type = DATA_CTRL;
+	msg->dev_type = dev_type;
 	memcpy(msg->data, ctrl, ctrl_len);
 	msg->data_len = ctrl_len;
 	msg->stamp = stamp;

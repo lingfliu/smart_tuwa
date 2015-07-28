@@ -78,10 +78,10 @@ int main(int argn, char* argv[]){
 
 	//open serial port
 	while(serial_open(&srl) < 0 ){
-		//perror("serial open failed\n");
+		//error("serial open failed\n");
 		sleep(1);
 	}
-
+	//printf("serial connected\n");
 
 	//initialize sys_msg thread, mut, and cond
 	pthread_mutex_init(&mut_msg_rx, NULL);
@@ -178,7 +178,7 @@ void *run_serial_rx(){
 			pthread_mutex_lock(&mut_serial);
 			len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
 			if(len>0){
-				//printf("incoming bytes\n");
+				printf("bytes from serial\n");
 				buffer_ring_byte_put(&buff_serial, read_serial, len);
 				pthread_cond_signal(&cond_serial);
 				pthread_mutex_unlock(&mut_serial);
@@ -210,9 +210,11 @@ void *run_client_rx(){
 			if(len>0){
 				buffer_ring_byte_put(&buff_client, read_client, len);
 				pthread_cond_signal(&cond_client);
+				//printf("received bytes from server\n");
 			}else if(len == 0){//if disconnected, reconnect
 				on_inet_client_disconnect();
 			}else if(errno == EAGAIN || errno == EINTR ){
+				//printf("no byte from server\n");
 				//continue
 			}
 			pthread_mutex_unlock(&mut_client);
@@ -229,8 +231,9 @@ void *run_trans_serial(){
 		pthread_mutex_lock(&mut_serial);
 		pthread_cond_wait(&cond_serial, &mut_serial);
 		//translate bytes into message
-		for(m = 0; m < 35; m++)
 		while(bytes2message(&buff_serial, msg)>0){
+			//printf("message received from serial\n");
+			//printf("msg_len=%d\n",msg->data_len);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
 			message_flush(msg);
@@ -498,6 +501,7 @@ int handle_msg_rx(message *msg){
 		case DATA_STAT: 
 			//update stat
 			idx = sys_znode_update(&sys, msg);
+			//printf("znode update, type=%d, idx=%d", msg->dev_type, idx);
 			//if msg is a valid stat msg, sync to server
 			if(idx>=0){
 				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type, 0);
@@ -511,7 +515,7 @@ int handle_msg_rx(message *msg){
 
 		case DATA_CTRL:
 			//send ctrl to znet
-			msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, sys.tx_msg_stamp++);
+			msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, msg->dev_type, sys.tx_msg_stamp++);
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -539,6 +543,7 @@ int handle_msg_rx(message *msg){
 			if(val > 0){//if req still in the queue 
 				if(!memcmp(msg->data, sys.id, MSG_LEN_ID_GW)){//if head not equals to the gw id
 					sys.lic_status = LIC_VALID;
+					//printf("gw authed\n");
 					memcpy(sys.cookie, msg->data, SYS_LEN_COOKIE); 
 					//After lic validated, send back an null message to server
 					msg_tx = message_create_null(sys.id, sys.tx_msg_stamp++); 
