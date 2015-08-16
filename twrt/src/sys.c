@@ -83,6 +83,7 @@ void sys_init(sys_t* sys){
 
 	for(m = 0; m < PROC_ZNODE_MAX; m++){
 		memcpy(sys->znode_list[m].id, NULL_DEV, MSG_LEN_ID_DEV);
+		sys->znode_list[m].u_stamp = -1;
 	}	
 }
 
