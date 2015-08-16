@@ -157,7 +157,7 @@ int main(int argn, char* argv[]){
 			return -1;
 		}
 
-		//this will only run once 
+		//this will run untill the stamp is synchronized 
 		if(sys.lic_status == LIC_VALID && sys.u_stamp < 0){
 			pthread_mutex_lock(&mut_msg_tx);
 			if(message_queue_find_stamp(msg_q_tx_req, msg_stamp->stamp) == 0){
@@ -174,7 +174,7 @@ void *run_serial_rx(){
 	int len;
 	while(1){
 		usleep(5000);
-		if(sys.lic_status == LIC_VALID){ //if server is disconnected, serial will keep working as long as the license is valid
+		if(sys.lic_status == LIC_VALID && sys.u_stamp > 0){ //if server is disconnected, serial will keep working as long as the license is valid
 			pthread_mutex_lock(&mut_serial);
 			len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
 			if(len>0){
