@@ -3,16 +3,19 @@
 //znode operations
 /////////////////////////////////////////////////////
 int znode_isempty(znode *znd){
-    if(znd->status_len == 0 && znd->status == NULL && !memcmp(znd->id, NULL_DEV, MSG_LEN_ID_DEV))
-	return 1;
-    else
-	return 0;
+    if(znd->status_len == 0 && znd->status == NULL && !memcmp(znd->id, NULL_DEV, MSG_LEN_ID_DEV)){
+		return 1;
+	}
+    else {
+		return 0;
+	}
 }
 
 int znode_copy(znode* znode_dst, znode* znode_src){
-    if(znode_isempty(znode_src))
-	return -1;
-    memcpy(znode_dst, znode_src, sizeof(znode));
+    if(znode_isempty(znode_src)) {
+		return -1;
+	}
+	memcpy(znode_dst, znode_src, sizeof(znode));
     znode_dst->status = realloc(znode_dst->status, znode_dst->status_len);
     memcpy(znode_dst->status, znode_src->status, znode_dst->status_len);
     return 0;
@@ -105,18 +108,23 @@ int sys_znode_update(sys_t* sys, message* msg){
 			if(znode_isempty(&(sys->znode_list[m]))){
 				idx_empty = m;
 				break;
-			}else{
+			}
+			else{
 				continue;
 			}
 		}
-		if(idx_empty<0){ //znode list is full, do nothing
+		if(idx_empty<0) { //znode list is full, do nothing
 			return -1; 
-		}else{ //add new node in the list;
+		}
+		else { //add new node in the list
 			znode_create(&(sys->znode_list[idx_empty]), msg);
+			sys->znode_list[idx_empty].u_stamp = sys->u_stamp;
 			return idx_empty;
 		}
-	}else{ //already in the list, update
+	}
+	else { //already in the list, update
 		znode_update(&(sys->znode_list[idx]), msg);
+		sys->znode_list[idx].u_stamp++;
 		return idx;
 	}
 }

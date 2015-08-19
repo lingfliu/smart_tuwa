@@ -174,7 +174,7 @@ void *run_serial_rx(){
 	int len;
 	while(1){
 		usleep(5000);
-		if(sys.lic_status == LIC_VALID && sys.u_stamp > 0){ //if server is disconnected, serial will keep working as long as the license is valid
+		if(sys.lic_status == LIC_VALID && sys.u_stamp > 0){ //serial will keep working as long lic valid and system stamp is synchronized with the system
 			pthread_mutex_lock(&mut_serial);
 			len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
 			if(len>0){
@@ -452,10 +452,10 @@ void* run_sys_ptask(){
 
 			//synchronize the root
 			message_destroy(msg);
-			msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0, 0);
-			pthread_mutex_lock(&mut_msg_tx);
-			msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
-			pthread_mutex_unlock(&mut_msg_tx);
+			//msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0, 0);
+			//pthread_mutex_lock(&mut_msg_tx);
+			//msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
+			//pthread_mutex_unlock(&mut_msg_tx);
 
 			//reset the timer
 			gettimeofday(&(sys.timer_sync), NULL);
@@ -564,6 +564,7 @@ int handle_msg_rx(message *msg){
 			memcpy(&(sys.u_stamp), msg->data, 4);
 			for (idx = 0; idx < PROC_ZNODE_MAX; idx++){
 				if(!znode_isempty(&(sys.znode_list[idx]))){
+					//this will only excute after stamp is synchronized with the server
 					sys.znode_list[idx].u_stamp = sys.u_stamp;
 				}
 			}

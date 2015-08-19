@@ -75,6 +75,8 @@ int message_tx_dest(message* msg){ //get tx message destination
 			return MSG_TO_SERVER;
 		case DATA_REQ_PULSE:
 			return MSG_TO_SERVER;
+		case DATA_SET:
+			return MSG_TO_SERVER;
 		default:
 			return MSG_TO_SERVER;
 	}

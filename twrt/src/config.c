@@ -57,4 +57,6 @@ void parse_config(config* cfg, char* str){
 		sscanf(cfg_val,"%d",&(cfg->host_port));
 	if(!strcmp(cfg_name, CFG_HOST_PROC))
 		sscanf(cfg_val,"%d",&(cfg->host_proc));
+	if(!strcmp(cfg_name, CFG_TIME_UPDATE))
+		sscanf(cfg_val,"%d",&(cfg->time_update));
 }

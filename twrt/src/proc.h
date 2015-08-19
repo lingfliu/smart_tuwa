@@ -42,36 +42,61 @@
 //////////////////////////////////////////////////
 //data type
 //////////////////////////////////////////////////
+/*
+   Data formats: 
+	1. Status and controls:
+	For switches, sockets, curtain, and theme setter ctrl: CHN1_STAT CHN2_STAT CHN3_STAT CHN4_STAT
+	For dimmables: CHN1_LEVEL CHN2_LEVEL CHN3_LEVEL
+	For on/off sensors: STAT (ON/OFF)
+	For value sensors: Value in byte format
+	For mech_valve and alarm (control only): STAT (ON/OFF)
+	
+	2. Synchronization:
+	System synchronization: sys_stamp (4 bytes) status
+	Node synchronization: node_stamp (4 bytes) status
 
+	3. Stamp request: (during initialization)
+
+	4. Pulse: NULL_DATA (1 byte)
+
+	5. GW authorization: lic
+
+	6. Theme setter: DEV_ID NUM ZNET_STATUS
+
+   */
 #define DATA_STAT 1 //status update, from znode to gateway
 #define DATA_CTRL 2 //control, from znode to gateway, from gateway to znode, from server to gateway
 
 #define DATA_REQ_SYNC 21 //synchronization request
 #define DATA_REQ_AUTH_GW 22 //gw authroization request
-#define DATA_REQ_AUTH_DEV 23 //dev authroization request
-#define DATA_REQ_USER 24 //user list request
+#define DATA_REQ_AUTH_DEV 23 //dev authroization request (not used)
+#define DATA_REQ_USER 24 //user list request (not used)
 #define DATA_REQ_STAMP 25 //initial stamp request
-#define DATA_REQ_PULSE 26 //tcp pulse 
+#define DATA_REQ_PULSE 26 //tcp pulse (not req any longer)
 
-#define DATA_ACK_SYNC 61 //synchronization ack
+#define DATA_SET 30 //data type specially for theme setter
+
+#define DATA_ACK_SYNC 61 //synchronization ack (not used)
 #define DATA_ACK_AUTH_GW 62 //auth gw ack
 #define DATA_ACK_AUTH_DEV 63 //auth dev ack
-#define DATA_ACK_USER 64 //user list ack
-#define DATA_ACK_STAMP 65 //initial stamp ack
-#define DATA_ACK_PULSE 66 //tcp pulse ack
+#define DATA_ACK_USER 64 //user list ack (not used)
+#define DATA_ACK_STAMP 65 //initial stamp ack 
+#define DATA_ACK_PULSE 66 //tcp pulse ack (not used)
 
 #define DATA_SYS_RESET 101 //sys reset command
 
-#define DATA_NULL 201 
+#define DATA_NULL 201  //null data, may not used
+
 //////////////////////////////////////////////////
 //data contents
 //////////////////////////////////////////////////
 #define STAT_ON  100 
 #define STAT_OFF 0 
+//tunable stat range from 0 to 100 in 1 byte
 
-#define ERR_NET 0xF0
-#define ERR_ELEC 0xF1
-#define ERR_SYS 0xF2
+#define ERR_NET 0xF0 // (not used)
+#define ERR_ELEC 0xF1 //(not used)
+#define ERR_SYS 0xF2 //(not used)
 
 #define TCP_PULSE 0xAA
 
@@ -80,10 +105,12 @@
 
 #define CTRL_ON 0 
 #define CTRL_OFF 100 
-//#define DATA_CTRL_LEVEL: range from 0~100 
+//level control range from 0~100 
 
 #define THEME_SET 0x11
+//theme set, when this data is send to GW, GW should record the current system status: dev_id+num+sys_status
 
+#define BYTE_NULL 0x00
 
 //////////////////////////////////////////////////
 //define the header of the packet

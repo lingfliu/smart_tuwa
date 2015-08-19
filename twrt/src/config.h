@@ -24,6 +24,7 @@
 #define CFG_HOST_PORT "HOST_PORT"
 #define CFG_HOST_PROC "HOST_PROC"
 
+#define CFG_TIME_UPDATE "TIME_UPDATE"
 
 #define CFG_BUFF_LEN 50 
 
@@ -39,6 +40,9 @@ typedef struct{
     int server_proc;   
     int host_port;
     int host_proc;
+
+	//system config
+	int time_update; // system update period in minutes
 
 }config;
 
