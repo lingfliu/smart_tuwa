@@ -27,25 +27,8 @@ int main(int argn, char* argv[]){
 
 	sys_init(&sys);
 
-	//*************************************************
-	//test code for config
-	//printf("SERIAL_NAME=%s\n",cfg.serial_name);
-	//printf("SERIAL_TYPE=%d\n",cfg.serial_type);
-	//printf("SERIAL_BAUDRATE=%s\n",cfg.serial_baudrate);
-	//printf("SERVER_IP=%s\n",cfg.server_ip);
-	//printf("SERVER_PORT=%d\n",cfg.server_port);
-	//printf("SERVER_PROC=%d\n",cfg.server_proc);
-	//printf("HOST_PORT=%d\n",cfg.host_port);
-	//printf("HOST_PROC=%d\n",cfg.host_proc);
-	//printf("ID_SYS=%s\n",sys.id);
-	//printf("LIC=%s\n",sys.lic);
-	//*************************************************
-
 	//3. connect server, open serial, initialize threads
 	/////////////////////////////////////
-
-	//mutex for the main thread
-	pthread_mutex_init(&mut_sys, NULL);
 
 	//connect the server
 	while(inet_client_connect(&client) == -1){
@@ -61,16 +44,18 @@ int main(int argn, char* argv[]){
 				inet_client_close(&client);
 				sys.server_status = SERVER_DISCONNECT;
 				continue;
-			}else{
+			}
+			else {
 				//printf("Connected\n");
 				sys.server_status = SERVER_CONNECT;
 				break;
 			}
-		}else{ //retry connecting to the server
+		}
+		else { //retry connecting to the server
 			//printf("Connection error errno=%d\n",errno); 
 			sys.server_status = SERVER_DISCONNECT;
 			inet_client_close(&client);
-			sleep(2); //sleep 1 second and try again
+			sleep(2); //sleep 2 second and try again
 			continue;
 		}
 	}
@@ -146,7 +131,9 @@ int main(int argn, char* argv[]){
 				//printf("Sending auth\n");
 				msg_auth->stamp = sys.tx_msg_stamp++;
 				msg_q_tx = message_queue_put(msg_q_tx, msg_auth);
-			}else{
+			}
+			//if not matched, send again
+			else{
 				//printf("Waiting for auth ack\n");
 			}
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -426,15 +413,10 @@ void* run_sys_ptask(){
 		//req msg cleaning
 		pthread_mutex_lock(&mut_msg_tx);
 
-		//if no req in the queue
-		if(message_queue_getlen(msg_q_tx_req_h) == 0){
-		}else{
-			while(timediff(msg_q_tx_req_h->time, timer)>=TIMER_REQ){
-				msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
-				message_flush(msg);
-				if(message_queue_getlen(msg_q_tx_req_h) == 0) //if queue is empty
-					break;
-			}
+		//if tx_req is not empty and messages are outdated
+		while(message_queue_getlen(msg_q_tx_req_h) > 0 && timediff(msg_q_tx_req_h->time, timer)>=TIMER_REQ) {
+			msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
+			message_flush(msg);
 		}
 		pthread_mutex_unlock(&mut_msg_tx);
 
@@ -450,8 +432,8 @@ void* run_sys_ptask(){
 				}
 			}
 
-			//synchronize the root
 			message_destroy(msg);
+			//synchronize the root
 			//msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0, 0);
 			//pthread_mutex_lock(&mut_msg_tx);
 			//msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
@@ -502,8 +484,8 @@ int handle_msg_rx(message *msg){
 			//update stat
 			idx = sys_znode_update(&sys, msg);
 			//printf("znode update, type=%d, idx=%d", msg->dev_type, idx);
-			//if msg is a valid stat msg, sync to server
-			if(idx>=0){
+			//if update valid, send synchronization to server
+			if(idx >= 0) {
 				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type, 0);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
@@ -525,10 +507,11 @@ int handle_msg_rx(message *msg){
 
 		case DATA_REQ_SYNC:
 			msg_tx = sys_sync(&sys, msg);
-			if(msg_tx == NULL){ //if server status is newer than local
+			if(msg_tx == NULL) { //if server status is newer than local
 				result = 0;
 				break;
-			}else{
+			} 
+			else {
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);
@@ -541,7 +524,7 @@ int handle_msg_rx(message *msg){
 			pthread_mutex_lock(&mut_msg_tx);
 			val = message_queue_del_stamp(&msg_q_tx_req_h, msg->stamp);
 			if(val > 0){//if req still in the queue 
-				if(!memcmp(msg->data, sys.id, MSG_LEN_ID_GW)){//if head not equals to the gw id
+				if(!memcmp(msg->data, sys.id, MSG_LEN_ID_GW)){//if head equals to the gw id
 					sys.lic_status = LIC_VALID;
 					//printf("gw authed\n");
 					memcpy(sys.cookie, msg->data, SYS_LEN_COOKIE); 
@@ -549,12 +532,15 @@ int handle_msg_rx(message *msg){
 					msg_tx = message_create_null(sys.id, sys.tx_msg_stamp++); 
 					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 					message_destroy(msg_tx);
-				}else{
+				}
+				//any auth ack msg not start with GW_ID will invalidate system
+				else {
 					sys.lic_status = LIC_INVALID;
 				}
 				pthread_mutex_unlock(&mut_msg_tx);
 				result = 0;
-			}else{//if auth is not acked, do nothing
+			}
+			else {//if auth is not acked, do nothing
 				pthread_mutex_unlock(&mut_msg_tx);
 				result = -1;
 			}
@@ -562,7 +548,7 @@ int handle_msg_rx(message *msg){
 
 		case DATA_ACK_STAMP:
 			memcpy(&(sys.u_stamp), msg->data, 4);
-			for (idx = 0; idx < PROC_ZNODE_MAX; idx++){
+			for(idx = 0; idx < PROC_ZNODE_MAX; idx++) {
 				if(!znode_isempty(&(sys.znode_list[idx]))){
 					//this will only excute after stamp is synchronized with the server
 					sys.znode_list[idx].u_stamp = sys.u_stamp;
@@ -572,6 +558,8 @@ int handle_msg_rx(message *msg){
 			break;
 
 		case DATA_ACK_AUTH_DEV:
+			//Not used yet
+			/*
 			pthread_mutex_lock(&mut_msg_tx);
 			val = message_queue_del_stamp(&msg_q_tx_req_h, msg->stamp);
 			idx = sys_get_znode_idx(&sys, msg->data);
@@ -587,6 +575,8 @@ int handle_msg_rx(message *msg){
 				pthread_mutex_unlock(&mut_msg_tx);
 				result = -1;
 			}
+			*/
+			result = 0;
 			break;
 
 		default:

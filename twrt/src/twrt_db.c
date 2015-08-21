@@ -511,7 +511,7 @@ int handle_msg_rx(message *msg){
 
 		case DATA_CTRL:
 			//send ctrl to znet
-			msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, sys.tx_msg_stamp++);
+			msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, msg->dev_type, sys.tx_msg_stamp++);
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -648,7 +648,7 @@ void* run_test(){
 	pthread_detach(pthread_self());
 	message *msg = message_create();
 	char bytes0[36] = {'A','A','D','D',   '\x0','\x0','\x0','\x0',  '0','0','0','0','0','0','0','0', '1','1','1','1','1','3','1','1', 3, 0, 1, 0, 0, 3, 255, 255, 255, 187, 187, 187};
-	char bytes1[36] = {'A','A','D','D',   '\x0','\x0','\x0','\x0',  '0','0','0','0','0','0','0','0', '1','1','1','1','2','1','1','1', 3, 0, 1, 0, 0, 6, 1, 1, 1, 2, 1, 8};
+	char bytes1[36] = {'A','A','D','D',   '\x0','\x0','\x0','\x0',  '0','0','0','0','0','0','0','0', '1','1','1','1','1','1','1','1', 3, 0, 1, 0, 0, 6, 1, 1, 1, 2, 1, 8};
 	int len = 36;
 	int val = 0;
 

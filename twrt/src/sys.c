@@ -99,32 +99,28 @@ int sys_znode_update(sys_t* sys, message* msg){
 		if(!memcmp(msg->dev_id, sys->znode_list[m].id, MSG_LEN_ID_DEV)){ //if id_dev equal
 			idx = m;
 			break;
-		}else{
-			continue;
 		}
 	}
-	if(idx<0){//not in the list 
-		for(m = 0; m<PROC_ZNODE_MAX; m++){
-			if(znode_isempty(&(sys->znode_list[m]))){
+
+	if( idx < 0 ) {//not in the list 
+		for(m = 0; m < PROC_ZNODE_MAX; m++ ) {
+			if(znode_isempty( &(sys->znode_list[m]) ) ){
 				idx_empty = m;
 				break;
 			}
-			else{
-				continue;
-			}
 		}
-		if(idx_empty<0) { //znode list is full, do nothing
+
+		if( idx_empty < 0 ) { //znode list is full, do nothing
 			return -1; 
 		}
 		else { //add new node in the list
 			znode_create(&(sys->znode_list[idx_empty]), msg);
-			sys->znode_list[idx_empty].u_stamp = sys->u_stamp;
+			sys->znode_list[idx_empty].u_stamp = sys->u_stamp; //set u_stamp as system u_stamp
 			return idx_empty;
 		}
 	}
 	else { //already in the list, update
-		znode_update(&(sys->znode_list[idx]), msg);
-		sys->znode_list[idx].u_stamp++;
+		znode_update(&(sys->znode_list[idx]), msg); //u_stamp will be updated here
 		return idx;
 	}
 }
@@ -161,6 +157,7 @@ message* sys_sync(sys_t *sys, message *msg){
    if(!memcmp(&(msg->dev_id), NULL_DEV, 8)){ //root sync
 	   if(sys->u_stamp < stamp){ //if msg contains newer status, update
 		   memcpy(sys->status, msg->data+4, SYS_LEN_STATUS);
+		   sys->u_stamp = stamp; //don't forget to update the stamp
 		   return NULL;
 	   }else if(sys->u_stamp == stamp){
 		   return NULL;
@@ -170,13 +167,15 @@ message* sys_sync(sys_t *sys, message *msg){
    }
 
    idx = sys_get_znode_idx(sys, msg->dev_id);
-   if(idx<0){
+   if(idx<0) {
 	   return NULL;
    }
-   if(sys->znode_list[idx].u_stamp < stamp){ //if msg contains newer status, update
+   if(sys->znode_list[idx].u_stamp < stamp) { //if msg contains newer status, update
 	   memcpy(sys->znode_list[idx].status, msg->data+4, msg->data_len-4);
+	   sys->znode_list[idx].u_stamp = stamp; //don't forget to update the stamp
 	   return NULL;
-   }else{ //if local status is newer, send back a sync msg
+   }
+   else { //if local status is newer, send back a sync msg
 	   return message_create_sync(sys->znode_list[idx].status_len, sys->znode_list[idx].status, sys->znode_list[idx].u_stamp, sys->id, sys->znode_list[idx].id, sys->znode_list[idx].type, 0);
    }
 }
