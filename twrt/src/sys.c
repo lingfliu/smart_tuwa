@@ -140,13 +140,14 @@ void localuser_delete(localuser *usr){
 	buffer_ring_byte_flush(&(usr->buff));
 }
 
-int sys_localuser_login(sys_t* sys, int skt){
+localuser* sys_localuser_login(sys_t* sys, int skt){
 	int m;
-	int retval = -1;
+	int idx = -1;
+	localuser *usr;
 	for (m = 0; m < LOCALUSER_SIZE; m ++) {
 		if ( localuser_isnull( &(sys->localuser_list[m])) ) {
 			sys->localuser_list[m].skt = skt;
-			retval = m;
+			idx = m;
 			break;
 		}
 		else {
@@ -155,12 +156,15 @@ int sys_localuser_login(sys_t* sys, int skt){
 	}
 
 	//if list is full, do the evict
-	if (retval == -1){
+	if (idx == -1){
 		sys_localuser_evict(sys);
-		retval = sys_localuser_login(sys, skt); //and login again
+		usr = sys_localuser_login(sys, skt); //and login again
+		return usr;
+	}
+	else {
+		return &(sys->localuser_list[idx]);
 	}
 
-	return retval;
 } 
 
 //localuser logout (active logout)

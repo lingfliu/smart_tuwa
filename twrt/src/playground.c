@@ -14,7 +14,7 @@ void* run();
 int main(int argn, char * arg[]){
 	pthread_t thr;
 	object obj;
-	obj.val = 10;
+	obj.val = 0;
 	void *retval;
 
 	char *name = "hello";
@@ -23,15 +23,19 @@ int main(int argn, char * arg[]){
 		obj.name[m] = name[m];
 	}
 
-	if( pthread_create(&thr, NULL, run, (void*) &obj) < 0 )
-		return;
-	pthread_join(thr, &retval);
-	printf("the thread return result %c\n", * ((char*)retval));
+	while(1) {
+		obj.val ++;
+		if( pthread_create(&thr, NULL, run, (void*) &obj) < 0 )
+			return;
+		pthread_join(thr, &retval);
+		printf("obj.val = %d", obj.val);
+		printf(" thread returns %d\n", (* ((int*)retval)));
+	}
 }
 
 void *run(void* arg){
 	object *obj = (object *) arg;
-	char *val = malloc(1);
-	*val = 'a';
+	int *val;
+	val = &(obj->val);
 	pthread_exit((void*) val);
 }

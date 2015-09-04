@@ -25,6 +25,9 @@
 #define SERIAL_ON 1
 #define SERIAL_OFF 2
 
+#define SOCKET_CONNECT 1
+#define SOCKET_DISCONNECT 2
+
 //license status code
 #define LIC_VALID 1
 #define LIC_INVALID 2
@@ -37,6 +40,10 @@
 //system size
 #define ZNET_SIZE 255 //maximum number of znodes in znet
 #define LOCALUSER_SIZE 3 //maximum number of concurrent localuser connection 
+
+#define LOCAL_STATUS_MSGINVALID 'a'
+#define LOCAL_STATUS_SKTDISCONNECT 'b'
+#define LOCAL_STATUS_EXITNORMAL 'c'
 
 //memory settings
 #define BUFF_IO_LEN 500 
@@ -82,6 +89,7 @@ typedef struct{
 	buffer_ring_byte buff;
 	int is_authed;
     struct timeval time_lastactive; //timer to send tcp pulse to the server
+	char tx_status;
 }localuser;
 
 int localuser_isnull(localuser *usr);
@@ -154,7 +162,7 @@ int sys_get_znode_idx(sys_t* sys, char id[8]); //return the znode index given id
 int sys_get_znode_num(sys_t* sys); //get the actual number of znodes in the list
 
 //localuser operation
-int sys_localuser_login(sys_t* sys, int skt); 
+localuser* sys_localuser_login(sys_t* sys, int skt); 
 int sys_localuser_logout(sys_t* sys, char id[8]); 
 int sys_localuser_evict(sys_t* sys); //force logout (passive logout) a localuser if: 1. localuser_list is full, 2. socket do not receive any data after timeout
 int sys_get_localuser_idx(sys_t* sys, char id[8]);

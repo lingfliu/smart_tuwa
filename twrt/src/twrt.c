@@ -130,6 +130,8 @@ int main(int argn, char* argv[]){
 				sys.server_status = SERVER_CONNECT;
 			}
 		}
+
+		/* if server connected */
 		else {
 			//if license is not authed by the server, communication to server will be stopped, but the rest part (znet, localhost) will keep functioning
 			if(sys.lic_status == LIC_UNKNOWN) {
@@ -239,14 +241,13 @@ void *run_client_rx(){
 					message_flush(msg);
 					usleep(1000);
 				}
-			}else if(len == 0){//if disconnected, reconnect
+			}
+			else if(len == 0){//if disconnected, reconnect
 				on_inet_client_disconnect();
-			}else if(errno == EAGAIN || errno == EINTR ){
+			}
+			else if(errno == EAGAIN || errno == EINTR ){
 				continue;
 			}
-		}
-		else {
-			on_inet_client_disconnect();
 		}
 	}
 }
@@ -395,6 +396,7 @@ void* run_localhost(){
 	struct sockaddr_in localuser_sock;
 	socklen_t len = sizeof(struct sockaddr_in);
 	int skt;
+	localuser *usr;
 
 	if( listen(localhost.fd, 10) ) {
 		//failed to start listening
@@ -402,14 +404,15 @@ void* run_localhost(){
 	}
 
 	while(1) {
+		usleep(5000);
 		skt = accept(localhost.fd, (struct sockaddr *) &localuser_sock, &len);
 		if (skt < 0){
 			//accept failed
 			pthread_exit(0);
 		}
 		else {
-			sys_localuser_login(&sys, skt);
-			usleep(5000);
+			usr = sys_localuser_login(&sys, skt);
+			pthread_create( &(usr->thrd_rx), NULL, run_localuser_rx, usr);
 		}
 	}
 }
@@ -422,6 +425,7 @@ void* run_localuser_rx(void* arg) {
 	localbundle bundle;
 	bundle.usr = usr;
 	int len;
+	char *tx_result;
 	while(1) {
 		usleep(5000);
 		gettimeofday(&timer, NULL);
@@ -439,27 +443,40 @@ void* run_localuser_rx(void* arg) {
 						}
 						else {
 							if ( !memcmp(msg->data, DEFAULT_AUTHCODE, 8) && !memcmp(msg->data, sys.id, MSG_LEN_ID_GW) ) {
+								//register the user
 								memcpy(usr->id, msg->dev_id, MSG_LEN_ID_DEV);
 								usr->is_authed = 1;
+
 								//send back ack message
 								msg = message_create_ack_auth_local(sys.id, msg->dev_id, msg->dev_type, AUTH_OK);
 								bundle.msg = msg;
 								pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
-								pthread_join(usr->thrd_tx, NULL);
+								pthread_join(usr->thrd_tx, (void**) &tx_result);
 								//don't forget to delete the message
 								message_destroy(msg);
-								//update the time_lastactive
-								gettimeofday( &(usr->time_lastactive), NULL );
+
+								//every tx thread should be checked for the connection
+								if (*tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+									localuser_delete(usr);
+									free(tx_result);
+									pthread_exit(0);
+								}
+								else {
+									//update the time_lastactive
+									gettimeofday( &(usr->time_lastactive), NULL );
+									free(tx_result);
+								}
 							}
 							//otherwise close the socket
 							else {
 								msg = message_create_ack_auth_local(sys.id, msg->dev_id, msg->dev_type, AUTH_NO);
 								bundle.msg = msg;
 								pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
-								pthread_join(usr->thrd_tx, NULL);
+								pthread_join(usr->thrd_tx, (void**) &tx_result);
 								//don't forget to delete the message
 								message_destroy(msg);
 								localuser_delete(usr);
+								free(tx_result);
 								pthread_exit(0);
 							}
 						}
@@ -483,8 +500,6 @@ void* run_localuser_rx(void* arg) {
 				}
 			}
 			else {
-				//flush other messages
-				message_flush(msg);
 				//check the timeout
 				if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
 					localuser_delete(usr);
@@ -513,13 +528,15 @@ void* run_localuser_rx(void* arg) {
 }
 
 void* run_localuser_tx(void *arg){
-	localbundle bundle = * ((localbundle*) arg);
-	localuser *usr = bundle.usr;
-	message *msg = bundle.msg;
+	localbundle *bundle = (localbundle*) arg;
+	localuser *usr = bundle->usr;
+	message *msg = bundle->msg;
+	char *local_status = &(usr->tx_status);
 
 	int len = MSG_LEN_FIXED+msg->data_len;
 	if(len == 0) {
-		pthread_exit(0);
+		*local_status = LOCAL_STATUS_MSGINVALID;
+		pthread_exit((void*) local_status);
 	}
 
 	char *bytes = calloc(len,sizeof(char)); 
@@ -531,7 +548,8 @@ void* run_localuser_tx(void *arg){
 		ret = send( usr->skt, bytes+pos, len - pos, 0 );
 		if( ret == len - pos ) {
 			free(bytes); //don't forget to free the mem
-			pthread_exit(0);
+			*local_status = LOCAL_STATUS_EXITNORMAL;
+			pthread_exit((void*) local_status);
 		}
 
 		if(ret == -1) { //send failed
@@ -541,18 +559,20 @@ void* run_localuser_tx(void *arg){
 			}
 			if(errno == ECONNRESET) { //connection broke
 				free(bytes);
-				close(usr->skt);
-				pthread_exit(0);
+				*local_status = LOCAL_STATUS_SKTDISCONNECT;
+				pthread_exit((void*) local_status);
 			}
 			free(bytes); //don't forget to free the mem
-			pthread_exit(0);
+			*local_status = LOCAL_STATUS_SKTDISCONNECT;
+			pthread_exit((void*) local_status);
 		}
 		else { //send partial data
 			pos += ret;
 		}
 	}
 	free(bytes); //don't forget to free the mem
-	pthread_exit(0);
+	*local_status = LOCAL_STATUS_EXITNORMAL;
+	pthread_exit( (void*) local_status );
 }
 
 void* run_sys_ptask(){
@@ -627,6 +647,8 @@ int handle_msg_rx(message *msg){
 	int m;
 	localbundle bundle;
 	localuser *usr;
+	char* local_tx_result;
+
 	if(!message_isvalid(msg))
 		return;
 
@@ -650,11 +672,20 @@ int handle_msg_rx(message *msg){
 				//send the status to local-users
 				for( m = 0; m < LOCALUSER_SIZE; m ++) {
 					usr = &(sys.localuser_list[m]);
-					if (localuser_isnull(usr)) {
+					if ( !localuser_isnull(usr) ) {
 						bundle.usr = usr;
 						bundle.msg = msg;
 						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
-						pthread_join(usr->thrd_tx, NULL);
+						pthread_join(usr->thrd_tx, (void**) &local_tx_result);
+						//every tx thread should be checked for the connection
+						if (*local_tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+							localuser_delete(usr);
+							free(tx_result);
+						}
+						else {
+							//update the time_lastactive
+							gettimeofday( &(usr->time_lastactive), NULL );
+							free(tx_result);
 					}
 				}
 			}
@@ -735,6 +766,9 @@ int handle_local_message(message *msg, localuser *usr){
 	bundle.usr = usr;
 	int retval;
 	int m;
+	char* tx_result;
+	int idx;
+
 	if( !message_isvalid(msg)) {
 		retval = -1;
 	}
@@ -749,16 +783,50 @@ int handle_local_message(message *msg, localuser *usr){
 				break;
 			case DATA_REQ_STAT:
 				//if req device is null, set back the whole znet
-				if( !memcmp(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV) ) {
+				if ( !memcmp(msg->dev_id, NULL_DEV, 8) ) {
+					for (m = 0; m < ZNET_SIZE; m ++) {
+						if( !znode_isempty( &(sys.znode_list[m]) ) ){
+							msg_tx = message_create_stat(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.id, sys.znode_list[m].id, sys.znode_list[m].type);
+							bundle.msg = msg_tx;
+							pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+							//the thrd_tx should return a new 
+							pthread_join(usr->thrd_tx, (void**) tx_result);
+							//don't forget to delete the message
+							message_destroy(msg_tx);
+
+							//every tx thread should be checked for the connection
+							if (*tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+								localuser_delete(usr);
+								pthread_exit(0);
+							}
+							else {
+								//update the time_lastactive
+								gettimeofday( &(usr->time_lastactive), NULL );
+							}
+						}
+					}
 				}
-				for (m = 0; m < ZNET_SIZE; m ++) {
-					msg_tx = message_create_stat(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.id, sys.znode_list[m].id, sys.znode_list[m].type);
-					bundle.msg = msg_tx;
-					pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
-					//the thrd_tx should return a new 
-					pthread_join(usr->thrd_tx, NULL);
-					//don't forget to delete the message
-					message_destroy(msg);
+				else {
+					idx = sys_get_znode_idx(&sys, msg->dev_id); 
+					if (idx >= 0){
+						msg_tx = message_create_stat(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
+						bundle.msg = msg_tx;
+						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+						//the thrd_tx should return a new 
+						pthread_join(usr->thrd_tx, (void**) tx_result);
+						//don't forget to delete the message
+						message_destroy(msg_tx);
+
+						//every tx thread should be checked for the connection
+						if (*tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+							localuser_delete(usr);
+							pthread_exit(0);
+						}
+						else {
+							//update the time_lastactive
+							gettimeofday( &(usr->time_lastactive), NULL );
+						}
+					}
 				}
 				break;
 			default:
