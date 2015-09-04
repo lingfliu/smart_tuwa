@@ -10,23 +10,27 @@
 
 #define FILE_CFG "/etc/twrt/config"//config file
 #define FILE_CFG_PARSER '='// config parser
-#define FILE_LIC "/etc/twrt/lic"
-#define FILE_ID_SYS "/etc/twrt/id_sys"
-#define FILE_STAT "/etc/twrt/stat_sys"
-#define FILE_LOG "/etc/twrt/log"
 
+#define FILE_LIC "/etc/twrt/lic" //GW license file
+#define FILE_ID_SYS "/etc/twrt/id_sys" //ID (Wifi MAC) of GW 
+//#define FILE_STAT "/etc/twrt/stat_sys" //status file name (not used)
+//#define FILE_LOG "/etc/twrt/log" //log file (not used)
+
+//serial, server, and localhost configuration
 #define CFG_SERIAL_NAME "SERIAL_NAME"
 #define CFG_SERIAL_TYPE "SERIAL_TYPE"
 #define CFG_SERIAL_BAUDRATE "SERIAL_BAUDRATE"
 #define CFG_SERVER_IP "SERVER_IP"
 #define CFG_SERVER_PORT "SERVER_PORT"
 #define CFG_SERVER_PROC "SERVER_PROC"
-#define CFG_HOST_PORT "HOST_PORT"
-#define CFG_HOST_PROC "HOST_PROC"
+#define CFG_LOCALHOST_PORT "LOCALHOST_PORT"
+#define CFG_LOCALHOST_PROC "LOCALHOST_PROC"
 
-#define CFG_TIME_UPDATE "TIME_UPDATE"
+//regular update of sys.znode
+#define CFG_TIME_ZNET_SYNC "TIME_ZNET_SYNC"
 
-#define CFG_BUFF_LEN 50 
+//buffer length for config file getl
+#define CFG_BUFF_LEN 100 
 
 typedef struct{
     //serial config
@@ -34,15 +38,17 @@ typedef struct{
     int serial_type;
     char serial_baudrate[20]; 
 
-    //inet config
+    //server config
     char server_ip[20];
     int server_port;
     int server_proc;   
-    int host_port;
-    int host_proc;
+
+	//local host config
+    int localhost_port;
+    int localhost_proc;
 
 	//system config
-	int time_update; // system update period in minutes
+	int time_znet_sync; // znet synchronization cycle in seconds
 
 }config;
 

@@ -1,13 +1,11 @@
 #include "buffer_ex.h"
 
-
-/////////////////////////////////////////////////
-//Byte ring
-////////////////////////////////////////////////
+//create ring buffer given size len
 void buffer_ring_byte_create(buffer_ring_byte *buff, int len){
     buff->len = len;
-	if(buff->data != NULL) //delete previous data in the buffer
+	if(buff->data != NULL){ //delete previous data in the buffer
 		free(buff->data);
+	}
     buff->data = calloc(sizeof(char)*len, sizeof(char));
 	buff->len = len;
     buff->p_head = buff->data;
@@ -81,6 +79,7 @@ void buffer_ring_byte_read(buffer_ring_byte* buff, char* bytes, int len){
     return;
 }
 
+//get the actual data length in the buffer
 int buffer_ring_byte_getlen(buffer_ring_byte* buff){
     int len;
     if(!buff->overflow)//if not overflow: p_rw<p_c
