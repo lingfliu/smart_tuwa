@@ -7,9 +7,15 @@
 #include <stdio.h>
 #include "buffer_ex.h"
 
-//////////////////////////////////////////////////
-//device type
-//////////////////////////////////////////////////
+/************************************************
+  A message's format: 
+  HEADER MSG_STAMP ID_GW ID_DEV TYPE_DEV TYPE_DATA LEN_DATA DATA
+  N.B. MSG_STAMP is not used
+  **********************************************/
+
+/************************************************
+  device type
+  ***********************************************/
 #define DEV_SWITCH_1 1
 #define DEV_SWITCH_2 2
 #define DEV_SWITCH_3 3
@@ -19,6 +25,11 @@
 #define DEV_CURTAIN_2 7
 #define DEV_SOCK_1 8
 #define DEV_SOCK_4 9
+
+/*************************
+ newly added device types
+ *************************/
+#define DEV_LOCAL_PHONE 50
 
 #define DEV_SENSOR_SMOKE 101
 #define DEV_SENSOR_CO 102
@@ -38,11 +49,11 @@
 #define DEV_INFRACTRL 203
 #define DEV_ALARM 204
 
+#define NULL_DEV "00000000" 
+/*************************************************
+  Data type
+  ************************************************
 
-//////////////////////////////////////////////////
-//data type
-//////////////////////////////////////////////////
-/*
    Data formats: 
 	1. Status and controls:
 	For switches, sockets, curtain, and theme setter ctrl: CHN1_STAT CHN2_STAT CHN3_STAT CHN4_STAT
@@ -62,10 +73,17 @@
 	5. GW authorization: lic
 
 	6. Theme setter: DEV_ID NUM ZNET_STATUS
+   **********************************************/
 
-   */
 #define DATA_STAT 1 //status update, from znode to gateway
 #define DATA_CTRL 2 //control, from znode to gateway, from gateway to znode, from server to gateway
+#define DATA_SET 3 //data type specially for theme setter
+
+/*************************
+  newly added data type
+ *************************/
+#define DATA_PULSE 4 //simple pulse msg for sockets (both to server and from localhost) 
+#define DATA_SYNC 5 //simple sync msg for localusers
 
 #define DATA_REQ_SYNC 21 //synchronization request
 #define DATA_REQ_AUTH_GW 22 //gw authroization request
@@ -74,22 +92,32 @@
 #define DATA_REQ_STAMP 25 //initial stamp request
 #define DATA_REQ_PULSE 26 //tcp pulse (not req any longer)
 
-#define DATA_SET 30 //data type specially for theme setter
+
+/*************************
+  newly added data type
+ *************************/
+#define DATA_REQ_STAT 27 //localuser request for znet status
+#define DATA_REQ_AUTH_LOCAL 28 //localuser auth request
 
 #define DATA_ACK_SYNC 61 //synchronization ack (not used)
 #define DATA_ACK_AUTH_GW 62 //auth gw ack
-#define DATA_ACK_AUTH_DEV 63 //auth dev ack
+//#define DATA_ACK_AUTH_DEV 63 //auth dev ack (not used)
 #define DATA_ACK_USER 64 //user list ack (not used)
 #define DATA_ACK_STAMP 65 //initial stamp ack 
-#define DATA_ACK_PULSE 66 //tcp pulse ack (not used)
+//#define DATA_ACK_PULSE 66 //tcp pulse ack (not used)
 
-#define DATA_SYS_RESET 101 //sys reset command
+/*************************
+  newly added data type
+ *************************/
+#define DATA_ACK_AUTH_LOCAL 67 //localuser auth ack
 
-#define DATA_NULL 201  //null data, may not used
 
-//////////////////////////////////////////////////
-//data contents
-//////////////////////////////////////////////////
+#define DATA_SYS_RESET 101 //sys reset command (not used)
+#define DATA_NULL 201  //null data type for general purposes
+
+/*************************************************
+  Data contents
+  ***********************************************/
 #define STAT_ON  100 
 #define STAT_OFF 0 
 //tunable stat range from 0 to 100 in 1 byte
@@ -110,28 +138,19 @@
 #define THEME_SET 0x11
 //theme set, when this data is send to GW, GW should record the current system status: dev_id+num+sys_status
 
-#define BYTE_NULL 0x00
+#define BYTE_NULL 0x00 //(not used)
 
-//////////////////////////////////////////////////
-//define the header of the packet
-//////////////////////////////////////////////////
+//message header
 #define MSG_HEADER_GW "AADD" //for packets over gw server and znet, 4 bytes
 #define MSG_HEADER_FE "A" //for packets over znode and fe, 1 byte
 
-//////////////////////////////////////////////////
-//Protocol defined constants
-//////////////////////////////////////////////////
-
-//default model and version for gw and dev
-#define PROC_DEFAULT_MODEL 1
-#define PROC_DEFAULT_VER 2
-
-//other specifications
-#define PROC_ZNODE_MAX 255 //maximum number of znodes supported by the znet
-
-//header stamp id_gw id_dev dev_type data_type data_len data: 4+4+8+8+2+2+2+x
+/*************************************************
+  Message properties
+  minimal message structure: 
+  header stamp id_gw id_dev dev_type data_type data_len data
+  4+     4+    8+    8+     2+       2+        2+       x = 30+x
+  ***********************************************/
 #define MSG_LEN_MIN 30//minimum length of a message
-//message length contents
 #define MSG_LEN_HEADER_GW 4 
 #define MSG_LEN_HEADER_FE 1 
 #define MSG_LEN_STAMP 4 
@@ -141,7 +160,7 @@
 #define MSG_LEN_DATA_TYPE 2 
 #define MSG_LEN_DATA_LEN 2 
 
-#define MSG_LEN_FIXED 30 
+#define MSG_LEN_FIXED 30  //fixed length for all types of messages
 
 #define MSG_POS_STAMP 4
 #define MSG_POS_ID_GW 8
@@ -150,28 +169,21 @@
 #define MSG_POS_DATA_TYPE 26
 #define MSG_POS_DATA_LEN 28
 
-//properties
+//message destination
 #define MSG_TO_ZNET 1
 #define MSG_TO_SERVER 2
-#define MSG_TO_LOCAL_DEV 3
-#define MSG_TO_LOCAL_CLIENT 4
+#define MSG_TO_LOCALUSER 3
 
-//twrt system parameters
+//system message parameters
 #define SYS_LEN_STATUS 50 //status length of gw
-#define SYS_LEN_LIC 128  //lic string length
-#define SYS_LEN_COOKIE 32  //cookie length
-#define ZNET_ON 1  //znet status of znode
-#define ZNET_OFF 0 //znet status of znode
-#define DEFAULT_VER 1 //default version of twrt
+#define SYS_LEN_LIC 16  //lic string length
+#define SYS_LEN_AUTHCODE 8//cookie length
+#define DEFAULT_VER 1 //default version of device
 #define DEFAULT_MODEL 1 //default vendor of all devices
 
-#define NULL_DEV "00000000" 
-//////////////////////////////////////////
-//structs and operations
-//////////////////////////////////////////
-
-//message
-//////////////////////////////////////////
+/***********************************************
+   message
+  **********************************************/
 typedef struct{
     char gateway_id[8];
     char dev_id[8]; 
@@ -219,22 +231,22 @@ message_queue* message_queue_to_head(message_queue* msg_q); //move pointer to th
 message_queue* message_queue_to_tail(message_queue* msg_q); //move pointer to the tail
 int message_queue_getlen(message_queue* msg_q); //get the length of queue
 
-//operations for req message queue
-////////////////////////////////////////////////////
 int message_queue_del(message_queue** msg_q);//delete a message queue item at current position msg_q, return to the current position of the msg_q 
 int message_queue_del_stamp(message_queue** msg_q, long stamp); //delete all messages with stamp in the queue, return to number of deletion
 int message_queue_find_stamp(message_queue* msg_q, long stamp); //find if stamp is in the queue, return to number of finding 
 
-//message create
-////////////////////////////////////////////////////
-message* message_create_stat(int stat_len, char* stat, char id_gw[8], char id_dev[8], long stamp);
-message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], int dev_type, long stamp);
-message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type, long stamp);
+/************************************************
+  message creation
+ ************************************************/
+message* message_create_stat(int stat_len, char* stat, char id_gw[8], char id_dev[8], int dev_type);
+message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], int dev_type);
+message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type);
 message* message_create_req_auth_gw(int lic_len, char* lic, char id_gw[8], long stamp);
 message* message_create_req_auth_dev(char id_gw[8], char id_dev[8], long stamp);
 message* message_create_req_user(char id_gw[8], char id_user[8], long stamp);
-message* message_create_pulse(char id_gw[8], long stamp);
+message* message_create_pulse(char id_gw[8]);
 message* message_create_req_stamp(char id_gw[8], long stamp);
 message* message_create_null(char id_gw[8], long stamp);
+message* message_create_ack_auth_local(char id_gw[8], char id_dev[8], int dev_type, char auth_result);
 
 #endif

@@ -1,5 +1,9 @@
 #include "proc.h"
 
+
+/************************************************
+  message operation
+ ************************************************/
 message* message_create(){
 	message *msg = calloc(sizeof(message), sizeof(char));
 	msg->data = NULL; //create empty message
@@ -59,10 +63,14 @@ int message_isreq(message *msg){
 
 int message_tx_dest(message* msg){ //get tx message destination
 	switch(msg->data_type){
-		case DATA_STAT: 
-			return MSG_TO_SERVER;
+		case DATA_STAT:
+			return MSG_TO_LOCALUSER;
 		case DATA_CTRL: 
 			return MSG_TO_ZNET;
+		case DATA_PULSE:
+			return MSG_TO_SERVER;
+		case DATA_SYNC:
+			return MSG_TO_LOCALUSER;
 		case DATA_REQ_SYNC:
 			return MSG_TO_SERVER;
 		case DATA_REQ_AUTH_GW:
@@ -77,43 +85,48 @@ int message_tx_dest(message* msg){ //get tx message destination
 			return MSG_TO_SERVER;
 		case DATA_SET:
 			return MSG_TO_SERVER;
+		case DATA_ACK_AUTH_LOCAL:
+			return MSG_TO_LOCALUSER;
 		default:
-			return MSG_TO_SERVER;
+			return -1; //unspecified message are not forwarded
 	}
 }
 
 int message_isvalid(message *msg){
 	return 1;
 }
+
 //transfer bytes into one message from the beginning
 int bytes2message(buffer_ring_byte* bytes, message* msg){
 	int data_len;
 	char pre_bytes[50];
 	char *data;
 
-	//int val;
-
+	//if buffer is too short for a message, return 
 	if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN)
-		return 0;//if not sufficient for a msg, return
+		return 0;
 
 	//locate the header
 	buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
-	while(memcmp(pre_bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW)){//locate the header
+	while(memcmp(pre_bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW)) {
 		buffer_ring_byte_get(bytes, pre_bytes, 1); //remove one byte
 		if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN)
 			return 0; 
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
 	}
-	if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN){
-		return 0;  //header found, but lenght is not long enough
-	}else{
+
+	if(buffer_ring_byte_getlen(bytes) < MSG_LEN_MIN) {
+		return 0;  //header found, but length too short for a message
+	}
+	else {
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_FIXED); //read the fixed length 
 
-		data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //temporal coversion
+		data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //(temporal issues) converted according to server request
 
-		if(buffer_ring_byte_getlen(bytes)<data_len+MSG_LEN_FIXED){ //if all data in the buffer
+		if(buffer_ring_byte_getlen(bytes) < data_len+MSG_LEN_FIXED) { //if buffer is too short for the actual message
 			return 0;
-		}else{ //start read the data
+		}
+		else { //start read the data
 			buffer_ring_byte_get(bytes, pre_bytes, MSG_LEN_FIXED);
 
 			data = calloc(data_len, sizeof(char));
@@ -124,7 +137,7 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 			memcpy(&(msg->dev_id), pre_bytes+MSG_POS_ID_DEV, MSG_LEN_ID_DEV);
 			memcpy(&(msg->dev_type), pre_bytes+MSG_POS_DEV_TYPE, MSG_LEN_DEV_TYPE);
 			memcpy(&(msg->data_type), pre_bytes+MSG_POS_DATA_TYPE, MSG_LEN_DATA_TYPE);
-			memcpy(&(msg->data_len), pre_bytes+MSG_POS_DATA_LEN+1, 1);//only receive the lower 8bits
+			memcpy(&(msg->data_len), pre_bytes+MSG_POS_DATA_LEN+1, 1);//(temporal issues) only receive the lower 8 bits
 
 			if(msg->data != NULL)
 				free(msg->data);
@@ -138,8 +151,7 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 }
 
 int message2bytes(message* msg, char* bytes){
-	int len;
-	char val;
+	int len = MSG_LEN_FIXED + msg->data_len;
 
 	//conver the prefix
 	memcpy(bytes, MSG_HEADER_GW, MSG_LEN_HEADER_GW);
@@ -154,8 +166,9 @@ int message2bytes(message* msg, char* bytes){
 	return len;
 }
 
-///////////////////////////////////////////////////
-//message queue functions
+/************************************************
+  message queue operation
+ ************************************************/
 message_queue* message_queue_create(){
 	message_queue* msg_q = calloc(sizeof(message_queue), sizeof(char));
 	msg_q->msg.data = NULL;
@@ -311,6 +324,7 @@ int message_queue_del_stamp(message_queue **msg_q_p, long stamp){
 		return cnt;
 	}
 }
+
 int message_queue_find_stamp(message_queue* msg_q, long stamp){ //find if stamp is in the queue, return to number of finding 
 	int num = 0;
 	if(message_queue_getlen(msg_q) == 0)
@@ -362,19 +376,22 @@ message_queue* message_queue_to_tail(message_queue *msg_q){
 	return msg_q;
 }
 
-message* message_create_stat(int stat_len, char* stat, char id_gw[8], char id_dev[8], long stamp){
+/************************************************
+  message creation
+ ************************************************/
+message* message_create_stat(int stat_len, char* stat, char id_gw[8], char id_dev[8], int dev_type){
 	message *msg = message_create();
 	msg->data = realloc(msg->data, stat_len);
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
 	msg->data_type = DATA_STAT;
+	msg->dev_type = dev_type;
 	memcpy(msg->data, stat, stat_len);
 	msg->data_len = stat_len;
-	msg->stamp = stamp;
 	return msg;
 }
 
-message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], int dev_type, long stamp){
+message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], int dev_type){
 	message *msg = message_create();
 	msg->data = realloc(msg->data, ctrl_len);
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
@@ -383,11 +400,10 @@ message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_de
 	msg->dev_type = dev_type;
 	memcpy(msg->data, ctrl, ctrl_len);
 	msg->data_len = ctrl_len;
-	msg->stamp = stamp;
 	return msg;
 }
 
-message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type, long stamp){
+message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type){
 	message *msg = message_create();
 	msg->data = calloc(sizeof(char)*(stat_len+4), sizeof(char));
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
@@ -397,9 +413,9 @@ message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[
 	memcpy((void*) msg->data, (void*) &u_stamp, 4);
 	memcpy(msg->data+4, stat, stat_len);
 	msg->data_len = stat_len+4;
-	msg->stamp = stamp;
 	return msg;
 }
+
 
 message* message_create_req_auth_gw(int lic_len, char* lic, char id_gw[8], long stamp){
 	message *msg = message_create();
@@ -425,15 +441,15 @@ message* message_create_req_auth_dev(char id_gw[8], char id_dev[8], long stamp){
 	return msg;
 }
 
-message* message_create_pulse(char id_gw[8], long stamp){
+message* message_create_pulse(char id_gw[8]){
 	message *msg = message_create();
 	msg->data = realloc(msg->data, 1);
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
 	msg->data_type = DATA_REQ_PULSE;
+	msg->data[0] = TCP_PULSE;
 	memset(msg->data, 0, 1);
 	msg->data_len = 1;
-	msg->stamp = stamp;
 	return msg;
 }
 
@@ -465,5 +481,16 @@ message* message_create_null(char id_gw[8], long stamp){
 	memset(msg->data, 0, 1);
 	msg->data_len = 1;
 	msg->stamp = stamp;
+	return msg;
+}
+
+message* message_create_ack_auth_local(char id_gw[8], char id_dev[8], int dev_type, char auth_result){
+	message *msg = message_create();
+	msg->data = realloc(msg->data, 1);
+	msg->data[0] = auth_result;
+	msg->data_len = 1;
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+	msg->data_type = DATA_ACK_AUTH_LOCAL;
 	return msg;
 }
