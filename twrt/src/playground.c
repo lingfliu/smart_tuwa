@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
@@ -23,7 +24,15 @@ int main(int argn, char * arg[]){
 		obj.name[m] = name[m];
 	}
 
-	while(1) {
+	long a = 112323;
+	char str[4];
+	memcpy((void*) str, (void*) &a, 4*sizeof(char));
+	printf("a = %ld\n", a);
+	a--;
+	memcpy((void*) &a, (void*) str, 4*sizeof(char));
+	printf("a = %ld\n", a);
+
+	while(0) {
 		obj.val ++;
 		if( pthread_create(&thr, NULL, run, (void*) &obj) < 0 )
 			return;

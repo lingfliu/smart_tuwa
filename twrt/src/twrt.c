@@ -644,6 +644,7 @@ int handle_msg_rx(message *msg){
 	int idx;
 	int result = 0;
 	int val;
+	long vall;
 	int m;
 	localbundle bundle;
 	localuser *usr;
@@ -680,12 +681,13 @@ int handle_msg_rx(message *msg){
 						//every tx thread should be checked for the connection
 						if (*local_tx_result == LOCAL_STATUS_SKTDISCONNECT) {
 							localuser_delete(usr);
-							free(tx_result);
+							free(local_tx_result);
 						}
 						else {
 							//update the time_lastactive
 							gettimeofday( &(usr->time_lastactive), NULL );
-							free(tx_result);
+							free(local_tx_result);
+						}
 					}
 				}
 			}
@@ -743,7 +745,9 @@ int handle_msg_rx(message *msg){
 			break;
 
 		case DATA_ACK_STAMP:
-			memcpy(&(sys.u_stamp), msg->data, 4);
+			vall = 0;
+			memcpy(&(vall), msg->data, 4);
+			sys.u_stamp = vall;
 			for(idx = 0; idx < ZNET_SIZE; idx++) {
 				if(!znode_isempty(&(sys.znode_list[idx]))){
 					//this will only excute after stamp is synchronized with the server
