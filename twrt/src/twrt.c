@@ -3,7 +3,6 @@
 int main(int argn, char* argv[]){
 	message *msg_auth;
 	message *msg_stamp;
-	message *msg_pulse;
 
 	/********************************************
 	  1. configure IO and buffers
@@ -96,7 +95,6 @@ int main(int argn, char* argv[]){
 	//create fixed messages
 	msg_auth = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, sys.tx_msg_stamp++); //create auth gw message
 	msg_stamp = message_create_req_stamp(sys.id, sys.tx_msg_stamp++); //create auth gw message
-	msg_pulse = message_create_pulse(sys.id);
 
 	//setups with server, run only when GW is online
 	//if GW is offline, no sync will be performed 
@@ -596,20 +594,20 @@ void* run_sys_ptask(){
 			message_flush(msg);
 		}
 		pthread_mutex_unlock(&mut_msg_tx);
+		message_destroy(msg); //destroy old message before cerating one
 
 		//sync the gw and znet
 		if(timediff_s(sys.timer_sync, timer)>TIMER_SYNC){
 			for(m = 0; m<ZNET_SIZE; m++){//synchronize the znodes
 				if(!znode_isempty(&(sys.znode_list[m]))){
-					message_destroy(msg); //destroy old message before cerating one
 					msg = message_create_sync(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.znode_list[m].u_stamp, sys.id, sys.znode_list[m].id, sys.znode_list[m].type);
 					pthread_mutex_lock(&mut_msg_tx);
 					msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
 					pthread_mutex_unlock(&mut_msg_tx);
+					message_destroy(msg); //destroy old message before cerating one
 				}
 			}
 
-			message_destroy(msg);
 
 			//synchronize the root
 			//msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0, 0);
@@ -625,12 +623,12 @@ void* run_sys_ptask(){
 		//tcp pulse
 		
 		if(timediff_ms(sys.timer_pulse, timer)>TIMER_PULSE){
-			message_destroy(msg);
 			msg = message_create_pulse(sys.id);
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
 			gettimeofday(&(sys.timer_pulse), NULL); //update the timer
 			pthread_mutex_unlock(&mut_msg_tx);
+			message_destroy(msg); //destroy old message before cerating one
 
 			//reset the timer
 			gettimeofday(&(sys.timer_pulse), NULL);
@@ -651,7 +649,7 @@ int handle_msg_rx(message *msg){
 	char* local_tx_result;
 
 	if(!message_isvalid(msg))
-		return;
+		return -1;
 
 	switch(msg->data_type){
 		case DATA_STAT: 
@@ -768,7 +766,7 @@ int handle_local_message(message *msg, localuser *usr){
 	message *msg_tx;
 	localbundle bundle;
 	bundle.usr = usr;
-	int retval;
+	int retval = 0;
 	int m;
 	char* tx_result;
 	int idx;
@@ -838,6 +836,7 @@ int handle_local_message(message *msg, localuser *usr){
 				break;
 		}
 	}
+	return retval;
 }
 
 
