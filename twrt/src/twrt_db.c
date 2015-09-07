@@ -184,6 +184,7 @@ void *run_serial_rx(){
 			  input is redirected to simu thread
 			 ----------------------------------*/ 
 			while(bytes2message(&buff_serial, msg)>0){
+				printf("received msg, msg type = %d\n", msg->data_type);
 				pthread_mutex_lock(&mut_msg_rx);
 				msg_q_rx = message_queue_put(msg_q_rx, msg);
 				pthread_mutex_unlock(&mut_msg_rx);
@@ -364,6 +365,9 @@ void *run_sys_msg_tx(){
 	while(1){
 		usleep(1000);
 		pthread_mutex_lock(&mut_msg_tx);
+		if(message_queue_getlen(msg_q_tx)>0) {
+			printf("%d messages in the queue\n", message_queue_getlen(msg_q_tx));
+		}
 		if(message_queue_getlen(msg_q_tx_h) == 0){//if empty, do nothing
 			pthread_mutex_unlock(&mut_msg_tx);
 		}else{
@@ -385,6 +389,7 @@ void *run_sys_msg_tx(){
 						break;
 					}
 				case MSG_TO_SERVER:
+					printf("message to server, msg typ = %d\n", msg->data_type);
 					//if(sys.server_status == SERVER_CONNECT) {
 						//if(sys.lic_status != LIC_VALID){//if not authed, send only auth msg
 							//if(msg->data_type == DATA_REQ_AUTH_GW){
@@ -681,12 +686,14 @@ int handle_msg_rx(message *msg){
 		case DATA_STAT: 
 			//update stat
 			idx = sys_znode_update(&sys, msg);
-
+			printf("znode stat update, idx = %d\n, id=%s\n",idx, sys.znode_list[idx].id);
 			//if update valid, send synchronization to server
 			if(idx >= 0) {
+				printf("updated znode is synchronized to server\n");
 				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+				printf("msg_q_tx length = %d\n", message_queue_getlen(msg_q_tx));
 				pthread_mutex_unlock(&mut_msg_tx);
 				message_destroy(msg_tx);
 				result = 0;
@@ -888,9 +895,9 @@ void *run_simu() {
 		bytes = calloc(len,sizeof(char));
 		message2bytes(msg, bytes);
 
-		pthread_mutex_lock(&mut_serial);
-		buffer_ring_byte_put(&buff_serial, bytes, len);
-		pthread_mutex_unlock(&mut_serial);
+		pthread_mutex_lock(&mut_client);
+		buffer_ring_byte_put(&buff_client, bytes, len);
+		pthread_mutex_unlock(&mut_client);
 		message_destroy(msg);
 		msg = message_create();
 		free(bytes);
@@ -898,7 +905,7 @@ void *run_simu() {
 	}
 
 	/*test of ctrl */
-	while(1) {
+	while(0) {
 		sleep(1);
 		//create a ack stamp
 		msg = message_create();
@@ -917,6 +924,32 @@ void *run_simu() {
 		pthread_mutex_lock(&mut_serial);
 		buffer_ring_byte_put(&buff_serial, bytes, len);
 		pthread_mutex_unlock(&mut_serial);
+		message_destroy(msg);
+		msg = message_create();
+		free(bytes);
+	}
+
+	/*test of status report*/
+	while(1){
+		sleep(1);
+		msg = message_create();
+		msg->dev_type  =DEV_SWITCH_4;
+		memcpy(msg->dev_id, "12345678", 8);
+
+		msg->data_type = DATA_STAT;
+
+		msg -> data_len = 4;
+		msg->data = calloc(4, sizeof(char));
+		for (m = 0; m < 4; m ++) {
+			msg->data[m] = STAT_ON;
+		}
+		len = MSG_LEN_FIXED+msg->data_len;
+		bytes = calloc(len, sizeof(char));
+		message2bytes(msg, bytes);
+		pthread_mutex_lock(&mut_serial);
+		buffer_ring_byte_put(&buff_serial, bytes, len);
+		pthread_mutex_unlock(&mut_serial);
+
 		message_destroy(msg);
 		msg = message_create();
 		free(bytes);
