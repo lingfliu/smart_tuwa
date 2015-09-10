@@ -2,12 +2,12 @@ CC = gcc
 CFLAGS = -O0 -g
 LIBS = -pthread
 
-OBJ = twrt.o config.o string_ex.o simple_serial.o simple_inet.o proc.o sys.o buffer_ex.o utils.o
+OBJ = twrt_db.o config.o string_ex.o simple_serial.o simple_inet.o proc.o sys.o buffer_ex.o utils.o
 
-twrt: $(OBJ)
-	$(CC) $(OBJ) -o twrt $(LIBS)  
-twrt.o: twrt.c twrt.h proc.c proc.h sys.c sys.h
-	$(CC) $(CFLAGS) -c twrt.c -o twrt.o $(LIBS) 
+twrt_db: $(OBJ)
+	$(CC) $(OBJ) -o twrt_db $(LIBS)  
+twrt_db.o: twrt_db.c twrt_db.h proc.c proc.h sys.c sys.h
+	$(CC) $(CFLAGS) -c twrt_db.c -o twrt_db.o $(LIBS) 
 config.o: config.c config.h string_ex.c string_ex.h
 	$(CC) $(CFLAGS) -c config.c -o config.o
 string_ex.o: string_ex.c string_ex.h
@@ -24,8 +24,7 @@ sys.o: sys.c sys.h proc.c proc.h
 	$(CC) $(CFLAGS) -c sys.c -o sys.o
 utils.o: utils.h utils.c
 	$(CC) $(CFLAGS) -c utils.c -o utils.o
-
 .PHONY: clean
 clean: 
 	rm $(OBJ)
-	rm twrt
+	rm twrt_db
