@@ -366,7 +366,7 @@ void *run_sys_msg_tx(){
 		usleep(1000);
 		pthread_mutex_lock(&mut_msg_tx);
 		if(message_queue_getlen(msg_q_tx)>0) {
-			printf("%d messages in the queue\n", message_queue_getlen(msg_q_tx));
+			//printf("%d messages in the queue\n", message_queue_getlen(msg_q_tx));
 		}
 		if(message_queue_getlen(msg_q_tx_h) == 0){//if empty, do nothing
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -389,7 +389,7 @@ void *run_sys_msg_tx(){
 						break;
 					}
 				case MSG_TO_SERVER:
-					printf("message to server, msg typ = %d\n", msg->data_type);
+					//printf("message to server, msg typ = %d\n", msg->data_type);
 					//if(sys.server_status == SERVER_CONNECT) {
 						//if(sys.lic_status != LIC_VALID){//if not authed, send only auth msg
 							//if(msg->data_type == DATA_REQ_AUTH_GW){
@@ -421,6 +421,7 @@ void *run_sys_msg_tx(){
 
 void* run_localhost(){
 	pthread_detach(pthread_self());
+	int usr_cnt = 0;
 
 	struct sockaddr_in localuser_sock;
 	socklen_t len = sizeof(struct sockaddr_in);
@@ -429,18 +430,28 @@ void* run_localhost(){
 
 	if( listen(localhost.fd, 10) ) {
 		//failed to start listening
+		printf("failed to start listening\n");
 		pthread_exit(0);
 	}
 
+	printf("start listening\n");
 	while(1) {
 		usleep(5000);
 		skt = accept(localhost.fd, (struct sockaddr *) &localuser_sock, &len);
-		if (skt < 0){
-			//accept failed
-			pthread_exit(0);
+		if (skt <= 0){
+			if (errno == EAGAIN || errno == EWOULDBLOCK){
+				usleep(1000);
+				continue;
+			}
+			else {
+				printf("accept error\n");
+				pthread_exit(0);
+			}
 		}
 		else {
+			printf("user login\n");
 			usr = sys_localuser_login(&sys, skt);
+		    gettimeofday(&(usr->time_lastactive), NULL);
 			pthread_create( &(usr->thrd_rx), NULL, run_localuser_rx, usr);
 		}
 	}
@@ -455,6 +466,8 @@ void* run_localuser_rx(void* arg) {
 	bundle.usr = usr;
 	int len;
 	char *tx_result;
+
+	printf("start a new localuser thread\n");
 	while(1) {
 		usleep(5000);
 		gettimeofday(&timer, NULL);
@@ -462,6 +475,7 @@ void* run_localuser_rx(void* arg) {
 		if(len>0){
 			buffer_ring_byte_put(&(usr->buff), usr->buff_io, len);
 			if( bytes2message(&(usr->buff), msg) > 0 ) {
+				printf("received message from localuser %d\n", usr->idx);
 				//if usr not authed, wait until req auth is received
 				if ( !memcmp(usr->id, NULL_USER, MSG_LEN_ID_DEV) || !usr->is_authed ) {
 					if (msg->data_type != DATA_REQ_AUTH_LOCAL) {
@@ -512,8 +526,8 @@ void* run_localuser_rx(void* arg) {
 					}
 					//a prelogined socket should always send auth as the first message
 					else {
-						//check the timeout
 						if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
+							printf("time difference is %ld\n",timediff_s(usr->time_lastactive, timer));
 							localuser_delete(usr);
 							pthread_exit(0);
 						} 
@@ -530,8 +544,13 @@ void* run_localuser_rx(void* arg) {
 			}
 			else {
 				//check the timeout
+				printf("received non-message data from localuser %d\n", usr->idx);
 				if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
+					printf("disconnect localuser %d\n", usr->idx);
 					localuser_delete(usr);
+					if (msg != NULL) {
+						message_destroy(msg);
+					}
 					pthread_exit(0);
 				}
 				else {
@@ -540,12 +559,14 @@ void* run_localuser_rx(void* arg) {
 			}
 		}
 		else if(len == 0){//if disconnected, close the socket
+			printf("disconnect localuser %d\n", usr->idx);
 			localuser_delete(usr);
 			pthread_exit(0);
 		}
 		else if(errno == EAGAIN || errno == EINTR ){
 			//check the timeout
 			if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
+				printf("disconnect localuser %d\n", usr->idx);
 				localuser_delete(usr);
 				pthread_exit(0);
 			}
@@ -608,7 +629,7 @@ void* run_sys_ptask(){
 	pthread_detach(pthread_self());
 
     struct timeval timer;
-    message* msg = message_create();
+    message* msg;
     int m;
 
 	while(1){	
@@ -619,6 +640,7 @@ void* run_sys_ptask(){
 		//req msg cleaning
 		pthread_mutex_lock(&mut_msg_tx);
 
+		msg = message_create();
 		//if tx_req is not empty and messages are outdated
 		while(message_queue_getlen(msg_q_tx_req_h) > 0 && timediff_ms(msg_q_tx_req_h->time, timer)>=TIMER_REQ) {
 			msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
@@ -630,15 +652,15 @@ void* run_sys_ptask(){
 		if(timediff_s(sys.timer_sync, timer)>TIMER_SYNC){
 			for(m = 0; m<ZNET_SIZE; m++){//synchronize the znodes
 				if(!znode_isempty(&(sys.znode_list[m]))){
-					message_destroy(msg); //destroy old message before cerating one
+					if (msg != NULL){
+						message_destroy(msg); //destroy old message before cerating one
+					}
 					msg = message_create_sync(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.znode_list[m].u_stamp, sys.id, sys.znode_list[m].id, sys.znode_list[m].type);
 					pthread_mutex_lock(&mut_msg_tx);
 					msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
 					pthread_mutex_unlock(&mut_msg_tx);
 				}
 			}
-
-			message_destroy(msg);
 
 			//synchronize the root
 			//msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0, 0);
@@ -654,7 +676,9 @@ void* run_sys_ptask(){
 		//tcp pulse
 		
 		if(timediff_ms(sys.timer_pulse, timer)>TIMER_PULSE){
-			message_destroy(msg);
+			if (msg != NULL) {
+				message_destroy(msg); //destroy old message before cerating one
+			}
 			msg = message_create_pulse(sys.id);
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
@@ -664,6 +688,11 @@ void* run_sys_ptask(){
 			//reset the timer
 			gettimeofday(&(sys.timer_pulse), NULL);
 		}
+
+		if(msg != NULL){
+			message_destroy(msg); //memory cleanup
+		}
+
 	}
 }
 
@@ -680,7 +709,7 @@ int handle_msg_rx(message *msg){
 	char* local_tx_result;
 
 	if(!message_isvalid(msg))
-		return;
+		return -1;
 
 	switch(msg->data_type){
 		case DATA_STAT: 
@@ -801,7 +830,7 @@ int handle_local_message(message *msg, localuser *usr){
 	message *msg_tx;
 	localbundle bundle;
 	bundle.usr = usr;
-	int retval;
+	int retval = 0;
 	int m;
 	char* tx_result;
 	int idx;
@@ -930,7 +959,7 @@ void *run_simu() {
 	}
 
 	/*test of status report*/
-	while(1){
+	while(0){
 		sleep(1);
 		msg = message_create();
 		msg->dev_type  =DEV_SWITCH_4;
