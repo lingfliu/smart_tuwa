@@ -404,12 +404,18 @@ void* run_localhost(){
 	while(1) {
 		usleep(5000);
 		skt = accept(localhost.fd, (struct sockaddr *) &localuser_sock, &len);
-		if (skt < 0){
-			//accept failed
-			pthread_exit(0);
+		if (skt <= 0){
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				usleep(1000);
+				continue;
+			}
+			else {
+				pthread_exit(0);
+			}
 		}
 		else {
 			usr = sys_localuser_login(&sys, skt);
+		    gettimeofday(&(usr->time_lastactive), NULL);
 			pthread_create( &(usr->thrd_rx), NULL, run_localuser_rx, usr);
 		}
 	}
@@ -577,7 +583,7 @@ void* run_sys_ptask(){
 	pthread_detach(pthread_self());
 
     struct timeval timer;
-    message* msg = message_create();
+    message* msg;
     int m;
 
 	while(1){	
@@ -588,26 +594,27 @@ void* run_sys_ptask(){
 		//req msg cleaning
 		pthread_mutex_lock(&mut_msg_tx);
 
+		msg = message_create();
 		//if tx_req is not empty and messages are outdated
 		while(message_queue_getlen(msg_q_tx_req_h) > 0 && timediff_ms(msg_q_tx_req_h->time, timer)>=TIMER_REQ) {
 			msg_q_tx_req_h = message_queue_get(msg_q_tx_req_h, msg); //remove the un-responed msg
 			message_flush(msg);
 		}
 		pthread_mutex_unlock(&mut_msg_tx);
-		message_destroy(msg); //destroy old message before cerating one
 
 		//sync the gw and znet
 		if(timediff_s(sys.timer_sync, timer)>TIMER_SYNC){
 			for(m = 0; m<ZNET_SIZE; m++){//synchronize the znodes
 				if(!znode_isempty(&(sys.znode_list[m]))){
+					if (msg != NULL){
+						message_destroy(msg); //destroy old message before cerating one
+					}
 					msg = message_create_sync(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.znode_list[m].u_stamp, sys.id, sys.znode_list[m].id, sys.znode_list[m].type);
 					pthread_mutex_lock(&mut_msg_tx);
 					msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
 					pthread_mutex_unlock(&mut_msg_tx);
-					message_destroy(msg); //destroy old message before cerating one
 				}
 			}
-
 
 			//synchronize the root
 			//msg = message_create_sync(SYS_LEN_STATUS, sys.status, sys.u_stamp, sys.id, NULL_DEV, 0, 0);
@@ -623,16 +630,23 @@ void* run_sys_ptask(){
 		//tcp pulse
 		
 		if(timediff_ms(sys.timer_pulse, timer)>TIMER_PULSE){
+			if (msg != NULL) {
+				message_destroy(msg); //destroy old message before cerating one
+			}
 			msg = message_create_pulse(sys.id);
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
 			gettimeofday(&(sys.timer_pulse), NULL); //update the timer
 			pthread_mutex_unlock(&mut_msg_tx);
-			message_destroy(msg); //destroy old message before cerating one
 
 			//reset the timer
 			gettimeofday(&(sys.timer_pulse), NULL);
 		}
+
+		if(msg != NULL){
+			message_destroy(msg); //memory cleanup
+		}
+
 	}
 }
 
