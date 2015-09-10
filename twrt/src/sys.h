@@ -90,6 +90,11 @@ typedef struct{
 	int is_authed;
     struct timeval time_lastactive; //timer to send tcp pulse to the server
 	char tx_status;
+	
+	/***********************
+	  debug codec
+	 ***********************/
+	int idx;
 }localuser;
 
 int localuser_isnull(localuser *usr);

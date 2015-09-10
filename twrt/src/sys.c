@@ -111,7 +111,8 @@ int sys_get_znode_num(sys_t *sys) {
 /**localuser operation*********************************
 ******************************************************/
 int localuser_isnull(localuser *usr){
-    if(!memcmp(usr->id, NULL_USER, 8) || usr->skt < 0){
+    //if(!(usr->id, NULL_USER, 8) || usr->skt < 0){
+    if(usr->skt < 0){
 		return 1;
 	}
 	else {
@@ -162,6 +163,12 @@ localuser* sys_localuser_login(sys_t* sys, int skt){
 		return usr;
 	}
 	else {
+		/***********************
+		   debug codec
+		 ***********************/
+		//printf("new user index = %d\n",idx);
+		sys->localuser_list[idx].idx = idx;
+
 		return &(sys->localuser_list[idx]);
 	}
 
@@ -185,6 +192,7 @@ int sys_localuser_evict(sys_t* sys) {
 	int m;
 	int cnt;
 	long max_timediff;
+	long timedi;
 	int idx;
 	struct timeval timer;
 
@@ -203,12 +211,18 @@ int sys_localuser_evict(sys_t* sys) {
 		idx = 0;
 		max_timediff = timediff_s(sys->localuser_list[0].time_lastactive, timer);
 		for (m = 1; m < LOCALUSER_SIZE; m ++) {
-			if (timediff_s(sys->localuser_list[m].time_lastactive, timer) > max_timediff) {
-				max_timediff = timediff_s(sys->localuser_list[m].time_lastactive, timer);
+			timedi = timediff_s(sys->localuser_list[m].time_lastactive, timer);
+			if ( timedi > max_timediff) {
+				max_timediff = timedi;
 				idx = m;
 			}
 		}
 		localuser_delete(&(sys->localuser_list[idx]));
+		/***********************
+		  debug codec
+		 ***********************/
+		printf("too many sockets, removed localuser %d\n",idx);
+
 		cnt ++;
 	}
 	return cnt;
