@@ -49,11 +49,12 @@ int main(int argn, char* argv[]){
 	  5. open serial (thread)
 	  serial is closed for simulation
 	 ********************************************/
-	/*
-	while(serial_open(&srl) < 0 ){
-		sleep(1);
+	if(serial_open(&srl) < 0 ){
+		sys.serial_status = SERIAL_OFF;
 	}
-	*/
+	else {
+		sys.serial_status = SERIAL_ON;
+	}
 
 	/********************************************
 	  6. initialize muts, threads and conds
@@ -113,6 +114,19 @@ int main(int argn, char* argv[]){
 	//but this may compromise the whole security of the system
 	while(1){
 		sleep(1);
+		
+		/* connect to ZNet*/
+		if (sys.serial_status == SERIAL_OFF) {
+			if(serial_open(&srl) < 0 ){
+				sys.serial_status = SERIAL_OFF;
+			}
+			else {
+				sys.serial_status = SERIAL_ON;
+			}
+		}
+		else {
+			//do nothing
+		}
 
 		/* connect to the server */
 		if(sys.server_status == SERVER_DISCONNECT){
@@ -174,32 +188,47 @@ void *run_serial_rx(){
 	int len;
 	while(1){
 		usleep(5000);
-		//len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
-		//if(len>0){
-			//buffer_ring_byte_put(&buff_serial, read_serial, len);
-			//translate bytes into message
+		while(bytes2message(&buff_serial, msg)>0){
+			printf("received msg, msg type = %d\n", msg->data_type);
+			pthread_mutex_lock(&mut_msg_rx);
+			msg_q_rx = message_queue_put(msg_q_rx, msg);
+			pthread_mutex_unlock(&mut_msg_rx);
+			message_flush(msg);
+			usleep(1000);
+		}
 
-			/*----------------------------------
-			  debug modifcation: we disable physical serial reading here
-			  input is redirected to simu thread
-			 ----------------------------------*/ 
-			while(bytes2message(&buff_serial, msg)>0){
-				printf("received msg, msg type = %d\n", msg->data_type);
-				pthread_mutex_lock(&mut_msg_rx);
-				msg_q_rx = message_queue_put(msg_q_rx, msg);
-				pthread_mutex_unlock(&mut_msg_rx);
-				message_flush(msg);
-				usleep(1000);
+		if (sys.serial_status == SERIAL_ON) {
+			len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
+			if(len>0){
+				buffer_ring_byte_put(&buff_serial, read_serial, len);
+				//translate bytes into message
+
+				/*----------------------------------
+				  debug modifcation: we disable physical serial reading here
+				  input is redirected to simu thread
+				  ----------------------------------*/ 
+				while(bytes2message(&buff_serial, msg)>0){
+					printf("received msg, msg type = %d\n", msg->data_type);
+					pthread_mutex_lock(&mut_msg_rx);
+					msg_q_rx = message_queue_put(msg_q_rx, msg);
+					pthread_mutex_unlock(&mut_msg_rx);
+					message_flush(msg);
+					usleep(1000);
+				}
 			}
-		//}else{
-			//if(errno == EAGAIN || errno == EINTR){ //reading in progress
-				//continue;
-			//}else{ //io error 
-				//serial_close(&srl);
-				//while(serial_open(&srl) < 0)
-					//usleep(5000); //wait 5 ms and try open serial again
-			//}
-		//}
+			else {
+				if(errno == EAGAIN || errno == EINTR){ //reading in progress
+					continue;
+				}
+				else { //io error 
+					sys.serial_status = SERIAL_OFF;
+					serial_close(&srl);
+				}
+			}
+		}
+		else {
+			continue;
+		}
 	}
 }
 
@@ -246,15 +275,11 @@ void *run_client_rx(){
 	int len;
 	while(1){
 		usleep(5000);
-		//if(sys.server_status == SERVER_CONNECT){
-			//len = recv(client.fd, read_client, INET_BUFF_LEN, 0);//non-blocking reading, return immediately
-			//if(len>0){
-				//buffer_ring_byte_put(&buff_client, read_client, len);
+		if(sys.server_status == SERVER_CONNECT){
+			len = recv(client.fd, read_client, INET_BUFF_LEN, 0);//non-blocking reading, return immediately
+			if(len>0){
+				buffer_ring_byte_put(&buff_client, read_client, len);
 				
-				/*-------------------------------
-				  debug modification: disable physical rx from client
-				  input is redirected from simu
-				 -------------------------------*/ 
 				while(bytes2message(&buff_client, msg)>0){
 					pthread_mutex_lock(&mut_msg_rx);
 					msg_q_rx = message_queue_put(msg_q_rx, msg);
@@ -262,14 +287,14 @@ void *run_client_rx(){
 					message_flush(msg);
 					usleep(1000);
 				}
-			//}
-			//else if(len == 0){//if disconnected, reconnect
-				//on_inet_client_disconnect();
-			//}
-			//else if(errno == EAGAIN || errno == EINTR ){
-				//continue;
-			//}
-		//}
+			}
+			else if(len == 0){//if disconnected, reconnect
+				on_inet_client_disconnect();
+			}
+			else if(errno == EAGAIN || errno == EINTR ){
+				continue;
+			}
+		}
 	}
 }
 
@@ -380,36 +405,46 @@ void *run_sys_msg_tx(){
 
 			switch(message_tx_dest(msg)){
 				case MSG_TO_ZNET: 
-					printf("message to znet, msg typ = %d\n", msg->data_type);
-					if(pthread_create(&thrd_serial_tx, NULL, run_serial_tx, (void*) msg) < 0){
-						break;
+					if( sys.serial_status == SERIAL_OFF) {
+						printf("message to znet, msg typ = %d\n", msg->data_type);
+						if(pthread_create(&thrd_serial_tx, NULL, run_serial_tx, (void*) msg) < 0){
+							break;
+						}
+						else {
+							pthread_join(thrd_serial_tx, NULL);
+							break;
+						}
 					}
 					else {
-						pthread_join(thrd_serial_tx, NULL);
 						break;
 					}
 				case MSG_TO_SERVER:
-					//printf("message to server, msg typ = %d\n", msg->data_type);
-					//if(sys.server_status == SERVER_CONNECT) {
-						//if(sys.lic_status != LIC_VALID){//if not authed, send only auth msg
-							//if(msg->data_type == DATA_REQ_AUTH_GW){
-								//if(pthread_create(&thrd_client_tx, NULL, run_client_tx, (void*) msg) < 0){
-									//break;
-								//}
-								//pthread_join(thrd_client_tx, NULL);
-							//}
-						//}
-						//else {
-							//if(pthread_create(&thrd_client_tx, NULL, run_client_tx, (void*) msg) < 0){
-								//break;
-							//}
-							//pthread_join(thrd_client_tx, NULL);
-						//}
-					//}
-					/*---------------------------
-					  debug modification
-					 ---------------------------*/
-					break;
+					printf("message to server, msg typ = %d\n", msg->data_type);
+					if(sys.server_status == SERVER_CONNECT) {
+						if(sys.lic_status != LIC_VALID){//if not authed, send only auth msg
+							if(msg->data_type == DATA_REQ_AUTH_GW){
+								if(pthread_create(&thrd_client_tx, NULL, run_client_tx, (void*) msg) < 0){
+									break;
+								}
+								else {
+									pthread_join(thrd_client_tx, NULL);
+									break;
+								}
+							}
+						}
+						else {
+							if(pthread_create(&thrd_client_tx, NULL, run_client_tx, (void*) msg) < 0){
+								break;
+							}
+							else {
+								pthread_join(thrd_client_tx, NULL);
+								break;
+							}
+						}
+					}
+					else {
+						break;
+					}
 				default://if unknown, flush the message from the queue
 					break;
 			}
@@ -711,6 +746,7 @@ int handle_msg_rx(message *msg){
 	if(!message_isvalid(msg))
 		return -1;
 
+	printf("message received\n");
 	switch(msg->data_type){
 		case DATA_STAT: 
 			//update stat
@@ -959,8 +995,9 @@ void *run_simu() {
 	}
 
 	/*test of status report*/
-	while(0){
+	while(1){
 		sleep(1);
+		printf("create simu STAT message\n");
 		msg = message_create();
 		msg->dev_type  =DEV_SWITCH_4;
 		memcpy(msg->dev_id, "12345678", 8);
@@ -980,7 +1017,6 @@ void *run_simu() {
 		pthread_mutex_unlock(&mut_serial);
 
 		message_destroy(msg);
-		msg = message_create();
 		free(bytes);
 	}
 }
