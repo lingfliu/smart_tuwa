@@ -12,7 +12,6 @@ int serial_open(serial* srl){
 
 	fd = open(srl->name, O_RDWR | O_NOCTTY | O_NONBLOCK);//non-block serial port
 	if(fd < 0){
-		printf("serial open failed\n");
 		return -1;
 	}
 
