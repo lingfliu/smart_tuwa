@@ -47,8 +47,11 @@ int main(int argn, char* argv[]){
 	/********************************************
 	  5. open serial (thread)
 	 ********************************************/
-	while(serial_open(&srl) < 0 ){
-		sleep(1);
+	if (serial_open(&srl) < 0) {
+		sys.server_status = SERIAL_OFF;
+	}
+	else {
+		sys.server_status = SERIAL_ON;
 	}
 
 	/********************************************
@@ -101,6 +104,19 @@ int main(int argn, char* argv[]){
 	//but this may compromise the whole security of the system
 	while(1){
 		sleep(1);
+
+		/* connect to serial*/
+		if (sys.serial_status == SERIAL_OFF) {
+			if (serial_open(&srl) < 0) {
+				sys.serial_status = SERIAL_OFF;
+			}
+			else {
+				sys.serial_status = SERIAL_ON;
+			}
+		}
+		else {
+			//do nothing
+		}
 
 		/* connect to the server */
 		if(sys.server_status == SERVER_DISCONNECT){
@@ -162,25 +178,36 @@ void *run_serial_rx(){
 	int len;
 	while(1){
 		usleep(5000);
-		len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
-		if(len>0){
-			buffer_ring_byte_put(&buff_serial, read_serial, len);
-			//translate bytes into message
-			while(bytes2message(&buff_serial, msg)>0){
-				pthread_mutex_lock(&mut_msg_rx);
-				msg_q_rx = message_queue_put(msg_q_rx, msg);
-				pthread_mutex_unlock(&mut_msg_rx);
-				message_flush(msg);
-				usleep(1000);
+
+		//translate bytes
+		while(bytes2message(&buff_serial, msg)>0){
+			pthread_mutex_lock(&mut_msg_rx);
+			msg_q_rx = message_queue_put(msg_q_rx, msg);
+			pthread_mutex_unlock(&mut_msg_rx);
+			message_flush(msg);
+			usleep(1000);
+		}
+
+		//receive from serial
+		if(sys.serial_status = SERIAL_ON) {
+			len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
+			if(len>0){
+				buffer_ring_byte_put(&buff_serial, read_serial, len);
+				//translate bytes into message
 			}
-		}else{
-			if(errno == EAGAIN || errno == EINTR){ //reading in progress
-				continue;
-			}else{ //io error 
-				serial_close(&srl);
-				while(serial_open(&srl) < 0)
-					usleep(5000); //wait 5 ms and try open serial again
+			else {
+				if(errno == EAGAIN || errno == EINTR){ //reading in progress
+					continue;
+				}
+				else{ //io error, close the serial port and re-open it in main thread
+					sys.serial_status = SERIAL_OFF;
+					serial_close(&srl);
+				}
 			}
+		}
+		/* diconnected serial, re-open in main thread*/
+		else {
+			continue;
 		}
 	}
 }
@@ -354,11 +381,16 @@ void *run_sys_msg_tx(){
 
 			switch(message_tx_dest(msg)){
 				case MSG_TO_ZNET: 
-					if(pthread_create(&thrd_serial_tx, NULL, run_serial_tx, (void*) msg) < 0){
-						break;
+					if( sys.serial_status == SERIAL_ON) {
+						if(pthread_create(&thrd_serial_tx, NULL, run_serial_tx, (void*) msg) < 0){
+							break;
+						}
+						else {
+							pthread_join(thrd_serial_tx, NULL);
+							break;
+						}
 					}
 					else {
-						pthread_join(thrd_serial_tx, NULL);
 						break;
 					}
 				case MSG_TO_SERVER:
@@ -368,17 +400,25 @@ void *run_sys_msg_tx(){
 								if(pthread_create(&thrd_client_tx, NULL, run_client_tx, (void*) msg) < 0){
 									break;
 								}
-								pthread_join(thrd_client_tx, NULL);
+								else {
+									pthread_join(thrd_client_tx, NULL);
+									break;
+								}
 							}
 						}
 						else {
 							if(pthread_create(&thrd_client_tx, NULL, run_client_tx, (void*) msg) < 0){
 								break;
 							}
-							pthread_join(thrd_client_tx, NULL);
+							else {
+								pthread_join(thrd_client_tx, NULL);
+								break;
+							}
 						}
 					}
-					break;
+					else {
+						break;
+					}
 				default://if unknown, flush the message from the queue
 					break;
 			}
