@@ -776,7 +776,6 @@ int handle_msg_rx(message *msg){
 			if(val > 0){//if req still in the queue 
 				if(!memcmp(msg->data, sys.id, MSG_LEN_ID_GW)){//if head equals to the gw id
 					sys.lic_status = LIC_VALID;
-					//printf("gw authed\n");
 					memcpy(sys.auth_code, msg->data, SYS_LEN_AUTHCODE); 
 					//After lic validated, send back an null message to server
 					msg_tx = message_create_null(sys.id, sys.tx_msg_stamp++); 

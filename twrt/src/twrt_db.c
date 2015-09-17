@@ -138,10 +138,12 @@ int main(int argn, char* argv[]){
 					FD_SET(client.fd, &inet_fds);
 					retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 					if(retval == -1 || retval == 0){ //error or timeout
+						printf("connected to server\n");
 						sys.server_status = SERVER_DISCONNECT;
 						inet_client_close(&client);
 					}
 					else {
+						printf("connected to server\n");
 						sys.server_status = SERVER_CONNECT;
 					}
 				}
@@ -151,6 +153,7 @@ int main(int argn, char* argv[]){
 				}
 			}
 			else {
+				printf("connected to server\n");
 				sys.server_status = SERVER_CONNECT;
 			}
 		}
@@ -189,32 +192,18 @@ void *run_serial_rx(){
 	while(1){
 		usleep(5000);
 		while(bytes2message(&buff_serial, msg)>0){
-			printf("received msg, msg type = %d\n", msg->data_type);
+			printf("received msg from znet, msg type = %d\n", msg->data_type);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
 			pthread_mutex_unlock(&mut_msg_rx);
 			message_flush(msg);
 			usleep(1000);
 		}
-
+		//receive from serial
 		if (sys.serial_status == SERIAL_ON) {
 			len = read(srl.fd, read_serial, SERIAL_BUFF_LEN);//non-blocking reading, return immediately
 			if(len>0){
 				buffer_ring_byte_put(&buff_serial, read_serial, len);
-				//translate bytes into message
-
-				/*----------------------------------
-				  debug modifcation: we disable physical serial reading here
-				  input is redirected to simu thread
-				  ----------------------------------*/ 
-				while(bytes2message(&buff_serial, msg)>0){
-					printf("received msg, msg type = %d\n", msg->data_type);
-					pthread_mutex_lock(&mut_msg_rx);
-					msg_q_rx = message_queue_put(msg_q_rx, msg);
-					pthread_mutex_unlock(&mut_msg_rx);
-					message_flush(msg);
-					usleep(1000);
-				}
 			}
 			else {
 				if(errno == EAGAIN || errno == EINTR){ //reading in progress
@@ -313,6 +302,7 @@ void *run_client_tx(void *arg){
 	while(pos < len && sys.server_status == SERVER_CONNECT){
 		ret = send(client.fd, bytes+pos, len - pos, 0);
 		if(ret == len - pos){
+			printf("message sent to server\n");
 			free(bytes); //don't forget to free the mem
 			pthread_exit(0);
 		}
@@ -333,6 +323,7 @@ void *run_client_tx(void *arg){
 			pos += ret;
 		}
 	}
+	printf("message sent to server\n");
 	free(bytes); //don't forget to free the mem
 	pthread_exit(0);
 }
@@ -390,9 +381,6 @@ void *run_sys_msg_tx(){
 	while(1){
 		usleep(1000);
 		pthread_mutex_lock(&mut_msg_tx);
-		if(message_queue_getlen(msg_q_tx)>0) {
-			//printf("%d messages in the queue\n", message_queue_getlen(msg_q_tx));
-		}
 		if(message_queue_getlen(msg_q_tx_h) == 0){//if empty, do nothing
 			pthread_mutex_unlock(&mut_msg_tx);
 		}else{
@@ -996,7 +984,8 @@ void *run_simu() {
 
 	/*test of status report*/
 	while(1){
-		sleep(1);
+		usleep(1000);
+		//sleep(1);
 		printf("create simu STAT message\n");
 		msg = message_create();
 		msg->dev_type  =DEV_SWITCH_4;
