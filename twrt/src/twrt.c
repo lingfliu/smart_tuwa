@@ -128,19 +128,23 @@ int main(int argn, char* argv[]){
 					FD_SET(client.fd, &inet_fds);
 					retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 					if(retval == -1 || retval == 0){ //error or timeout
+						//printf("failed to connect server\n");
 						sys.server_status = SERVER_DISCONNECT;
 						inet_client_close(&client);
 					}
 					else {
+						//printf("connected to server\n");
 						sys.server_status = SERVER_CONNECT;
 					}
 				}
 				else { 
+					//printf("failed to connect server\n");
 					sys.server_status = SERVER_DISCONNECT;
 					inet_client_close(&client);
 				}
 			}
 			else {
+				//printf("connected to server\n");
 				sys.server_status = SERVER_CONNECT;
 			}
 		}
@@ -185,7 +189,7 @@ void *run_serial_rx(){
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
 			pthread_mutex_unlock(&mut_msg_rx);
 			message_flush(msg);
-			usleep(1000);
+			usleep(5000);
 		}
 
 		//receive from serial
@@ -231,17 +235,19 @@ void *run_serial_tx(void *arg){
 	   }
 
 	   if(ret == -1){
-		   if(errno == EAGAIN || errno == EINTR){
+		   if(errno == EAGAIN || errno == EINTR) {
 			   usleep(5000);
 			   continue;
-		   }else{
+		   }
+		   else {
 			   free(bytes); //don't forget to free the mem
 			   serial_close(&srl);
 			   while(serial_open(&srl) < 0)
 				   usleep(5000); //wait 5 ms and try open serial again
 			   pthread_exit(0);
 		   }
-	   }else{
+	   }
+	   else {
 			pos += ret;
 	   }
 	}
@@ -258,8 +264,10 @@ void *run_client_rx(){
 		if(sys.server_status == SERVER_CONNECT){
 			len = recv(client.fd, read_client, INET_BUFF_LEN, 0);//non-blocking reading, return immediately
 			if(len>0){
+				//printf("received bytes len = %d\n", len);
 				buffer_ring_byte_put(&buff_client, read_client, len);
 				while(bytes2message(&buff_client, msg)>0){
+					//printf("received msg type = %d\n", msg->data_type);
 					pthread_mutex_lock(&mut_msg_rx);
 					msg_q_rx = message_queue_put(msg_q_rx, msg);
 					pthread_mutex_unlock(&mut_msg_rx);
@@ -268,10 +276,20 @@ void *run_client_rx(){
 				}
 			}
 			else if(len == 0){//if disconnected, reconnect
+				//printf("connection to server broken\n");
 				on_inet_client_disconnect();
 			}
-			else if(errno == EAGAIN || errno == EINTR ){
-				continue;
+			else if(len < 0) {
+				if(errno == EAGAIN || errno == EINTR){
+					//printf("on receiving from server\n");
+					continue;
+					//on_inet_client_disconnect();
+					//printf("connection broken %d\n", len);
+				}
+				else {
+					//printf("connection to server broken\n");
+					on_inet_client_disconnect();
+				}
 			}
 		}
 	}
@@ -284,34 +302,46 @@ void *run_client_tx(void *arg){
 		pthread_exit(0);
 	}
 
+	//printf("message type=%d\n",msg->data_type);
 	char *bytes = calloc(len,sizeof(char)); 
 	message2bytes(msg, bytes);
 	int ret; 
 	int pos = 0;
 
 	while(pos < len && sys.server_status == SERVER_CONNECT){
-		ret = send(client.fd, bytes+pos, len - pos, 0);
-		if(ret == len - pos){
-			free(bytes); //don't forget to free the mem
-			pthread_exit(0);
+		ret = send(client.fd, bytes+pos, len - pos, MSG_NOSIGNAL);
+		if (ret == len - pos) {
+			//printf("msg is sent to server at once, len = %d, ret = %d\n", len, ret);
+			break;
 		}
-
-		if(ret == -1){ //send failed
+		else if(ret < 0) { //send failed
 			if(errno == EAGAIN || errno == EINTR){ //buff is full or interrupted
+				//printf("on sending to server\n");
 				usleep(1000);
 				continue;
 			}
-			if(errno == ECONNRESET){ //connection broke
-				free(bytes);
+			else if(errno == ECONNRESET || errno == EPIPE){ //connection broke
+				//printf("connection to server broken\n");
 				on_inet_client_disconnect();
-				pthread_exit(0);
+				break;
 			}
-			free(bytes); //don't forget to free the mem
-			pthread_exit(0);
-		}else{ //send partial data
+			else {
+				//printf("unknown error\n");
+				on_inet_client_disconnect();
+				break;
+			}
+		}
+		else if (ret == 0) {
+			//printf("connection to server broken\n");
+			on_inet_client_disconnect();
+			break;
+		}
+		else { //send partial data
 			pos += ret;
+			continue;
 		}
 	}
+	//printf("msg is sent to server\n");
 	free(bytes); //don't forget to free the mem
 	pthread_exit(0);
 }
@@ -331,16 +361,23 @@ void on_inet_client_disconnect(){
 			FD_SET(client.fd, &inet_fds);
 			retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 			if(retval == -1 || retval == 0){ //error or timeout
+				//printf("failed to reconnect to server\n");
 				inet_client_close(&client);
 				sys.server_status = SERVER_DISCONNECT;
 			}else{
+				//printf("reconnected to server\n");
 				sys.server_status = SERVER_CONNECT;
 			    return;	
 			}
 		}else{ //retry connecting to the server
+			//printf("failed to reconnect to server\n");
 			sys.server_status = SERVER_DISCONNECT;
 			inet_client_close(&client);
 		}
+	}
+	else {
+		//printf("reconnected to server\n");
+		sys.server_status = SERVER_CONNECT;
 	}
 }
 
@@ -356,7 +393,8 @@ void *run_sys_msg_rx(){
 			pthread_mutex_unlock(&mut_msg_rx);//unlock msg_q_rx first
 			handle_msg_rx(msg);
 			message_flush(msg);
-		}else{
+		}
+		else {
 			pthread_mutex_unlock(&mut_msg_rx);//unlock msg_q_rx first
 		}
 	}

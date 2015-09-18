@@ -983,13 +983,15 @@ void *run_simu() {
 	}
 
 	/*test of status report*/
+	char name[8] = "00000001";
 	while(1){
-		usleep(1000);
+		usleep(5000);
 		//sleep(1);
 		printf("create simu STAT message\n");
 		msg = message_create();
 		msg->dev_type  =DEV_SWITCH_4;
-		memcpy(msg->dev_id, "12345678", 8);
+		name[0]++;
+		memcpy(msg->dev_id, name, 8);
 
 		msg->data_type = DATA_STAT;
 
