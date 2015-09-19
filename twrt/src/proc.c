@@ -87,6 +87,8 @@ int message_tx_dest(message* msg){ //get tx message destination
 			return MSG_TO_SERVER;
 		case DATA_ACK_AUTH_LOCAL:
 			return MSG_TO_LOCALUSER;
+		case DATA_NULL:
+			return MSG_TO_SERVER;
 		default:
 			return -1; //unspecified message are not forwarded
 	}
