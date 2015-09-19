@@ -816,6 +816,7 @@ int handle_msg_rx(message *msg){
 					sys.lic_status = LIC_VALID;
 					memcpy(sys.auth_code, msg->data, SYS_LEN_AUTHCODE); 
 					//After lic validated, send back an null message to server
+					//printf("get auth ack, send null for test \n");
 					msg_tx = message_create_null(sys.id, sys.tx_msg_stamp++); 
 					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 					message_destroy(msg_tx);
