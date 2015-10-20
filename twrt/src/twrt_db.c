@@ -229,6 +229,7 @@ void *run_serial_tx(void *arg){
 	char *bytes = calloc(len,sizeof(char));
 	message2bytes(msg, bytes);
 
+	printf("sending message to znet, type = %d",msg->data_type);
 	if(len == 0)
 		pthread_exit(0);
 
@@ -238,19 +239,18 @@ void *run_serial_tx(void *arg){
 		   free(bytes);
 		   pthread_exit(0);
 	   }
-
-	   if(ret == -1){
+	   else if(ret == -1){
 		   if(errno == EAGAIN || errno == EINTR){
 			   usleep(5000);
 			   continue;
 		   }else{
 			   free(bytes); //don't forget to free the mem
 			   serial_close(&srl);
-			   while(serial_open(&srl) < 0)
-				   usleep(5000); //wait 5 ms and try open serial again
+			   sys.serial_status = SERIAL_OFF;
 			   pthread_exit(0);
 		   }
-	   }else{
+	   }
+	   else{
 			pos += ret;
 	   }
 	}
@@ -267,6 +267,7 @@ void *run_client_rx(){
 		if(sys.server_status == SERVER_CONNECT){
 			len = recv(client.fd, read_client, INET_BUFF_LEN, 0);//non-blocking reading, return immediately
 			if(len>0){
+				printf("received bytes from server\n");
 				buffer_ring_byte_put(&buff_client, read_client, len);
 				
 				while(bytes2message(&buff_client, msg)>0){
@@ -278,10 +279,17 @@ void *run_client_rx(){
 				}
 			}
 			else if(len == 0){//if disconnected, reconnect
+				printf("connection broken when receiving\n");
 				on_inet_client_disconnect();
 			}
-			else if(errno == EAGAIN || errno == EINTR ){
-				continue;
+			else {
+				if(errno == EAGAIN || errno == EINTR ){
+					continue;
+				}
+				else {
+					printf("connection broken when receiving\n");
+					on_inet_client_disconnect();
+				}
 			}
 		}
 	}
@@ -306,20 +314,25 @@ void *run_client_tx(void *arg){
 			free(bytes); //don't forget to free the mem
 			pthread_exit(0);
 		}
-
-		if(ret == -1){ //send failed
+		else if(ret == -1){ //send failed
 			if(errno == EAGAIN || errno == EINTR){ //buff is full or interrupted
 				usleep(1000);
 				continue;
 			}
-			if(errno == ECONNRESET){ //connection broke
+			else if(errno == ECONNRESET){ //connection broke
+				printf("connection broken when sending\n");
 				free(bytes);
 				on_inet_client_disconnect();
 				pthread_exit(0);
 			}
-			free(bytes); //don't forget to free the mem
-			pthread_exit(0);
-		}else{ //send partial data
+			else {
+				printf("connection broken when sending\n");
+				free(bytes);
+				on_inet_client_disconnect();
+				pthread_exit(0);
+			}
+		}
+		else { //send partial data
 			pos += ret;
 		}
 	}
@@ -335,6 +348,7 @@ void on_inet_client_disconnect(){
 
 	inet_client_close(&client); //close the connection first
 	//connect the server
+	/*
 	if(inet_client_connect(&client) == -1){
 		if(errno == EINPROGRESS){ //connection is in progress 
 			inet_timeout.tv_sec = 2; //set timeout as in 2 seconds
@@ -354,6 +368,7 @@ void on_inet_client_disconnect(){
 			inet_client_close(&client);
 		}
 	}
+	*/
 }
 
 //this thread only deals with serial and client rx messages
@@ -394,7 +409,7 @@ void *run_sys_msg_tx(){
 			switch(message_tx_dest(msg)){
 				case MSG_TO_ZNET: 
 					if( sys.serial_status == SERIAL_OFF) {
-						printf("message to znet, msg typ = %d\n", msg->data_type);
+						printf("message to znet, msg type = %d\n", msg->data_type);
 						if(pthread_create(&thrd_serial_tx, NULL, run_serial_tx, (void*) msg) < 0){
 							break;
 						}
@@ -779,8 +794,8 @@ int handle_msg_rx(message *msg){
 
 		case DATA_CTRL:
 			//send ctrl to znet
-			msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, msg->dev_type);
 			printf("received CTRL, dev_id = %s \n", msg_tx->dev_id);
+			msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, msg->dev_type);
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -984,13 +999,22 @@ void *run_simu() {
 
 	/*test of status report*/
 	char name[8] = "00000001";
+	int cntdev = 0;
 	while(1){
-		usleep(5000);
+		usleep(500000);
 		//sleep(1);
 		printf("create simu STAT message\n");
 		msg = message_create();
 		msg->dev_type  =DEV_SWITCH_4;
-		name[0]++;
+
+		if(cntdev < 40){
+			cntdev++;
+			name[0]++;
+		}
+		else {
+			cntdev = 0;
+			name[0]-=40;
+		}
 		memcpy(msg->dev_id, name, 8);
 
 		msg->data_type = DATA_STAT;
@@ -1009,6 +1033,34 @@ void *run_simu() {
 
 		message_destroy(msg);
 		free(bytes);
+	}
+	/*test of error status*/
+	while(0){
+		usleep(500000);
+		//sleep(1);
+		printf("create invalid message\n");
+		if (msg != NULL) {
+			message_destroy(msg);
+		}
+		msg = message_create();
+		msg->dev_type = DEV_SWITCH_4;
+		memcpy(msg->dev_id, name, 8);
+
+		msg->data_type = DATA_STAT;
+
+		msg -> data_len = 4;
+		msg->data = calloc(4, sizeof(char));
+		for (m = 0; m < 4; m ++) {
+			msg->data[m] = STAT_ON;
+		}
+		len = MSG_LEN_FIXED+msg->data_len;
+
+		msg->data_len = 6;
+		msg->data_type = 500;
+
+		pthread_mutex_lock(&mut_client);
+		msg_q_tx = message_queue_put(msg_q_tx, msg);//send the hb to the server
+		pthread_mutex_unlock(&mut_client);
 	}
 }
  

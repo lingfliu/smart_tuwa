@@ -90,7 +90,7 @@ int message_tx_dest(message* msg){ //get tx message destination
 		case DATA_NULL:
 			return MSG_TO_SERVER;
 		default:
-			return -1; //unspecified message are not forwarded
+			return MSG_TO_SERVER; //unspecified message are not forwarded
 	}
 }
 

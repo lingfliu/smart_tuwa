@@ -108,9 +108,11 @@ int main(int argn, char* argv[]){
 		/* connect to serial*/
 		if (sys.serial_status == SERIAL_OFF) {
 			if (serial_open(&srl) < 0) {
+				printf("serial cannot be opened, check the hardware\n");
 				sys.serial_status = SERIAL_OFF;
 			}
 			else {
+				printf("serial opened, znet connected\n");
 				sys.serial_status = SERIAL_ON;
 			}
 		}
@@ -128,23 +130,23 @@ int main(int argn, char* argv[]){
 					FD_SET(client.fd, &inet_fds);
 					retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 					if(retval == -1 || retval == 0){ //error or timeout
-						//printf("failed to connect server\n");
+						printf("failed to connect server\n");
 						sys.server_status = SERVER_DISCONNECT;
 						inet_client_close(&client);
 					}
 					else {
-						//printf("connected to server\n");
+						printf("connected to server\n");
 						sys.server_status = SERVER_CONNECT;
 					}
 				}
 				else { 
-					//printf("failed to connect server\n");
+					printf("failed to connect server\n");
 					sys.server_status = SERVER_DISCONNECT;
 					inet_client_close(&client);
 				}
 			}
 			else {
-				//printf("connected to server\n");
+				printf("connected to server\n");
 				sys.server_status = SERVER_CONNECT;
 			}
 		}
@@ -185,6 +187,7 @@ void *run_serial_rx(){
 
 		//translate bytes
 		while(bytes2message(&buff_serial, msg)>0){
+			printf("received msg from znet, msg type=%d\n",msg->data_type);
 			pthread_mutex_lock(&mut_msg_rx);
 			msg_q_rx = message_queue_put(msg_q_rx, msg);
 			pthread_mutex_unlock(&mut_msg_rx);
@@ -204,6 +207,7 @@ void *run_serial_rx(){
 					continue;
 				}
 				else{ //io error, close the serial port and re-open it in main thread
+					printf("znet disconnect\n");
 					sys.serial_status = SERIAL_OFF;
 					serial_close(&srl);
 				}
@@ -227,30 +231,39 @@ void *run_serial_tx(void *arg){
 	if(len == 0)
 		pthread_exit(0);
 
-	while(pos < len){
+	while (pos < len && sys.serial_status == SERIAL_ON) {
+		printf("sending msg, type=%d\n",msg->data_type);
 	   ret = write(srl.fd, bytes+pos, len);
-	   if(ret == len-pos){
+	   if (ret == len-pos) {
+		   printf("message is send to znet at once\n");
 		   free(bytes);
 		   pthread_exit(0);
 	   }
-
-	   if(ret == -1){
+	   else if (ret < 0) {
 		   if(errno == EAGAIN || errno == EINTR) {
 			   usleep(5000);
 			   continue;
 		   }
 		   else {
+			   printf("serial broken\n");
 			   free(bytes); //don't forget to free the mem
 			   serial_close(&srl);
-			   while(serial_open(&srl) < 0)
-				   usleep(5000); //wait 5 ms and try open serial again
+			   sys.serial_status = SERIAL_OFF;
 			   pthread_exit(0);
 		   }
+	   }
+	   else if (ret == 0) {
+		   printf("serial broken\n");
+		   free(bytes);
+		   serial_close(&srl);
+		   sys.serial_status = SERIAL_OFF;
+		   pthread_exit(0);
 	   }
 	   else {
 			pos += ret;
 	   }
 	}
+	printf("message is send to znet\n");
 	free(bytes); //don't forget to free the mem
 	pthread_exit(0);
 }
@@ -264,10 +277,10 @@ void *run_client_rx(){
 		if(sys.server_status == SERVER_CONNECT){
 			len = recv(client.fd, read_client, INET_BUFF_LEN, 0);//non-blocking reading, return immediately
 			if(len>0){
-				//printf("received bytes len = %d\n", len);
+				printf("received bytes len = %d\n", len);
 				buffer_ring_byte_put(&buff_client, read_client, len);
 				while(bytes2message(&buff_client, msg)>0){
-					//printf("received msg type = %d\n", msg->data_type);
+					printf("received msg type = %d\n", msg->data_type);
 					pthread_mutex_lock(&mut_msg_rx);
 					msg_q_rx = message_queue_put(msg_q_rx, msg);
 					pthread_mutex_unlock(&mut_msg_rx);
@@ -276,7 +289,7 @@ void *run_client_rx(){
 				}
 			}
 			else if(len == 0){//if disconnected, reconnect
-				//printf("connection to server broken\n");
+				printf("connection to server broken when receiving\n");
 				on_inet_client_disconnect();
 			}
 			else if(len < 0) {
@@ -287,7 +300,7 @@ void *run_client_rx(){
 					//printf("connection broken %d\n", len);
 				}
 				else {
-					//printf("connection to server broken\n");
+					printf("connection to server broken when receiving\n");
 					on_inet_client_disconnect();
 				}
 			}
@@ -302,7 +315,7 @@ void *run_client_tx(void *arg){
 		pthread_exit(0);
 	}
 
-	//printf("message type=%d\n",msg->data_type);
+	printf("sending message type=%d\n",msg->data_type);
 	char *bytes = calloc(len,sizeof(char)); 
 	message2bytes(msg, bytes);
 	int ret; 
@@ -311,8 +324,9 @@ void *run_client_tx(void *arg){
 	while(pos < len && sys.server_status == SERVER_CONNECT){
 		ret = send(client.fd, bytes+pos, len - pos, MSG_NOSIGNAL);
 		if (ret == len - pos) {
-			//printf("msg is sent to server at once, len = %d, ret = %d\n", len, ret);
-			break;
+			printf("msg is sent to server at once\n");
+			free(bytes); //don't forget to free the mem
+			pthread_exit(0);
 		}
 		else if(ret < 0) { //send failed
 			if(errno == EAGAIN || errno == EINTR){ //buff is full or interrupted
@@ -321,18 +335,18 @@ void *run_client_tx(void *arg){
 				continue;
 			}
 			else if(errno == ECONNRESET || errno == EPIPE){ //connection broke
-				//printf("connection to server broken\n");
+				printf("connection to server broken\n");
 				on_inet_client_disconnect();
 				break;
 			}
 			else {
-				//printf("unknown error\n");
+				printf("connection to server broken\n");
 				on_inet_client_disconnect();
 				break;
 			}
 		}
 		else if (ret == 0) {
-			//printf("connection to server broken\n");
+			printf("connection to server broken\n");
 			on_inet_client_disconnect();
 			break;
 		}
@@ -341,7 +355,8 @@ void *run_client_tx(void *arg){
 			continue;
 		}
 	}
-	//printf("msg is sent to server\n");
+	//message is send in multiple times
+	printf("msg is sent to server\n");
 	free(bytes); //don't forget to free the mem
 	pthread_exit(0);
 }
@@ -353,6 +368,7 @@ void on_inet_client_disconnect(){
 
 	inet_client_close(&client); //close the connection first
 	//connect the server
+	/*
 	if(inet_client_connect(&client) == -1){
 		if(errno == EINPROGRESS){ //connection is in progress 
 			inet_timeout.tv_sec = 2; //set timeout as in 2 seconds
@@ -379,6 +395,7 @@ void on_inet_client_disconnect(){
 		//printf("reconnected to server\n");
 		sys.server_status = SERVER_CONNECT;
 	}
+	*/
 }
 
 //this thread only deals with serial and client rx messages
@@ -745,6 +762,7 @@ int handle_msg_rx(message *msg){
 
 	switch(msg->data_type){
 		case DATA_STAT: 
+			printf("received data stat\n");
 			//update stat
 			idx = sys_znode_update(&sys, msg);
 
@@ -784,6 +802,7 @@ int handle_msg_rx(message *msg){
 			break;
 
 		case DATA_CTRL:
+			printf("received data ctrl\n");
 			//send ctrl to znet
 			msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, msg->dev_type);
 			pthread_mutex_lock(&mut_msg_tx);
@@ -794,6 +813,7 @@ int handle_msg_rx(message *msg){
 			break;
 
 		case DATA_REQ_SYNC:
+			printf("received data sync\n");
 			msg_tx = sys_sync(&sys, msg);
 			if(msg_tx == NULL) { //if server status is newer than local
 				result = 0;
@@ -809,6 +829,7 @@ int handle_msg_rx(message *msg){
 			}
 
 		case DATA_ACK_AUTH_GW:
+			printf("received data auth\n");
 			pthread_mutex_lock(&mut_msg_tx);
 			val = message_queue_del_stamp(&msg_q_tx_req_h, msg->stamp);
 			if(val > 0){//if req still in the queue 
@@ -835,6 +856,7 @@ int handle_msg_rx(message *msg){
 			break;
 
 		case DATA_ACK_STAMP:
+			printf("received data ack stamp\n");
 			vall = 0;
 			memcpy(&(vall), msg->data, 4);
 			sys.u_stamp = vall;
