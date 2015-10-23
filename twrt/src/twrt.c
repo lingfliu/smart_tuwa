@@ -109,15 +109,11 @@ int main(int argn, char* argv[]){
 		if (sys.serial_status == SERIAL_OFF) {
 			if (serial_open(&srl) < 0) {
 				printf("serial cannot be opened, check the hardware\n");
-				sys.serial_status = SERIAL_OFF;
 			}
 			else {
 				printf("serial opened, znet connected\n");
 				sys.serial_status = SERIAL_ON;
 			}
-		}
-		else {
-			//do nothing
 		}
 
 		/* connect to the server */
@@ -131,7 +127,6 @@ int main(int argn, char* argv[]){
 					retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 					if(retval == -1 || retval == 0){ //error or timeout
 						printf("failed to connect server\n");
-						sys.server_status = SERVER_DISCONNECT;
 						inet_client_close(&client);
 					}
 					else {
@@ -141,7 +136,6 @@ int main(int argn, char* argv[]){
 				}
 				else { 
 					printf("failed to connect server\n");
-					sys.server_status = SERVER_DISCONNECT;
 					inet_client_close(&client);
 				}
 			}
@@ -150,7 +144,6 @@ int main(int argn, char* argv[]){
 				sys.server_status = SERVER_CONNECT;
 			}
 		}
-
 		/* if server connected */
 		else {
 			//if license is not authed by the server, communication to server will be stopped, but the rest part (znet, localhost) will keep functioning
@@ -529,12 +522,13 @@ void* run_localuser_rx(void* arg) {
 		usleep(5000);
 		gettimeofday(&timer, NULL);
 		len = recv(usr->skt, usr->buff_io, BUFF_IO_LEN, 0);
+		printf("received data from user %s: %s\n", usr->id, usr->buff_io);
 		if(len>0){
 			buffer_ring_byte_put(&(usr->buff), usr->buff_io, len);
 			if( bytes2message(&(usr->buff), msg) > 0 ) {
 				//if usr not authed, wait until req auth is received
 				if ( !memcmp(usr->id, NULL_USER, MSG_LEN_ID_DEV) || !usr->is_authed ) {
-					if (msg->data_type != DATA_REQ_AUTH_LOCAL) {
+					if (msg->data_type == DATA_REQ_AUTH_LOCAL) {
 						//check the timeout
 						if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
 							localuser_delete(usr);
@@ -543,16 +537,18 @@ void* run_localuser_rx(void* arg) {
 						else {
 							if ( !memcmp(msg->data, DEFAULT_AUTHCODE, 8) && !memcmp(msg->data, sys.id, MSG_LEN_ID_GW) ) {
 								//register the user
-								memcpy(usr->id, msg->dev_id, MSG_LEN_ID_DEV);
+								memcpy(usr->id, msg->dev_id, MSG_LEN_ID_DEV); //dev_is is the user id (app phone id)
 								usr->is_authed = 1;
 
 								//send back ack message
 								msg = message_create_ack_auth_local(sys.id, msg->dev_id, msg->dev_type, AUTH_OK);
+
 								bundle.msg = msg;
+
 								pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 								pthread_join(usr->thrd_tx, (void**) &tx_result);
-								//don't forget to delete the message
-								message_destroy(msg);
+								//don't forget to flush the message
+								message_flush(msg);
 
 								//every tx thread should be checked for the connection
 								if (*tx_result == LOCAL_STATUS_SKTDISCONNECT) {
@@ -573,7 +569,7 @@ void* run_localuser_rx(void* arg) {
 								pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 								pthread_join(usr->thrd_tx, (void**) &tx_result);
 								//don't forget to delete the message
-								message_destroy(msg);
+								message_flush(msg);
 								localuser_delete(usr);
 								free(tx_result);
 								pthread_exit(0);
@@ -757,6 +753,9 @@ int handle_msg_rx(message *msg){
 	localuser *usr;
 	char* local_tx_result;
 
+	int len_descrip;
+	char descrip[128];
+
 	if(!message_isvalid(msg))
 		return -1;
 
@@ -868,6 +867,50 @@ int handle_msg_rx(message *msg){
 			}
 			result = 0;
 			break;
+		case DATA_SET_INSTALL:
+			len_descrip = msg->data_len - 2;
+			sys_edit_dev_install(&sys, msg->dev_id, msg->dev_type, len_descrip, msg->data+2);
+
+			//send install data to znet
+			msg_tx = message_create_install(msg->gateway_id, msg->dev_id, msg->dev_type);
+			pthread_mutex_lock(&mut_msg_tx);
+			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+			pthread_mutex_unlock(&mut_msg_tx);
+			message_destroy(msg_tx);
+
+			result = 0;
+			break;
+		case DATA_GET_INSTALL:
+			//send install data to server
+			for (m = 0; m < ZNET_SIZE; m ++) {
+				if (!znode_isempty( &(sys.znode_list[m])) ) {
+					msg_tx = message_create_install_info(sys.id, sys.znode_install_list[m].id, sys.znode_install_list[m].type, sys.znode_install_list[m].len_descrip, sys.znode_install_list[m].descrip);
+					pthread_mutex_lock(&mut_msg_tx);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					pthread_mutex_unlock(&mut_msg_tx);
+					message_destroy(msg_tx);
+				}
+			}
+			result = 0;
+			break;
+		case DATA_DEL_INSTALL:
+			idx = sys_del_dev_install(&sys, msg->dev_id);
+			if (idx > 0) {
+				msg_tx = message_create_del_install(msg->gateway_id, msg->dev_id);
+				pthread_mutex_lock(&mut_msg_tx);
+				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+				pthread_mutex_unlock(&mut_msg_tx);
+				message_destroy(msg_tx);
+			}
+			
+			result = 0;
+			break;
+
+		case DATA_FINISH_INSTALL:
+			sys_update_dev_install(&sys, FILE_INSTALL);
+
+			result = 0;
+			break;
 		default:
 			result = 0;
 			break;
@@ -885,6 +928,8 @@ int handle_local_message(message *msg, localuser *usr){
 	char* tx_result;
 	int idx;
 
+	int len_descrip;
+
 	if( !message_isvalid(msg)) {
 		retval = -1;
 	}
@@ -896,6 +941,7 @@ int handle_local_message(message *msg, localuser *usr){
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);
 				message_destroy(msg_tx);
+				retval = 0;
 				break;
 			case DATA_REQ_STAT:
 				//if req device is null, set back the whole znet
@@ -944,7 +990,66 @@ int handle_local_message(message *msg, localuser *usr){
 						}
 					}
 				}
+
+				retval = 0;
 				break;
+			case DATA_SET_INSTALL:
+				len_descrip = msg->data_len - 2;
+				sys_edit_dev_install(&sys, msg->dev_id, msg->dev_type, len_descrip, msg->data+2);
+
+				//send install data to znet
+				msg_tx = message_create_install(msg->gateway_id, msg->dev_id, msg->dev_type);
+				pthread_mutex_lock(&mut_msg_tx);
+				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+				pthread_mutex_unlock(&mut_msg_tx);
+				message_destroy(msg_tx);
+
+				retval = 0;
+				break;
+
+			case DATA_GET_INSTALL:
+				//send install data to server
+				for (m = 0; m < ZNET_SIZE; m ++) {
+					if (!znode_isempty( &(sys.znode_list[m])) ) {
+						msg_tx = message_create_install_info(sys.id, sys.znode_install_list[m].id, sys.znode_install_list[m].type, sys.znode_install_list[m].len_descrip, sys.znode_install_list[m].descrip);
+						bundle.msg = msg_tx;
+						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+						//the thrd_tx should return a new 
+						pthread_join(usr->thrd_tx, (void**) tx_result);
+						//don't forget to delete the message
+						message_destroy(msg_tx);
+
+						//every tx thread should be checked for the connection
+						if (*tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+							localuser_delete(usr);
+							pthread_exit(0);
+						}
+						else {
+							//update the time_lastactive
+							gettimeofday( &(usr->time_lastactive), NULL );
+						}
+					}
+				}
+				retval = 0;
+				break;
+
+			case DATA_DEL_INSTALL:
+				idx = sys_del_dev_install(&sys, msg->dev_id);
+				if (idx > 0) {
+					msg_tx = message_create_del_install(msg->gateway_id, msg->dev_id);
+					pthread_mutex_lock(&mut_msg_tx);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					pthread_mutex_unlock(&mut_msg_tx);
+					message_destroy(msg_tx);
+				}
+				retval = 0;
+				break;
+
+			case DATA_FINISH_INSTALL:
+				sys_update_dev_install(&sys, FILE_INSTALL);
+				retval = 0;
+				break;
+
 			default:
 				retval = -1;
 				break;

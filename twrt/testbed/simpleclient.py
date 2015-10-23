@@ -6,6 +6,7 @@ LEN_BUFF_IO = 1000
 numSkt = 5
 serverAddress = ('192.168.1.107', 9091)
 skts = []
+
 for idx in range(numSkt):
 	time.sleep(1)
 	skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -15,7 +16,7 @@ for idx in range(numSkt):
 
 while(True):
 	for idx in range(numSkt):
-		len = skts[idx].send('hello\n')
+		len = skts[idx].send('hello')
 		if len <= 0:
 			skt.close()
 			print 'disconnected'

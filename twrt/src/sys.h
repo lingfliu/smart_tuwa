@@ -79,6 +79,8 @@ void znode_update(znode* znd, message *msg); //update a znode given status msg
 void znode_delete(znode* znd); //delete the znode (both status and other infos)
 void znode_flush(znode* znd); //flush the znode's status and u_stamp
 
+//znode operations
+int get_znode_status_len(int type);
 //local client
 typedef struct{
 	char id[8];
@@ -107,6 +109,14 @@ typedef struct{
 	message *msg;
 }localbundle;
 
+//znode install 
+typedef struct {
+	char id[8];
+	int type;
+	char descrip[50];
+	int len_descrip;
+}znode_install;
+
 /////////////////////////////////////////////
 typedef struct{
     //sys core
@@ -117,6 +127,7 @@ typedef struct{
 
     //znet
     znode znode_list[ZNET_SIZE]; //fixed length of znode_list
+	znode_install znode_install_list[ZNET_SIZE];
 
 	//local client
 	localuser localuser_list[LOCALUSER_SIZE];
@@ -144,13 +155,20 @@ typedef struct{
 	int local_status;//localhost status
 }sys_t;
 
+
 void sys_get_id(sys_t *sys, char* id_file); //get GW id from file
 void sys_get_lic(sys_t *sys, char* lic_file); //get license from file
+
+//new codec for device install
+void sys_get_dev_install(sys_t *sys, char* install_file); 
+void sys_update_dev_install(sys_t *sys, char* install_file);
+void sys_edit_dev_install(sys_t *sys, char id[8], int dev_type, int len_descrip, char *descrip);
+int sys_del_dev_install(sys_t *sys, char id[8]);
 
 /*system initialization when program started
 todo:
  1. get id, lic
- 2. initialize an empty znode_list
+ 2. initialize an znode_list fro FILE_INSTALL
  3. initialize an empty localuser_list
  4. set tx_msg_stamp = 0
  5. set u_stamp = -1

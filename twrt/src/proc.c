@@ -89,6 +89,10 @@ int message_tx_dest(message* msg){ //get tx message destination
 			return MSG_TO_LOCALUSER;
 		case DATA_NULL:
 			return MSG_TO_SERVER;
+		case DATA_INSTALL:
+			return MSG_TO_ZNET;
+		case DATA_INSTALL_INFO:
+			return MSG_TO_SERVER;
 		default:
 			return MSG_TO_SERVER; //unspecified message are not forwarded
 	}
@@ -494,5 +498,39 @@ message* message_create_ack_auth_local(char id_gw[8], char id_dev[8], int dev_ty
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
 	msg->data_type = DATA_ACK_AUTH_LOCAL;
+	return msg;
+}
+
+message* message_create_install(char id_gw[8], char id_dev[8], int type) {
+	message *msg = message_create();
+	msg->data = realloc(msg->data, 1);
+	msg->data[0] = 0;
+	msg->data_len = 1;
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+	msg->dev_type = type;
+	msg->data_type = DATA_INSTALL;
+	return msg;
+}
+
+message* message_create_del_install(char id_gw[8], char id_dev[8]){
+	message *msg = message_create();
+	msg->data = realloc(msg->data, 1);
+	msg->data[0] = 0;
+	msg->data_len = 1;
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+	msg->dev_type = 1;
+	msg->data_type = DATA_DEL_INSTALL;
+	return msg;
+}
+message* message_create_install_info(char id_gw[8], char id_dev[8], int dev_type, int len_descrip, char* descrip){
+	message *msg = message_create();
+	msg->data_len = 2+len_descrip;
+	msg->data = realloc(msg->data, sizeof(char)*(2+len_descrip));
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+	msg->dev_type = dev_type;
+	msg->data_type = DATA_INSTALL_INFO;
 	return msg;
 }

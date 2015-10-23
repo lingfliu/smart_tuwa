@@ -73,17 +73,32 @@
 	5. GW authorization: lic
 
 	6. Theme setter: DEV_ID NUM ZNET_STATUS
+
+	7. Device install (for the znet to merge the data): DESCRIPTION_LENGTH(2 bytes) DESCRIPTION (varying)
    **********************************************/
 
 #define DATA_STAT 1 //status update, from znode to gateway
 #define DATA_CTRL 2 //control, from znode to gateway, from gateway to znode, from server to gateway
 #define DATA_SET 3 //data type specially for theme setter
 
-/*************************
-  newly added data type
- *************************/
 #define DATA_PULSE 4 //simple pulse msg for sockets (both to server and from localhost) 
 #define DATA_SYNC 5 //simple sync msg for localusers
+
+/*************************
+ * newly added data type
+ *************************/
+///////////////////////////////////////////////////////////////
+//from app and server to GW
+#define DATA_SET_INSTALL 6 //set installation of a device 
+#define DATA_GET_INSTALL 7 //request device installation information
+
+#define DATA_INSTALL 8 //device installation data for data_get_install request (to znet)
+#define DATA_INSTALL_INFO 9 //device installation data for data_get_install_info request (to server and app)
+
+#define DATA_DEL_INSTALL 10 //delete device installation data from the system
+
+#define DATA_FINISH_INSTALL 11 //finishing the installation, call the GW to save the data to file
+///////////////////////////////////////////////////////////////
 
 #define DATA_REQ_SYNC 21 //synchronization request
 #define DATA_REQ_AUTH_GW 22 //gw authroization request
@@ -93,9 +108,6 @@
 #define DATA_REQ_PULSE 26 //tcp pulse (not req any longer)
 
 
-/*************************
-  newly added data type
- *************************/
 #define DATA_REQ_STAT 27 //localuser request for znet status
 #define DATA_REQ_AUTH_LOCAL 28 //localuser auth request
 
@@ -106,11 +118,7 @@
 #define DATA_ACK_STAMP 65 //initial stamp ack 
 //#define DATA_ACK_PULSE 66 //tcp pulse ack (not used)
 
-/*************************
-  newly added data type
- *************************/
 #define DATA_ACK_AUTH_LOCAL 67 //localuser auth ack
-
 
 #define DATA_SYS_RESET 101 //sys reset command (not used)
 #define DATA_NULL 201  //null data type for general purposes
@@ -249,4 +257,7 @@ message* message_create_req_stamp(char id_gw[8], long stamp);
 message* message_create_null(char id_gw[8], long stamp);
 message* message_create_ack_auth_local(char id_gw[8], char id_dev[8], int dev_type, char auth_result);
 
+message* message_create_install(char id_gw[8], char id_dev[8], int type); //create install info and send to znet
+message* message_create_del_install(char id_gw[8], char id_dev[8]); //delete install into and send to znet
+message* message_create_install_info(char id_gw[8], char id_dev[8], int dev_type, int len_descrip, char* descrip); //create install info and send to znet
 #endif

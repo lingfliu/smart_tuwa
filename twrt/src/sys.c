@@ -3,7 +3,7 @@
 /**znode operation************************************
 ******************************************************/
 int znode_isempty(znode *znd){
-    if(znd->status_len == 0 && znd->status == NULL && !memcmp(znd->id, NULL_DEV, MSG_LEN_ID_DEV)){
+    if(znd->status_len == 0 || znd->type == 0){
 		return 1;
 	}
     else {
@@ -62,6 +62,8 @@ int sys_znode_update(sys_t* sys, message* msg){
 	}
 
 	if( idx < 0 ) {//not in the list 
+		/*deprecated of earlier version*/
+		/*
 		for(m = 0; m < ZNET_SIZE; m++ ) {
 			if(znode_isempty( &(sys->znode_list[m]) ) ){
 				idx_empty = m;
@@ -76,6 +78,12 @@ int sys_znode_update(sys_t* sys, message* msg){
 			sys->znode_list[idx_empty].u_stamp = sys->u_stamp; //set u_stamp as system u_stamp
 			return idx_empty;
 		}
+		*/
+
+		/******************************************************/
+		/*modified: if node not in the list, simply return  -1*/
+		/******************************************************/
+		return idx;
 	}
 	else { //already in the list, update
 		znode_update(&(sys->znode_list[idx]), msg); //u_stamp will be updated here
@@ -137,7 +145,7 @@ void localuser_delete(localuser *usr){
 	memcpy(usr->id, NULL_USER, 8*sizeof(char));
 	close(usr->skt);
 	usr->skt = -1;
-	usr->is_authed = AUTH_NO;
+	usr->is_authed = 0;
 	buffer_ring_byte_flush(&(usr->buff));
 }
 
@@ -168,6 +176,7 @@ localuser* sys_localuser_login(sys_t* sys, int skt){
 		 ***********************/
 		//printf("new user index = %d\n",idx);
 		sys->localuser_list[idx].idx = idx;
+		sys->localuser_list[idx].is_authed = 0; //user has to be authed after login in order to work
 
 		return &(sys->localuser_list[idx]);
 	}
@@ -300,10 +309,15 @@ void sys_init(sys_t* sys){
 	sys->tx_msg_stamp = 0;
 
 	//initialize znet
-	for(m = 0; m < ZNET_SIZE; m++){
-		memcpy(sys->znode_list[m].id, NULL_DEV, MSG_LEN_ID_DEV);
-		sys->znode_list[m].u_stamp = -1;
-	}	
+	sys_get_dev_install(sys, FILE_INSTALL);
+
+	/*
+	for (m = 0; m < ZNET_SIZE; m ++){
+		if (!znode_isempty(&(sys->znode_list[m]))) {
+			printf("id=%s, type=%d, description=%s\n", sys->znode_install_list[m].id, sys->znode_install_list[m].type, sys->znode_install_list[m].descrip);
+		}
+	}
+	*/
 
 	//initialize localuser
 	for(m = 0; m < LOCALUSER_SIZE; m++){
@@ -346,3 +360,254 @@ message* sys_sync(sys_t *sys, message *msg){
    }
 }
 
+void sys_get_dev_install(sys_t *sys, char* install_file) {
+	FILE* fp;
+	char str[128];
+	char strTmp[128];
+	int cnt;
+	int m;
+	int idx[3];
+	int idxCnt;
+	int len_descrip;
+
+	fp = fopen(FILE_INSTALL,"r");
+	if(fp == NULL){
+		//if file not existing, create one
+		fp = fopen(FILE_INSTALL, "w+");
+		fclose(fp);
+		return;
+	}
+	else {
+		cnt = 0;
+		while(fgets(str,128,fp)!=NULL) {
+			idxCnt = 0;
+			for(m = 0; m < 128; m ++) {
+				if (str[m] == ':'){
+					idx[idxCnt++] = m;
+				}
+				if (idxCnt > 3) {
+					break;
+				}
+			}
+
+			//set the znode_install_list
+			memcpy(sys->znode_install_list[cnt].id, str, sizeof(char)*idx[0]);
+
+			bzero(strTmp, sizeof(char)*128);
+			memcpy(strTmp, str+idx[0]+1, sizeof(idx[1]-idx[0]-1));
+			sscanf(strTmp, "%d", &(sys->znode_install_list[cnt].type));
+
+			bzero(sys->znode_install_list[cnt].descrip, sizeof(char)*50);
+			bzero(strTmp, sizeof(char)*128);
+			memcpy(strTmp, str+idx[1]+1, sizeof(char)*(idx[2]-idx[1]-1));
+			len_descrip = strlen(strTmp);
+			sys->znode_install_list[cnt].len_descrip = len_descrip;
+			memcpy(sys->znode_install_list[cnt].descrip, strTmp, sizeof(char)*len_descrip);
+
+			//set the znode_list
+			memcpy(sys->znode_list[cnt].id, sys->znode_install_list[cnt].id, 8);
+			sys->znode_list[cnt].type = sys->znode_install_list[cnt].type;
+			sys->znode_list[cnt].model = DEFAULT_MODEL;
+			sys->znode_list[cnt].ver = DEFAULT_VER;
+			sys->znode_list[cnt].status_len = get_znode_status_len(sys->znode_list[cnt].type);
+			sys->znode_list[cnt].status = calloc(sys->znode_list[cnt].status_len, sizeof(char));
+			sys->znode_list[cnt].znet_status = ZNET_ON;
+			sys->znode_list[cnt].u_stamp = -1;
+
+			//increment the counter
+			cnt ++;
+		}
+
+		fclose(fp);
+	}
+}
+
+void sys_update_dev_install(sys_t *sys, char* install_file) {
+	FILE* fp;
+	int m;
+	int len;
+	int cnt;
+
+	fp = fopen(FILE_INSTALL, "w+");
+
+	if (fp == NULL) {
+		return;
+	}
+
+	len = sys_get_znode_num(sys);
+	cnt = 0;
+
+	for (m = 0; m < ZNET_SIZE; m ++) {
+		if (sys->znode_install_list[m].type > 0) {
+			cnt++;
+			fwrite(sys->znode_install_list[m].id, 8, sizeof(char), fp);
+			fprintf(fp, ":");
+			fprintf(fp, "%d", sys->znode_install_list[m].type);
+			fprintf(fp, ":");
+			fprintf(fp, "%s", sys->znode_install_list[m].descrip);
+			fprintf(fp, ":");
+
+			if (cnt < len) {
+				fprintf(fp, "\n");
+			}
+		}
+	}
+	fclose(fp);
+}
+
+void sys_edit_dev_install(sys_t *sys, char id[8], int dev_type, int len_descrip, char* descrip){
+	int m;
+	int idx;
+	int idxEmpty;
+	int cnt;
+	int len = sys_get_znode_num(sys);
+
+	idx = -1;
+	cnt = 0;
+	for (m = 0; m < len; m ++){
+		if (znode_isempty(& (sys->znode_list[m]) )) {
+			continue;
+		}
+		else {
+			cnt ++;
+			if (memcmp(sys->znode_install_list[m].id, id, sizeof(char)*8)){
+				idx = m;
+			}
+			if (cnt > len) {
+				break;
+			}
+		}
+	}
+
+	if (idx < 0) {
+		//new device
+		idxEmpty = -1;
+		for (m = 0; m < ZNET_SIZE; m ++) {
+			if (znode_isempty(& (sys->znode_list[m]) )) {
+				idxEmpty = m;
+				break;
+			}
+		}
+
+		if (idxEmpty == -1 && len < ZNET_SIZE) {
+			memcpy(sys->znode_install_list[len].id, id, sizeof(char)*8);
+			sys->znode_install_list[len].type = dev_type;
+			bzero(sys->znode_install_list[len].descrip, 50*sizeof(char));
+			sys->znode_install_list[len].len_descrip = len_descrip;
+			memcpy(sys->znode_install_list[len].descrip, descrip, len_descrip*sizeof(char));
+
+			memcpy(sys->znode_list[len].id, id, sizeof(char)*8);
+			sys->znode_list[len].type = dev_type;
+			sys->znode_list[len].model = DEFAULT_MODEL;
+			sys->znode_list[len].ver = DEFAULT_VER;
+			sys->znode_list[len].status_len = get_znode_status_len(sys->znode_list[cnt].type);
+			sys->znode_list[len].status = calloc(sys->znode_list[cnt].status_len, sizeof(char));
+			sys->znode_list[len].znet_status = ZNET_ON;
+			sys->znode_list[len].u_stamp = 0;
+		}
+		else if (idxEmpty > 0 ) {
+			memcpy(sys->znode_install_list[idxEmpty].id, id, sizeof(char)*8);
+			sys->znode_install_list[idxEmpty].type = dev_type;
+			sys->znode_install_list[idxEmpty].len_descrip = len_descrip;
+			bzero(sys->znode_install_list[len].descrip, 50*sizeof(char));
+			memcpy(sys->znode_install_list[idxEmpty].descrip, descrip, len_descrip*sizeof(char));
+
+			memcpy(sys->znode_list[idxEmpty].id, id, sizeof(char)*8);
+			sys->znode_list[idxEmpty].type = dev_type;
+			sys->znode_list[idxEmpty].model = DEFAULT_MODEL;
+			sys->znode_list[idxEmpty].ver = DEFAULT_VER;
+			sys->znode_list[idxEmpty].status_len = get_znode_status_len(sys->znode_list[cnt].type);
+			sys->znode_list[idxEmpty].status = calloc(sys->znode_list[cnt].status_len, sizeof(char));
+			sys->znode_list[idxEmpty].znet_status = ZNET_ON;
+			sys->znode_list[idxEmpty].u_stamp = 0;
+		}
+		else if (idxEmpty == -1 && len >= ZNET_SIZE) {
+			return;
+		}
+	}
+	else {
+		//if device already in the installation list, simply renew the description
+		sys->znode_install_list[idx].len_descrip = len_descrip;
+		bzero(sys->znode_install_list[len].descrip, 50*sizeof(char));
+		memcpy(sys->znode_install_list[idx].descrip, descrip, len_descrip*sizeof(char));
+	}
+}
+
+int sys_del_dev_install(sys_t *sys, char id[8]){
+	int idx = -1;
+	int m;
+
+	for (m = 0; m < ZNET_SIZE; m ++){
+		if (memcmp(sys->znode_install_list[m].id, id, sizeof(char)*8)){
+			idx = m;
+		}
+	}
+
+	if (idx < 0) {
+		return idx;
+	}
+	else {
+		bzero(sys->znode_install_list[idx].descrip, 50*sizeof(char));
+		memset((void*) &(sys->znode_install_list[idx]), 0, sizeof(znode_install));
+		free(sys->znode_list[idx].status);
+		memset((void*) &(sys->znode_list[idx]), 0, sizeof(znode));
+		return idx;
+	}
+}
+
+int get_znode_status_len(int type){
+	switch(type){
+		case DEV_SWITCH_1:
+			return 1;
+		case DEV_SWITCH_2:
+			return 2;
+		case DEV_SWITCH_3:
+			return 3;
+		case DEV_SWITCH_4:
+			return 4;
+		case DEV_DIMSWITCH_1:
+			return 1;
+		case DEV_CURTAIN_1:
+			return 1;
+		case DEV_CURTAIN_2:
+			return 2;
+		case DEV_SOCK_1:
+			return 1;
+		case DEV_SOCK_4:
+			return 4;
+		case DEV_SENSOR_SMOKE:
+			return 1;
+		case DEV_SENSOR_CO:
+			return 1;
+		case DEV_SENSOR_WATER:
+			return 1;
+		case DEV_SENSOR_TEMP:
+			return 2;
+		case DEV_SENSOR_HUMI:
+			return 2;
+		case DEV_SENSOR_TEHU:
+			return 2;
+		case DEV_SENSOR_INFRA:
+			return 8;
+		case DEV_SENSOR_LUMI:
+			return 2;
+		case DEV_SENSOR_PM25:
+			return 2;
+		case DEV_SENSOR_MAGLOCK:
+			return 1;
+		case DEV_SENSOR_FLAME:
+			return 1;
+		case DEV_SENSOR_RAIN:
+			return 1;
+		case DEV_MECH_VALVE:
+			return 1;
+		case DEV_THEME_4:
+			return 4;
+		case DEV_INFRACTRL:
+			return 8;
+		case DEV_ALARM:
+			return 1;
+		default:
+			return 0;
+	}
+}
