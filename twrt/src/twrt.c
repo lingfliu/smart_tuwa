@@ -551,6 +551,7 @@ void* run_localuser_rx(void* arg) {
 					if (msg->data_type == DATA_REQ_AUTH_LOCAL) {
 						//check the timeout
 						if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
+							printf("delete timeout user");
 							localuser_delete(usr);
 							pthread_exit(0);
 						}
@@ -578,8 +579,8 @@ void* run_localuser_rx(void* arg) {
 								}
 								else {
 									//update the time_lastactive
-									gettimeofday( &(usr->time_lastactive), NULL );
 									free(tx_result);
+									gettimeofday( &(usr->time_lastactive), NULL );
 								}
 							}
 							//otherwise close the socket
@@ -588,10 +589,10 @@ void* run_localuser_rx(void* arg) {
 								bundle.msg = msg;
 								pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 								pthread_join(usr->thrd_tx, (void**) &tx_result);
-								//don't forget to delete the message
+								//don't forget to flush the message
 								message_flush(msg);
-								localuser_delete(usr);
 								free(tx_result);
+								localuser_delete(usr);
 								pthread_exit(0);
 							}
 						}
