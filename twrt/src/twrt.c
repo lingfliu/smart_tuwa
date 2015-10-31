@@ -484,17 +484,36 @@ void* run_localhost(){
 	int skt;
 	localuser *usr;
 
-	if( listen(localhost.fd, 10) ) {
-		//failed to start listening
+	int res  = listen(localhost.fd, 10) ;
+	printf("listening result = %d\n", res);
+
+	if (res == -1) {
+		printf("failed to start listening\n");
+		switch (errno) {
+			case EADDRINUSE:
+				printf("addr inuse\n");
+				break;
+			case EBADF:
+				printf("invalid descriptor\n");
+				break;
+			case ENOTSOCK:
+				printf("not a sock\n");
+				break;
+			case EOPNOTSUPP:
+				printf("not supported\n");
+				break;
+		}
 		pthread_exit(0);
 	}
 
+
+	printf("localhost listening \n");
 	while(1) {
 		usleep(5000);
 		skt = accept(localhost.fd, (struct sockaddr *) &localuser_sock, &len);
 		if (skt <= 0){
 			if (errno == EAGAIN || errno == EWOULDBLOCK) {
-				usleep(1000);
+				usleep(5000);
 				continue;
 			}
 			else {
@@ -502,6 +521,7 @@ void* run_localhost(){
 			}
 		}
 		else {
+			printf("localuser connected");
 			usr = sys_localuser_login(&sys, skt);
 		    gettimeofday(&(usr->time_lastactive), NULL);
 			pthread_create( &(usr->thrd_rx), NULL, run_localuser_rx, usr);
@@ -527,7 +547,7 @@ void* run_localuser_rx(void* arg) {
 			buffer_ring_byte_put(&(usr->buff), usr->buff_io, len);
 			if( bytes2message(&(usr->buff), msg) > 0 ) {
 				//if usr not authed, wait until req auth is received
-				if ( !memcmp(usr->id, NULL_USER, MSG_LEN_ID_DEV) || !usr->is_authed ) {
+				if ( !usr->is_authed ) {
 					if (msg->data_type == DATA_REQ_AUTH_LOCAL) {
 						//check the timeout
 						if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
@@ -535,7 +555,7 @@ void* run_localuser_rx(void* arg) {
 							pthread_exit(0);
 						}
 						else {
-							if ( !memcmp(msg->data, DEFAULT_AUTHCODE, 8) && !memcmp(msg->data, sys.id, MSG_LEN_ID_GW) ) {
+							if ( !memcmp(msg->data, DEFAULT_AUTHCODE, 8) && !memcmp(msg->gateway_id, sys.id, MSG_LEN_ID_GW) ) {
 								//register the user
 								memcpy(usr->id, msg->dev_id, MSG_LEN_ID_DEV); //dev_is is the user id (app phone id)
 								usr->is_authed = 1;

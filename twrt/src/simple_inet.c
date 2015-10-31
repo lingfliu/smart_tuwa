@@ -70,6 +70,27 @@ int inet_server_config(int port, int proc_type, inet* server){
     switch(server->proc){
 	case INET_PROC_TCP:
 	    if((server->fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+			printf("socket creation failed, ");
+			switch (errno) {
+				case EACCES:
+					printf("EACCES\n");
+					break;
+				case EAFNOSUPPORT:
+					printf("EAFNOSUPPORT\n");
+					break;
+				case EINVAL:
+					printf("EINVAL\n");
+					break;
+				case EMFILE:
+					printf("EMFILE\n");
+					break;
+				case ENOBUFS:
+					printf("ENOBUFS\n");
+					break;
+				case EPROTONOSUPPORT:
+					printf("EPROTONOSUPPORT\n");
+					break;
+			}
 			return -1;
 	    }
 	    break;

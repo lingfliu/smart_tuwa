@@ -4,7 +4,7 @@ import time
 msg_auth = 'AABBCCDD'
 LEN_BUFF_IO = 1000
 numSkt = 5
-serverAddress = ('192.168.1.107', 9091)
+serverAddress = ('192.168.2.106', 9091)
 skts = []
 
 for idx in range(numSkt):
