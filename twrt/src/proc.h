@@ -29,7 +29,9 @@
 /*************************
  newly added device types
  *************************/
-#define DEV_LOCAL_PHONE 50
+
+#define DEV_LOCAL_PHONE 50 //local phone (app)
+#define DEV_GW_FAN 51 //local GW fan 
 
 #define DEV_SENSOR_SMOKE 101
 #define DEV_SENSOR_CO 102
@@ -87,6 +89,7 @@
 /*************************
  * newly added data type
  *************************/
+
 ///////////////////////////////////////////////////////////////
 //from app and server to GW
 #define DATA_SET_INSTALL 6 //set installation of a device 
@@ -98,6 +101,7 @@
 #define DATA_DEL_INSTALL 10 //delete device installation data from the system
 
 #define DATA_FINISH_INSTALL 11 //finishing the installation, call the GW to save the data to file
+
 ///////////////////////////////////////////////////////////////
 
 #define DATA_REQ_SYNC 21 //synchronization request
@@ -139,8 +143,8 @@
 #define AUTH_OK 0
 #define AUTH_NO 0xFF
 
-#define CTRL_ON 0 
-#define CTRL_OFF 100 
+#define CTRL_ON 100
+#define CTRL_OFF 0 
 //level control range from 0~100 
 
 #define THEME_SET 0x11
@@ -260,4 +264,5 @@ message* message_create_ack_auth_local(char id_gw[8], char id_dev[8], int dev_ty
 message* message_create_install(char id_gw[8], char id_dev[8], int type); //create install info and send to znet
 message* message_create_del_install(char id_gw[8], char id_dev[8]); //delete install into and send to znet
 message* message_create_install_info(char id_gw[8], char id_dev[8], int dev_type, int len_descrip, char* descrip); //create install info and send to znet
+
 #endif

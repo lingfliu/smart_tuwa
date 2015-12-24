@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define FILE_EDIT "/home/liulingfeng/install"
+//#define FILE_EDIT "/home/liulingfeng/install"
+#define FILE_EDIT "/etc/twrt/install"
 
 typedef struct {
 	char id[8];

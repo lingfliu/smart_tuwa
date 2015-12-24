@@ -56,7 +56,7 @@
 #define TIMER_REQ 2000 //request waiting time in milli-second
 #define TIMER_SYNC 30 //synchronization time in seconds 
 
-#define DEFAULT_LOCALHOST_TIMEOUT 10 //server socket timeout in seconds
+#define DEFAULT_LOCALHOST_TIMEOUT 5 //server socket timeout in seconds
 
 //sys and znode
 typedef struct{
@@ -92,7 +92,7 @@ typedef struct{
 	int is_authed;
     struct timeval time_lastactive; //timer to send tcp pulse to the server
 	char tx_status;
-	
+
 	/***********************
 	  debug codec
 	 ***********************/
@@ -153,6 +153,11 @@ typedef struct{
     int server_status;//server status
 	int serial_status;//serial status
 	int local_status;//localhost status
+
+	/*
+	 * status of GW devices
+	 */
+	char fan_status; //fan status
 }sys_t;
 
 

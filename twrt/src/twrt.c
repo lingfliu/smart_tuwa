@@ -126,7 +126,7 @@ int main(int argn, char* argv[]){
 					FD_SET(client.fd, &inet_fds);
 					retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 					if(retval == -1 || retval == 0){ //error or timeout
-						printf("failed to connect server\n");
+						//printf("failed to connect server\n");
 						inet_client_close(&client);
 					}
 					else {
@@ -135,7 +135,7 @@ int main(int argn, char* argv[]){
 					}
 				}
 				else { 
-					printf("failed to connect server\n");
+					//printf("failed to connect server\n");
 					inet_client_close(&client);
 				}
 			}
@@ -228,7 +228,7 @@ void *run_serial_tx(void *arg){
 		printf("sending msg, type=%d\n",msg->data_type);
 	   ret = write(srl.fd, bytes+pos, len);
 	   if (ret == len-pos) {
-		   printf("message is send to znet at once\n");
+		   //printf("message is send to znet at once\n");
 		   free(bytes);
 		   pthread_exit(0);
 	   }
@@ -317,7 +317,7 @@ void *run_client_tx(void *arg){
 	while(pos < len && sys.server_status == SERVER_CONNECT){
 		ret = send(client.fd, bytes+pos, len - pos, MSG_NOSIGNAL);
 		if (ret == len - pos) {
-			printf("msg is sent to server at once\n");
+			//printf("msg is sent to server at once\n");
 			free(bytes); //don't forget to free the mem
 			pthread_exit(0);
 		}
@@ -542,59 +542,47 @@ void* run_localuser_rx(void* arg) {
 		usleep(5000);
 		gettimeofday(&timer, NULL);
 		len = recv(usr->skt, usr->buff_io, BUFF_IO_LEN, 0);
-		printf("received data from user %s: %s\n", usr->id, usr->buff_io);
 		if(len>0){
+			//printf("received data from user %s: %s\n", usr->id, usr->buff_io);
 			buffer_ring_byte_put(&(usr->buff), usr->buff_io, len);
 			if( bytes2message(&(usr->buff), msg) > 0 ) {
+				printf("received msg from user %s: dev type = %d data type = %d\n", usr->id, msg->dev_type, msg->data_type);
 				//if usr not authed, wait until req auth is received
 				if ( !usr->is_authed ) {
 					if (msg->data_type == DATA_REQ_AUTH_LOCAL) {
-						//check the timeout
-						if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
-							printf("delete timeout user");
+						if ( !memcmp(msg->data, DEFAULT_AUTHCODE, 8) && !memcmp(msg->gateway_id, sys.id, MSG_LEN_ID_GW) ) {
+							//register the user
+							memcpy(usr->id, msg->dev_id, MSG_LEN_ID_DEV); //dev_is is the user id (app phone id)
+							usr->is_authed = 1;
+							printf("user authed to the system\n");
+
+							//send back ack message
+							msg = message_create_ack_auth_local(sys.id, msg->dev_id, msg->dev_type, AUTH_OK);
+
+							bundle.msg = msg;
+
+							pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+							pthread_join(usr->thrd_tx, NULL);
+							//don't forget to flush the message
+							message_flush(msg);
+
+							gettimeofday( &(usr->time_lastactive), NULL );
+						}
+						//otherwise close the socket
+						else {
+							msg = message_create_ack_auth_local(sys.id, msg->dev_id, msg->dev_type, AUTH_NO);
+							bundle.msg = msg;
+							pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+							pthread_join(usr->thrd_tx, NULL);
+							//don't forget to flush the message
+							message_flush(msg);
+
+							if (tx_result != NULL){
+								free(tx_result);
+							}
+
 							localuser_delete(usr);
 							pthread_exit(0);
-						}
-						else {
-							if ( !memcmp(msg->data, DEFAULT_AUTHCODE, 8) && !memcmp(msg->gateway_id, sys.id, MSG_LEN_ID_GW) ) {
-								//register the user
-								memcpy(usr->id, msg->dev_id, MSG_LEN_ID_DEV); //dev_is is the user id (app phone id)
-								usr->is_authed = 1;
-
-								//send back ack message
-								msg = message_create_ack_auth_local(sys.id, msg->dev_id, msg->dev_type, AUTH_OK);
-
-								bundle.msg = msg;
-
-								pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
-								pthread_join(usr->thrd_tx, (void**) &tx_result);
-								//don't forget to flush the message
-								message_flush(msg);
-
-								//every tx thread should be checked for the connection
-								if (*tx_result == LOCAL_STATUS_SKTDISCONNECT) {
-									localuser_delete(usr);
-									free(tx_result);
-									pthread_exit(0);
-								}
-								else {
-									//update the time_lastactive
-									free(tx_result);
-									gettimeofday( &(usr->time_lastactive), NULL );
-								}
-							}
-							//otherwise close the socket
-							else {
-								msg = message_create_ack_auth_local(sys.id, msg->dev_id, msg->dev_type, AUTH_NO);
-								bundle.msg = msg;
-								pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
-								pthread_join(usr->thrd_tx, (void**) &tx_result);
-								//don't forget to flush the message
-								message_flush(msg);
-								free(tx_result);
-								localuser_delete(usr);
-								pthread_exit(0);
-							}
 						}
 					}
 					//a prelogined socket should always send auth as the first message
@@ -611,6 +599,7 @@ void* run_localuser_rx(void* arg) {
 				}
 				//if user is authed
 				else {
+					printf("handle local message, msg type = %d\n", msg->data_type);
 					handle_local_message(msg, usr);
 					message_flush(msg);
 				}
@@ -782,9 +771,10 @@ int handle_msg_rx(message *msg){
 
 	switch(msg->data_type){
 		case DATA_STAT: 
-			printf("received data stat\n");
 			//update stat
 			idx = sys_znode_update(&sys, msg);
+
+			printf("received data stat from znet, dev index = %d\n", idx);
 
 			//if update valid, send synchronization to server
 			if(idx >= 0) {
@@ -794,27 +784,25 @@ int handle_msg_rx(message *msg){
 				pthread_mutex_unlock(&mut_msg_tx);
 				message_destroy(msg_tx);
 				result = 0;
-			}
 
-			//send stat message to localuser
-			if(sys_get_localuser_num(&sys) > 0) {
-				//send the status to local-users
-				for( m = 0; m < LOCALUSER_SIZE; m ++) {
-					usr = &(sys.localuser_list[m]);
-					if ( !localuser_isnull(usr) ) {
-						bundle.usr = usr;
-						bundle.msg = msg;
-						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
-						pthread_join(usr->thrd_tx, (void**) &local_tx_result);
-						//every tx thread should be checked for the connection
-						if (*local_tx_result == LOCAL_STATUS_SKTDISCONNECT) {
-							localuser_delete(usr);
-							free(local_tx_result);
-						}
-						else {
-							//update the time_lastactive
-							gettimeofday( &(usr->time_lastactive), NULL );
-							free(local_tx_result);
+				//send stat message to localuser if stat msg is valid
+				if(sys_get_localuser_num(&sys) > 0) {
+					//send the status to local-users
+					for( m = 0; m < LOCALUSER_SIZE; m ++) {
+						usr = &(sys.localuser_list[m]);
+						if ( !localuser_isnull(usr) ) {
+							bundle.usr = usr;
+							bundle.msg = msg;
+							pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+							pthread_join(usr->thrd_tx, (void**) &local_tx_result);
+							//every tx thread should be checked for the connection
+							if (*local_tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+								localuser_delete(usr);
+							}
+							else {
+								//update the time_lastactive
+								gettimeofday( &(usr->time_lastactive), NULL );
+							}
 						}
 					}
 				}
@@ -822,30 +810,65 @@ int handle_msg_rx(message *msg){
 			break;
 
 		case DATA_CTRL:
-			printf("received data ctrl\n");
-			//send ctrl to znet
-			msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, msg->dev_type);
-			pthread_mutex_lock(&mut_msg_tx);
-			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-			pthread_mutex_unlock(&mut_msg_tx);
-			message_destroy(msg_tx);
-			result = 0;
+			printf("received data ctrl from server, len = %d\n", msg->data_len);
+			if (msg->dev_type == DEV_GW_FAN){
+				/*
+				 * handle controlling of gw fan
+				 */
+				printf("received gw fan ctrl = %s \n", msg->data);
+				if (*(msg->data) == CTRL_ON){
+					fan_control(1);
+					sys.fan_status = STAT_ON;
+				}
+				else if (*(msg->data) == CTRL_OFF){
+					fan_control(0);
+					sys.fan_status = STAT_OFF;
+				}
+				else {
+					//do nothing
+				}
+			}
+			else {
+				//send ctrl to znet
+				msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, msg->dev_type);
+				pthread_mutex_lock(&mut_msg_tx);
+				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+				pthread_mutex_unlock(&mut_msg_tx);
+				message_destroy(msg_tx);
+				result = 0;
+			}
 			break;
 
 		case DATA_REQ_SYNC:
 			printf("received data sync\n");
-			msg_tx = sys_sync(&sys, msg);
-			if(msg_tx == NULL) { //if server status is newer than local
-				result = 0;
-				break;
-			} 
-			else {
+			if (msg->dev_type == DEV_GW_FAN){
+				/*
+				 * sending back fan status
+				 */
+				printf("received status req for GW fan, fan status = %s\n", &(sys.fan_status));
+				msg_tx = message_create_stat(1, &(sys.fan_status), sys.id, NULL_DEV, DEV_GW_FAN); 
+
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);
 				message_destroy(msg_tx);
 				result = 0;
 				break;
+			}
+			else {
+				msg_tx = sys_sync(&sys, msg);
+				if(msg_tx == NULL) { //if server status is newer than local
+					result = 0;
+					break;
+				} 
+				else {
+					pthread_mutex_lock(&mut_msg_tx);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					pthread_mutex_unlock(&mut_msg_tx);
+					message_destroy(msg_tx);
+					result = 0;
+					break;
+				}
 			}
 
 		case DATA_ACK_AUTH_GW:
@@ -890,6 +913,7 @@ int handle_msg_rx(message *msg){
 			break;
 		case DATA_SET_INSTALL:
 			len_descrip = msg->data_len - 2;
+			printf("received set install, id = %s, dev type = %d\n", msg->dev_id, msg->dev_type);
 			sys_edit_dev_install(&sys, msg->dev_id, msg->dev_type, len_descrip, msg->data+2);
 
 			//send install data to znet
@@ -903,6 +927,7 @@ int handle_msg_rx(message *msg){
 			break;
 		case DATA_GET_INSTALL:
 			//send install data to server
+			printf("received get install\n");
 			for (m = 0; m < ZNET_SIZE; m ++) {
 				if (!znode_isempty( &(sys.znode_list[m])) ) {
 					msg_tx = message_create_install_info(sys.id, sys.znode_install_list[m].id, sys.znode_install_list[m].type, sys.znode_install_list[m].len_descrip, sys.znode_install_list[m].descrip);
@@ -951,41 +976,73 @@ int handle_local_message(message *msg, localuser *usr){
 
 	int len_descrip;
 
-	if( !message_isvalid(msg)) {
+	if( message_isvalid(msg) != 1) {
 		retval = -1;
 	}
 	else {
+		printf("received msg from localuser\n");
 		switch (msg->data_type){
 			case DATA_CTRL:
-				msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, msg->dev_type);
-				pthread_mutex_lock(&mut_msg_tx);
-				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-				pthread_mutex_unlock(&mut_msg_tx);
-				message_destroy(msg_tx);
+				printf("ctrl from localuser, dev type = %d, len = %d \n", msg->dev_type, msg->data_len);
+				gettimeofday( &(usr->time_lastactive), NULL );
+				if (msg->dev_type == DEV_GW_FAN){
+					/*
+					 * handle controlling of gw fan
+					 */
+					printf("received gw fan ctrl = %s\n", msg->data);
+					if (*(msg->data) == CTRL_ON){
+						fan_control(1);
+						sys.fan_status = STAT_ON;
+					}
+					else if (*(msg->data) == CTRL_OFF){
+						fan_control(0);
+						sys.fan_status = STAT_OFF;
+					}
+					else {
+						//do nothing
+					}
+				}
+				else {
+					/*
+					 * send control directly to znet
+					 */
+					msg_tx = message_create_ctrl(msg->data_len, msg->data, msg->gateway_id, msg->dev_id, msg->dev_type);
+					pthread_mutex_lock(&mut_msg_tx);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					pthread_mutex_unlock(&mut_msg_tx);
+					message_destroy(msg_tx);
+				}
 				retval = 0;
 				break;
+
 			case DATA_REQ_STAT:
+				printf("stat request from localuser\n");
+				gettimeofday( &(usr->time_lastactive), NULL );
 				//if req device is null, set back the whole znet
-				if ( !memcmp(msg->dev_id, NULL_DEV, 8) ) {
+				if (msg->dev_type == DEV_GW_FAN){
+					/*
+					 * sending back fan status
+					 */
+					printf("received status req for GW fan, fan status = %s \n", &(sys.fan_status));
+					msg_tx = message_create_stat(1, &(sys.fan_status), sys.id, NULL_DEV, DEV_GW_FAN); 
+
+					bundle.msg = msg_tx;
+					pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+					//the thrd_tx should return a new 
+					pthread_join(usr->thrd_tx, NULL);
+					//don't forget to delete the message
+					message_destroy(msg_tx);
+				}
+				else if ( !memcmp(msg->dev_id, NULL_DEV, 8) ) {
 					for (m = 0; m < ZNET_SIZE; m ++) {
 						if( !znode_isempty( &(sys.znode_list[m]) ) ){
 							msg_tx = message_create_stat(sys.znode_list[m].status_len, sys.znode_list[m].status, sys.id, sys.znode_list[m].id, sys.znode_list[m].type);
 							bundle.msg = msg_tx;
 							pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 							//the thrd_tx should return a new 
-							pthread_join(usr->thrd_tx, (void**) tx_result);
+							pthread_join(usr->thrd_tx, NULL);
 							//don't forget to delete the message
 							message_destroy(msg_tx);
-
-							//every tx thread should be checked for the connection
-							if (*tx_result == LOCAL_STATUS_SKTDISCONNECT) {
-								localuser_delete(usr);
-								pthread_exit(0);
-							}
-							else {
-								//update the time_lastactive
-								gettimeofday( &(usr->time_lastactive), NULL );
-							}
 						}
 					}
 				}
@@ -996,25 +1053,16 @@ int handle_local_message(message *msg, localuser *usr){
 						bundle.msg = msg_tx;
 						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 						//the thrd_tx should return a new 
-						pthread_join(usr->thrd_tx, (void**) tx_result);
+						pthread_join(usr->thrd_tx, NULL);
 						//don't forget to delete the message
 						message_destroy(msg_tx);
-
-						//every tx thread should be checked for the connection
-						if (*tx_result == LOCAL_STATUS_SKTDISCONNECT) {
-							localuser_delete(usr);
-							pthread_exit(0);
-						}
-						else {
-							//update the time_lastactive
-							gettimeofday( &(usr->time_lastactive), NULL );
-						}
 					}
 				}
-
 				retval = 0;
 				break;
 			case DATA_SET_INSTALL:
+				printf("set install info");
+				gettimeofday( &(usr->time_lastactive), NULL );
 				len_descrip = msg->data_len - 2;
 				sys_edit_dev_install(&sys, msg->dev_id, msg->dev_type, len_descrip, msg->data+2);
 
@@ -1029,32 +1077,26 @@ int handle_local_message(message *msg, localuser *usr){
 				break;
 
 			case DATA_GET_INSTALL:
+				printf("retrive install info");
 				//send install data to server
+				gettimeofday( &(usr->time_lastactive), NULL );
 				for (m = 0; m < ZNET_SIZE; m ++) {
 					if (!znode_isempty( &(sys.znode_list[m])) ) {
 						msg_tx = message_create_install_info(sys.id, sys.znode_install_list[m].id, sys.znode_install_list[m].type, sys.znode_install_list[m].len_descrip, sys.znode_install_list[m].descrip);
 						bundle.msg = msg_tx;
 						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 						//the thrd_tx should return a new 
-						pthread_join(usr->thrd_tx, (void**) tx_result);
+						pthread_join(usr->thrd_tx, NULL);
 						//don't forget to delete the message
 						message_destroy(msg_tx);
-
-						//every tx thread should be checked for the connection
-						if (*tx_result == LOCAL_STATUS_SKTDISCONNECT) {
-							localuser_delete(usr);
-							pthread_exit(0);
-						}
-						else {
-							//update the time_lastactive
-							gettimeofday( &(usr->time_lastactive), NULL );
-						}
 					}
 				}
 				retval = 0;
 				break;
 
 			case DATA_DEL_INSTALL:
+				printf("deleted install\n");
+				gettimeofday( &(usr->time_lastactive), NULL );
 				idx = sys_del_dev_install(&sys, msg->dev_id);
 				if (idx > 0) {
 					msg_tx = message_create_del_install(msg->gateway_id, msg->dev_id);
@@ -1067,10 +1109,15 @@ int handle_local_message(message *msg, localuser *usr){
 				break;
 
 			case DATA_FINISH_INSTALL:
+				printf("finished install, save to file\n");
+				gettimeofday( &(usr->time_lastactive), NULL );
 				sys_update_dev_install(&sys, FILE_INSTALL);
 				retval = 0;
 				break;
-
+			case DATA_PULSE:
+				gettimeofday( &(usr->time_lastactive), NULL );
+				retval = 0;
+				break;
 			default:
 				retval = -1;
 				break;

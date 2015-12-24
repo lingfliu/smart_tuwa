@@ -13,7 +13,8 @@
 
 #define FILE_LIC "/etc/twrt/lic" //GW license file
 #define FILE_ID_SYS "/etc/twrt/id_sys" //ID (Wifi MAC) of GW 
-#define FILE_INSTALL "/etc/twrt/install" //status file name (not used)
+//#define FILE_INSTALL "/home/liulingfeng/install" //status file name (not used)
+#define FILE_INSTALL "/root/install" //status file name (not used)
 
 //serial, server, and localhost configuration
 #define CFG_SERIAL_NAME "SERIAL_NAME"

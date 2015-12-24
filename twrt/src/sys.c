@@ -62,8 +62,9 @@ int sys_znode_update(sys_t* sys, message* msg){
 	}
 
 	if( idx < 0 ) {//not in the list 
-		/*deprecated of earlier version*/
-		/*
+		/*deprecated in earlier version*/
+		
+		/*restore earlier version */
 		for(m = 0; m < ZNET_SIZE; m++ ) {
 			if(znode_isempty( &(sys->znode_list[m]) ) ){
 				idx_empty = m;
@@ -78,12 +79,10 @@ int sys_znode_update(sys_t* sys, message* msg){
 			sys->znode_list[idx_empty].u_stamp = sys->u_stamp; //set u_stamp as system u_stamp
 			return idx_empty;
 		}
-		*/
-
 		/******************************************************/
 		/*modified: if node not in the list, simply return  -1*/
 		/******************************************************/
-		return idx;
+		//return idx;
 	}
 	else { //already in the list, update
 		znode_update(&(sys->znode_list[idx]), msg); //u_stamp will be updated here
@@ -272,6 +271,7 @@ void sys_get_id(sys_t* sys, char* id_file){
     if(fread(sys->id, sizeof(char), MSG_LEN_ID_GW, fp)!= MSG_LEN_ID_GW){
 		//perror("read error");
 	}
+	printf("sys id = %s\n", sys->id);
     fclose(fp);
 }
 
@@ -309,7 +309,12 @@ void sys_init(sys_t* sys){
 	sys->tx_msg_stamp = 0;
 
 	//initialize znet
-	sys_get_dev_install(sys, FILE_INSTALL);
+	/* removed */
+	//sys_get_dev_install(sys, FILE_INSTALL);
+	for (m = 0; m < ZNET_SIZE; m ++){
+		sys->znode_list[m].type = 0;
+		sys->znode_list[m].u_stamp = -1;
+	}
 
 	/*
 	for (m = 0; m < ZNET_SIZE; m ++){
@@ -318,6 +323,21 @@ void sys_init(sys_t* sys){
 		}
 	}
 	*/
+
+	/*
+	 * initialize fan
+	 */
+	sys->fan_status = STAT_OFF;
+	//send initial control to fan;
+	if (sys->fan_status == STAT_OFF){
+		fan_control(1);
+	}
+	else if (sys->fan_status == STAT_ON){
+		fan_control(0);
+	}
+	else {
+		//Do nothing
+	}
 
 	//initialize localuser
 	for(m = 0; m < LOCALUSER_SIZE; m++){
@@ -372,12 +392,16 @@ void sys_get_dev_install(sys_t *sys, char* install_file) {
 
 	fp = fopen(FILE_INSTALL,"r");
 	if(fp == NULL){
+		printf("file cannot be opened\n");
 		//if file not existing, create one
 		fp = fopen(FILE_INSTALL, "w+");
-		fclose(fp);
+		if (fp != NULL){
+			fclose(fp);
+		}
 		return;
 	}
 	else {
+		printf("read file: %s\n", FILE_INSTALL);
 		cnt = 0;
 		while(fgets(str,128,fp)!=NULL) {
 			idxCnt = 0;
@@ -391,6 +415,8 @@ void sys_get_dev_install(sys_t *sys, char* install_file) {
 			}
 
 			//set the znode_install_list
+
+			printf("get znode install \n");
 			memcpy(sys->znode_install_list[cnt].id, str, sizeof(char)*idx[0]);
 
 			bzero(strTmp, sizeof(char)*128);
@@ -439,6 +465,7 @@ void sys_update_dev_install(sys_t *sys, char* install_file) {
 
 	for (m = 0; m < ZNET_SIZE; m ++) {
 		if (sys->znode_install_list[m].type > 0) {
+			printf("save node into file, idx = %d, type = %d\n, descrip = %s", m, sys->znode_install_list[m].type, sys->znode_install_list[m].descrip);
 			cnt++;
 			fwrite(sys->znode_install_list[m].id, 8, sizeof(char), fp);
 			fprintf(fp, ":");
@@ -459,28 +486,30 @@ void sys_edit_dev_install(sys_t *sys, char id[8], int dev_type, int len_descrip,
 	int m;
 	int idx;
 	int idxEmpty;
-	int cnt;
 	int len = sys_get_znode_num(sys);
 
-	idx = -1;
-	cnt = 0;
+	if (len <= 0) {
+		idx = 0;
+	}
+	else {
+		idx = -1;
+	}
+
+	printf("edit install, dev id = %s, dev type = %d, sys znode num = %d \n", id, dev_type, len);
+	//searching for device index
 	for (m = 0; m < len; m ++){
 		if (znode_isempty(& (sys->znode_list[m]) )) {
 			continue;
 		}
 		else {
-			cnt ++;
-			if (memcmp(sys->znode_install_list[m].id, id, sizeof(char)*8)){
+			if (!memcmp(sys->znode_install_list[m].id, id, sizeof(char)*8)){
 				idx = m;
-			}
-			if (cnt > len) {
 				break;
 			}
 		}
 	}
 
 	if (idx < 0) {
-		//new device
 		idxEmpty = -1;
 		for (m = 0; m < ZNET_SIZE; m ++) {
 			if (znode_isempty(& (sys->znode_list[m]) )) {
@@ -489,6 +518,7 @@ void sys_edit_dev_install(sys_t *sys, char id[8], int dev_type, int len_descrip,
 			}
 		}
 
+		//new device at the end of the list
 		if (idxEmpty == -1 && len < ZNET_SIZE) {
 			memcpy(sys->znode_install_list[len].id, id, sizeof(char)*8);
 			sys->znode_install_list[len].type = dev_type;
@@ -496,16 +526,20 @@ void sys_edit_dev_install(sys_t *sys, char id[8], int dev_type, int len_descrip,
 			sys->znode_install_list[len].len_descrip = len_descrip;
 			memcpy(sys->znode_install_list[len].descrip, descrip, len_descrip*sizeof(char));
 
+			//add new znode into install and znode_install lists
 			memcpy(sys->znode_list[len].id, id, sizeof(char)*8);
 			sys->znode_list[len].type = dev_type;
 			sys->znode_list[len].model = DEFAULT_MODEL;
 			sys->znode_list[len].ver = DEFAULT_VER;
-			sys->znode_list[len].status_len = get_znode_status_len(sys->znode_list[cnt].type);
-			sys->znode_list[len].status = calloc(sys->znode_list[cnt].status_len, sizeof(char));
+			sys->znode_list[len].status_len = get_znode_status_len(sys->znode_list[len].type);
+			sys->znode_list[len].status = calloc(sys->znode_list[len].status_len, sizeof(char));
 			sys->znode_list[len].znet_status = ZNET_ON;
 			sys->znode_list[len].u_stamp = 0;
+
+			printf("edit install, dev id = %s, dev type = %d, idx = %d\n", id, dev_type, len);
 		}
 		else if (idxEmpty > 0 ) {
+			//new device at empty position in the list
 			memcpy(sys->znode_install_list[idxEmpty].id, id, sizeof(char)*8);
 			sys->znode_install_list[idxEmpty].type = dev_type;
 			sys->znode_install_list[idxEmpty].len_descrip = len_descrip;
@@ -516,10 +550,12 @@ void sys_edit_dev_install(sys_t *sys, char id[8], int dev_type, int len_descrip,
 			sys->znode_list[idxEmpty].type = dev_type;
 			sys->znode_list[idxEmpty].model = DEFAULT_MODEL;
 			sys->znode_list[idxEmpty].ver = DEFAULT_VER;
-			sys->znode_list[idxEmpty].status_len = get_znode_status_len(sys->znode_list[cnt].type);
-			sys->znode_list[idxEmpty].status = calloc(sys->znode_list[cnt].status_len, sizeof(char));
+			sys->znode_list[idxEmpty].status_len = get_znode_status_len(sys->znode_list[idxEmpty].type);
+			sys->znode_list[idxEmpty].status = calloc(sys->znode_list[idxEmpty].status_len, sizeof(char));
 			sys->znode_list[idxEmpty].znet_status = ZNET_ON;
 			sys->znode_list[idxEmpty].u_stamp = 0;
+
+			printf("edit install, dev id = %s, dev type = %d, idx = %d\n", id, dev_type, idxEmpty);
 		}
 		else if (idxEmpty == -1 && len >= ZNET_SIZE) {
 			return;
@@ -527,9 +563,23 @@ void sys_edit_dev_install(sys_t *sys, char id[8], int dev_type, int len_descrip,
 	}
 	else {
 		//if device already in the installation list, simply renew the description
+		memcpy(sys->znode_install_list[idx].id, id, sizeof(char)*8);
+		sys->znode_install_list[idx].type = dev_type;
 		sys->znode_install_list[idx].len_descrip = len_descrip;
-		bzero(sys->znode_install_list[len].descrip, 50*sizeof(char));
+		bzero(sys->znode_install_list[idx].descrip, 50*sizeof(char));
 		memcpy(sys->znode_install_list[idx].descrip, descrip, len_descrip*sizeof(char));
+
+		//add new znode into install and znode_install lists
+		memcpy(sys->znode_list[idx].id, id, sizeof(char)*8);
+		sys->znode_list[idx].type = dev_type;
+		sys->znode_list[idx].model = DEFAULT_MODEL;
+		sys->znode_list[idx].ver = DEFAULT_VER;
+		sys->znode_list[idx].status_len = get_znode_status_len(sys->znode_list[idx].type);
+		sys->znode_list[idx].status = calloc(sys->znode_list[idx].status_len, sizeof(char));
+		sys->znode_list[idx].znet_status = ZNET_ON;
+		sys->znode_list[idx].u_stamp = 0;
+
+		printf("edit install, dev id = %s, dev type = %d, idx = %d\n", id, dev_type, idx);
 	}
 }
 
@@ -547,8 +597,12 @@ int sys_del_dev_install(sys_t *sys, char id[8]){
 		return idx;
 	}
 	else {
+
+		//remove from znode_install list
 		bzero(sys->znode_install_list[idx].descrip, 50*sizeof(char));
 		memset((void*) &(sys->znode_install_list[idx]), 0, sizeof(znode_install));
+
+		//remove from znode list
 		free(sys->znode_list[idx].status);
 		memset((void*) &(sys->znode_list[idx]), 0, sizeof(znode));
 		return idx;

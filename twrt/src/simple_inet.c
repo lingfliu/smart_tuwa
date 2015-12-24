@@ -70,7 +70,7 @@ int inet_server_config(int port, int proc_type, inet* server){
     switch(server->proc){
 	case INET_PROC_TCP:
 	    if((server->fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-			printf("socket creation failed, ");
+			printf("socket creation failed\n");
 			switch (errno) {
 				case EACCES:
 					printf("EACCES\n");
