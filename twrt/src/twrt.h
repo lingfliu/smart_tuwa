@@ -7,6 +7,7 @@
 #include "sys.h"
 #include "config.h"
 #include "utils.h"
+#include "gw_control.h"
 
 
 #include <unistd.h>

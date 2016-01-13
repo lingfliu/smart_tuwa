@@ -7,6 +7,7 @@
 #include "simple_serial.h"
 #include "buffer_ex.h"
 #include "utils.h"
+#include "gw_control.h"
 
 #include <string.h>
 #include <stdlib.h>

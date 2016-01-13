@@ -56,6 +56,8 @@ int message_isreq(message *msg){
 			return 1;
 		case DATA_REQ_PULSE:
 			return 0;
+		case DATA_DEL_ZNODE:
+			return 0;
 		default:
 			return 0;
 	}
@@ -64,7 +66,7 @@ int message_isreq(message *msg){
 int message_tx_dest(message* msg){ //get tx message destination
 	switch(msg->data_type){
 		case DATA_STAT:
-			return MSG_TO_LOCALUSER;
+			return MSG_TO_SERVER;
 		case DATA_CTRL: 
 			return MSG_TO_ZNET;
 		case DATA_PULSE:
@@ -92,6 +94,8 @@ int message_tx_dest(message* msg){ //get tx message destination
 		case DATA_INSTALL:
 			return MSG_TO_ZNET;
 		case DATA_INSTALL_INFO:
+			return MSG_TO_SERVER;
+		case DATA_DEL_ZNODE:
 			return MSG_TO_SERVER;
 		default:
 			return MSG_TO_SERVER; //unspecified message are not forwarded
@@ -333,13 +337,17 @@ int message_queue_del_stamp(message_queue **msg_q_p, long stamp){
 
 int message_queue_find_stamp(message_queue* msg_q, long stamp){ //find if stamp is in the queue, return to number of finding 
 	int num = 0;
-	if(message_queue_getlen(msg_q) == 0)
+	if(message_queue_getlen(msg_q) == 0){
 		return 0;
-	if(message_queue_getlen(msg_q) == 1)
-		if(msg_q->msg.stamp == stamp)
+	}
+	if(message_queue_getlen(msg_q) == 1){
+		if(msg_q->msg.stamp == stamp){
 			return 1;
-		else
+		}
+		else {
 			return 0;
+		}
+	}
 	//for more than 2 msg
 	message_queue* msg_q_h = message_queue_to_head(msg_q);
 	message_queue* msg_q_t = message_queue_to_tail(msg_q);
@@ -532,5 +540,41 @@ message* message_create_install_info(char id_gw[8], char id_dev[8], int dev_type
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
 	msg->dev_type = dev_type;
 	msg->data_type = DATA_INSTALL_INFO;
+	return msg;
+}
+
+message* message_create_set_password_ack(char id_gw[8]){
+	message *msg = message_create();
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
+	msg->dev_type = 0;
+	msg->data = realloc(msg->data, sizeof(char));
+	msg->data[0] = AUTH_OK;
+	msg->data_type = DATA_SET_PASSWORD_ACK;
+	msg->data_len = 1;
+	return msg;
+}
+
+message* message_create_set_lic_ack(char id_gw[8]){
+	message *msg = message_create();
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
+	msg->dev_type = 0;
+	msg->data = realloc(msg->data, 1);
+	msg->data[0] = AUTH_OK;
+	msg->data_type = DATA_SET_LIC_ACK;
+	msg->data_len = 1;
+	return msg;
+}
+
+message* message_create_del_znode(char id_gw[8], char id_dev[8]){
+	message *msg = message_create();
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+	msg->dev_type = 0;
+	msg->data = realloc(msg->data, 1);
+	msg->data[0] = 0;
+	msg->data_type = DATA_DEL_ZNODE;
+	msg->data_len = 1;
 	return msg;
 }

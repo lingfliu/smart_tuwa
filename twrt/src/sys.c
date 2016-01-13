@@ -268,11 +268,14 @@ void sys_get_id(sys_t* sys, char* id_file){
     if(fp == NULL){
 		//perror("Cannot read id file, abort.");
     }
-    if(fread(sys->id, sizeof(char), MSG_LEN_ID_GW, fp)!= MSG_LEN_ID_GW){
+	else if(fread(sys->id, sizeof(char), MSG_LEN_ID_GW, fp)!= MSG_LEN_ID_GW){
+		fclose(fp);
 		//perror("read error");
 	}
-	printf("sys id = %s\n", sys->id);
-    fclose(fp);
+	else {
+		printf("sys id = %s\n", sys->id);
+		fclose(fp);
+	}
 }
 
 void sys_get_lic(sys_t* sys, char* lic_file){
@@ -281,20 +284,39 @@ void sys_get_lic(sys_t* sys, char* lic_file){
     if(fp == NULL){
 		//perror("Cannot read id file, abort.");
     }
-    if(fread(sys->lic, sizeof(char), SYS_LEN_LIC, fp) != SYS_LEN_LIC){
+	else if(fread(sys->lic, sizeof(char), SYS_LEN_LIC, fp) != SYS_LEN_LIC){
 		//perror("lic read error");
+		fclose(fp);
 	}
-    fclose(fp);
+	else {
+		fclose(fp);
+	}
 }
 
 //initialize an empty sys_t
 void sys_init(sys_t* sys){
 	int m;
+
+	//char password[8];
     memset(sys, 0, sizeof(sys_t));
 
 	//get id, authcode, and lic
     sys_get_id(sys, FILE_ID_SYS);
-    sys_get_lic(sys, FILE_LIC); 
+    get_lic(sys->lic); 
+	printf("sys lic = %s, id = %s\n", sys->lic, sys->id);
+
+	/*
+	 * test code, password setting working
+	 */
+	/*
+	set_lic(sys->lic, "1234567812345678");
+    get_lic(sys->lic); 
+	printf("lic = %s\n", sys->lic);
+	get_password(password);
+	set_password(password, "11111111");
+	get_password(password);
+	printf("password = %s\n", password);
+	*/
 
 	//reset status
     sys->lic_status= LIC_UNKNOWN;

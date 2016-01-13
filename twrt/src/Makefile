@@ -20,11 +20,11 @@ simple_inet.o: simple_inet.c simple_inet.h
 	$(CC) $(CFLAGS) -c simple_inet.c -o simple_inet.o
 proc.o: proc.c proc.h buffer_ex.c buffer_ex.h string_ex.c string_ex.h 
 	$(CC) $(CFLAGS) -c proc.c -o proc.o
-sys.o: sys.c sys.h proc.c proc.h
+sys.o: sys.c sys.h proc.c proc.h gw_control.c gw_control.h config.h
 	$(CC) $(CFLAGS) -c sys.c -o sys.o
 utils.o: utils.h utils.c
 	$(CC) $(CFLAGS) -c utils.c -o utils.o
-gw_control.o: gw_control.h gw_control.c
+gw_control.o: gw_control.h gw_control.c config.h
 	$(CC) $(CFLAGS) -c gw_control.c -o gw_control.o
 
 .PHONY: clean

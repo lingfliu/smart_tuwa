@@ -86,10 +86,6 @@
 #define DATA_PULSE 4 //simple pulse msg for sockets (both to server and from localhost) 
 #define DATA_SYNC 5 //simple sync msg for localusers
 
-/*************************
- * newly added data type
- *************************/
-
 ///////////////////////////////////////////////////////////////
 //from app and server to GW
 #define DATA_SET_INSTALL 6 //set installation of a device 
@@ -102,6 +98,8 @@
 
 #define DATA_FINISH_INSTALL 11 //finishing the installation, call the GW to save the data to file
 
+#define DATA_DEL_ZNODE 12 //delete znode from znet
+
 ///////////////////////////////////////////////////////////////
 
 #define DATA_REQ_SYNC 21 //synchronization request
@@ -110,7 +108,6 @@
 #define DATA_REQ_USER 24 //user list request (not used)
 #define DATA_REQ_STAMP 25 //initial stamp request
 #define DATA_REQ_PULSE 26 //tcp pulse (not req any longer)
-
 
 #define DATA_REQ_STAT 27 //localuser request for znet status
 #define DATA_REQ_AUTH_LOCAL 28 //localuser auth request
@@ -125,6 +122,15 @@
 #define DATA_ACK_AUTH_LOCAL 67 //localuser auth ack
 
 #define DATA_SYS_RESET 101 //sys reset command (not used)
+
+/*
+ * password management
+ */
+#define DATA_SET_PASSWORD 102 //set local user login password
+#define DATA_SET_LIC 103 //set server login password
+#define DATA_SET_PASSWORD_ACK 104
+#define DATA_SET_LIC_ACK 105
+
 #define DATA_NULL 201  //null data type for general purposes
 
 /*************************************************
@@ -265,4 +271,7 @@ message* message_create_install(char id_gw[8], char id_dev[8], int type); //crea
 message* message_create_del_install(char id_gw[8], char id_dev[8]); //delete install into and send to znet
 message* message_create_install_info(char id_gw[8], char id_dev[8], int dev_type, int len_descrip, char* descrip); //create install info and send to znet
 
+message* message_create_set_password_ack(char id_gw[8]);
+message* message_create_set_lic_ack(char id_gw[8]);
+message* message_create_del_znode(char id_gw[8], char id_dev[8]);
 #endif

@@ -11,10 +11,18 @@
 #define FILE_CFG "/etc/twrt/config"//config file
 #define FILE_CFG_PARSER '='// config parser
 
-#define FILE_LIC "/etc/twrt/lic" //GW license file
-#define FILE_ID_SYS "/etc/twrt/id_sys" //ID (Wifi MAC) of GW 
-//#define FILE_INSTALL "/home/liulingfeng/install" //status file name (not used)
+#define FILE_LIC "/root/lic" //GW license file
+#define FILE_ID_SYS "/root/id_sys" //ID (Wifi MAC) of GW 
 #define FILE_INSTALL "/root/install" //status file name (not used)
+#define FILE_PASSWORD "/root/password" //place to store password
+
+/*
+ * test code
+ */
+//#define FILE_ID_SYS "/etc/twrt/id_sys"
+//#define FILE_LIC "/home/liulingfeng/lic" //GW license file
+//#define FILE_PASSWORD "/home/liulingfeng/password" //place to store password
+#define DEFAULT_LIC "0000000000000000"
 
 //serial, server, and localhost configuration
 #define CFG_SERIAL_NAME "SERIAL_NAME"
