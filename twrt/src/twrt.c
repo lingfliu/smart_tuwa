@@ -998,7 +998,7 @@ int handle_msg_rx(message *msg){
 			break;
 		case DATA_DEL_INSTALL:
 			idx = sys_del_dev_install(&sys, msg->dev_id);
-			if (idx > 0) {
+			if (idx >= 0) {
 				msg_tx = message_create_del_install(msg->gateway_id, msg->dev_id);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
@@ -1031,7 +1031,7 @@ int handle_msg_rx(message *msg){
 
 			if (idx >= 0){
 				//send znode_delete to server
-				msg_tx = message_create_del_znode(msg->gateway_id, msg->dev_id);
+				msg_tx = message_create_del_znode(sys.id, msg->dev_id);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);
@@ -1039,8 +1039,8 @@ int handle_msg_rx(message *msg){
 				result = 0;
 
 				//send del znode message to localuser if delete succeeded
-				/*
 				if(sys_get_localuser_num(&sys) > 0) {
+					msg_tx = message_create_del_znode(sys.id, msg->dev_id);
 					//send del znode message to local-users
 					for( m = 0; m < LOCALUSER_SIZE; m ++) {
 						usr = &(sys.localuser_list[m]);
@@ -1059,8 +1059,8 @@ int handle_msg_rx(message *msg){
 							}
 						}
 					}
+					message_destroy(msg_tx);
 				}
-				*/
 			}
 			break;
 		default:
@@ -1323,6 +1323,7 @@ int handle_local_message(message *msg, localuser *usr){
 				}
 				break;
 
+				/*
 			case DATA_DEL_ZNODE:
 				printf("delete znode from znet, id = %s\n", msg->dev_id);
 				idx = -1;
@@ -1339,7 +1340,7 @@ int handle_local_message(message *msg, localuser *usr){
 
 				if (idx >= 0){
 					//send znode_delete to server
-					msg_tx = message_create_del_znode(msg->gateway_id, msg->dev_id);
+					msg_tx = message_create_del_znode(sys.id, msg->dev_id);
 					pthread_mutex_lock(&mut_msg_tx);
 					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 					pthread_mutex_unlock(&mut_msg_tx);
@@ -1348,6 +1349,7 @@ int handle_local_message(message *msg, localuser *usr){
 				}
 
 				break;
+				*/
 
 			case DATA_PULSE:
 				gettimeofday( &(usr->time_lastactive), NULL );
