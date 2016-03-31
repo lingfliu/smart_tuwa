@@ -330,9 +330,10 @@ void sys_init(sys_t* sys){
 	//reset counters
 	sys->tx_msg_stamp = 0;
 
-	//initialize znet
+	//initialize znet install
 	/* removed */
-	//sys_get_dev_install(sys, FILE_INSTALL);
+	sys_get_dev_install(sys, FILE_INSTALL);
+
 	for (m = 0; m < ZNET_SIZE; m ++){
 		sys->znode_list[m].type = 0;
 		sys->znode_list[m].u_stamp = -1;
@@ -345,6 +346,12 @@ void sys_init(sys_t* sys){
 		}
 	}
 	*/
+
+
+	/*
+	 * initialize scene
+	 */
+	sys_get_scene(sys, FILE_SCENE); //read scenes into file
 
 	/*
 	 * initialize fan
@@ -389,6 +396,7 @@ message* sys_sync(sys_t *sys, message *msg){
    else {
 	   idx = sys_get_znode_idx(sys, msg->dev_id);
 	   if(idx<0) {
+		   //TODO: add unversioned node into the system list
 		   return NULL;
 	   }
 	   else if(sys->znode_list[idx].u_stamp <= stamp) { //if msg contains newer status, update
@@ -403,9 +411,10 @@ message* sys_sync(sys_t *sys, message *msg){
 }
 
 void sys_get_dev_install(sys_t *sys, char* install_file) {
+
 	FILE* fp;
-	char str[128];
-	char strTmp[128];
+	char str[256];
+	char strTmp[256];
 	int cnt;
 	int m;
 	int idx[3];
@@ -425,47 +434,14 @@ void sys_get_dev_install(sys_t *sys, char* install_file) {
 	else {
 		printf("read file: %s\n", FILE_INSTALL);
 		cnt = 0;
-		while(fgets(str,128,fp)!=NULL) {
-			idxCnt = 0;
-			for(m = 0; m < 128; m ++) {
-				if (str[m] == ':'){
-					idx[idxCnt++] = m;
-				}
-				if (idxCnt > 3) {
-					break;
-				}
-			}
-
-			//set the znode_install_list
-
-			printf("get znode install \n");
-			memcpy(sys->znode_install_list[cnt].id, str, sizeof(char)*idx[0]);
-
-			bzero(strTmp, sizeof(char)*128);
-			memcpy(strTmp, str+idx[0]+1, sizeof(idx[1]-idx[0]-1));
-			sscanf(strTmp, "%d", &(sys->znode_install_list[cnt].type));
-
-			bzero(sys->znode_install_list[cnt].descrip, sizeof(char)*50);
-			bzero(strTmp, sizeof(char)*128);
-			memcpy(strTmp, str+idx[1]+1, sizeof(char)*(idx[2]-idx[1]-1));
-			len_descrip = strlen(strTmp);
-			sys->znode_install_list[cnt].len_descrip = len_descrip;
-			memcpy(sys->znode_install_list[cnt].descrip, strTmp, sizeof(char)*len_descrip);
-
-			//set the znode_list
-			memcpy(sys->znode_list[cnt].id, sys->znode_install_list[cnt].id, 8);
-			sys->znode_list[cnt].type = sys->znode_install_list[cnt].type;
-			sys->znode_list[cnt].model = DEFAULT_MODEL;
-			sys->znode_list[cnt].ver = DEFAULT_VER;
-			sys->znode_list[cnt].status_len = get_znode_status_len(sys->znode_list[cnt].type);
-			sys->znode_list[cnt].status = calloc(sys->znode_list[cnt].status_len, sizeof(char));
-			sys->znode_list[cnt].znet_status = ZNET_ON;
-			sys->znode_list[cnt].u_stamp = -1;
-
-			//increment the counter
+		while(fgets(str,256,fp)!=NULL) {
+			memcpy(sys->znode_install_list[cnt].id, str, 8*sizeof(char));
+			memcpy(&(sys->znode_install_list[cnt].type), str+8, sizeof(int));
+			memcpy(sys->znode_install_list[cnt].name, str+12, 60*sizeof(char));
+			memcpy(sys->znode_install_list[cnt].pos, str+72, 60*sizeof(char));
+			memcpy(&(sys->znode_install_list[cnt].posType), str+132, sizeof(int));
 			cnt ++;
 		}
-
 		fclose(fp);
 	}
 }
@@ -482,152 +458,246 @@ void sys_update_dev_install(sys_t *sys, char* install_file) {
 		return;
 	}
 
-	len = sys_get_znode_num(sys);
-	cnt = 0;
-
 	for (m = 0; m < ZNET_SIZE; m ++) {
 		if (sys->znode_install_list[m].type > 0) {
-			printf("save node into file, idx = %d, type = %d\n, descrip = %s", m, sys->znode_install_list[m].type, sys->znode_install_list[m].descrip);
-			cnt++;
-			fwrite(sys->znode_install_list[m].id, 8, sizeof(char), fp);
-			fprintf(fp, ":");
-			fprintf(fp, "%d", sys->znode_install_list[m].type);
-			fprintf(fp, ":");
-			fprintf(fp, "%s", sys->znode_install_list[m].descrip);
-			fprintf(fp, ":");
+			printf("save node into file, idx = %d, type = %d\n, name = %s", m, sys->znode_install_list[m].type, sys->znode_install_list[m].name);
 
-			if (cnt < len) {
-				fprintf(fp, "\n");
-			}
+			fwrite(sys->znode_install_list[m].id, 8, sizeof(char), fp);
+			fwrite(&(sys->znode_install_list[m].type), 1, sizeof(int), fp);
+			fwrite(sys->znode_install_list[m].name, 60, sizeof(char), fp);
+			fwrite(sys->znode_install_list[m].pos, 60, sizeof(char), fp);
+			fwrite(&(sys->znode_install_list[m].posType), 1, sizeof(int), fp);
+
+			fprintf(fp, "\n");
 		}
 	}
 	fclose(fp);
 }
 
-void sys_edit_dev_install(sys_t *sys, char id[8], int dev_type, int len_descrip, char* descrip){
+int sys_edit_dev_install(sys_t *sys, znode_install* install){
 	int m;
-	int idx;
-	int idxEmpty;
-	int len = sys_get_znode_num(sys);
-
-	if (len <= 0) {
-		idx = 0;
-	}
-	else {
-		idx = -1;
-	}
-
-	printf("edit install, dev id = %s, dev type = %d, sys znode num = %d \n", id, dev_type, len);
-	//searching for device index
-	for (m = 0; m < len; m ++){
-		if (znode_isempty(& (sys->znode_list[m]) )) {
-			continue;
+	int is_update = -1;
+	int retval = -1;
+	for (m = 0; m < ZNET_SIZE; m ++){
+		if (sys->sces[m].scene_type <= 0) {
+			//found a position for the new znode_install
+			retval = 0;
+			break;
 		}
-		else {
-			if (!memcmp(sys->znode_install_list[m].id, id, sizeof(char)*8)){
-				idx = m;
-				break;
-			}
+		else if(!memcmp(install->id, sys->znode_install_list[m].id, 8)){
+			//update old znode
+			memcpy(sys->znode_install_list[m].name, install->name, 60*sizeof(char));
+			memcpy(sys->znode_install_list[m].pos, install->pos, 60*sizeof(char));
+			sys->znode_install_list[m].posType = install->posType;
+
+			is_update = 1;
+			retval = 0;
+			printf("edit old install, dev id = %s, idx = %d\n", sys->znode_install_list[m].id, m);
+			break;
 		}
 	}
 
-	if (idx < 0) {
-		idxEmpty = -1;
-		for (m = 0; m < ZNET_SIZE; m ++) {
-			if (znode_isempty(& (sys->znode_list[m]) )) {
-				idxEmpty = m;
-				break;
-			}
-		}
-
-		//new device at the end of the list
-		if (idxEmpty == -1 && len < ZNET_SIZE) {
-			memcpy(sys->znode_install_list[len].id, id, sizeof(char)*8);
-			sys->znode_install_list[len].type = dev_type;
-			bzero(sys->znode_install_list[len].descrip, 50*sizeof(char));
-			sys->znode_install_list[len].len_descrip = len_descrip;
-			memcpy(sys->znode_install_list[len].descrip, descrip, len_descrip*sizeof(char));
-
-			//add new znode into install and znode_install lists
-			memcpy(sys->znode_list[len].id, id, sizeof(char)*8);
-			sys->znode_list[len].type = dev_type;
-			sys->znode_list[len].model = DEFAULT_MODEL;
-			sys->znode_list[len].ver = DEFAULT_VER;
-			sys->znode_list[len].status_len = get_znode_status_len(sys->znode_list[len].type);
-			sys->znode_list[len].status = calloc(sys->znode_list[len].status_len, sizeof(char));
-			sys->znode_list[len].znet_status = ZNET_ON;
-			sys->znode_list[len].u_stamp = 0;
-
-			printf("edit install, dev id = %s, dev type = %d, idx = %d\n", id, dev_type, len);
-		}
-		else if (idxEmpty > 0 ) {
-			//new device at empty position in the list
-			memcpy(sys->znode_install_list[idxEmpty].id, id, sizeof(char)*8);
-			sys->znode_install_list[idxEmpty].type = dev_type;
-			sys->znode_install_list[idxEmpty].len_descrip = len_descrip;
-			bzero(sys->znode_install_list[len].descrip, 50*sizeof(char));
-			memcpy(sys->znode_install_list[idxEmpty].descrip, descrip, len_descrip*sizeof(char));
-
-			memcpy(sys->znode_list[idxEmpty].id, id, sizeof(char)*8);
-			sys->znode_list[idxEmpty].type = dev_type;
-			sys->znode_list[idxEmpty].model = DEFAULT_MODEL;
-			sys->znode_list[idxEmpty].ver = DEFAULT_VER;
-			sys->znode_list[idxEmpty].status_len = get_znode_status_len(sys->znode_list[idxEmpty].type);
-			sys->znode_list[idxEmpty].status = calloc(sys->znode_list[idxEmpty].status_len, sizeof(char));
-			sys->znode_list[idxEmpty].znet_status = ZNET_ON;
-			sys->znode_list[idxEmpty].u_stamp = 0;
-
-			printf("edit install, dev id = %s, dev type = %d, idx = %d\n", id, dev_type, idxEmpty);
-		}
-		else if (idxEmpty == -1 && len >= ZNET_SIZE) {
-			return;
-		}
+	//new znode_install
+	if (is_update < 0 && m < MAX_SCENE_NUM) {
+		//update old znode
+		memcpy(sys->znode_install_list[m].id, install->id, 8*sizeof(char));
+		memcpy(sys->znode_install_list[m].name, install->name, 60*sizeof(char));
+		memcpy(sys->znode_install_list[m].pos, install->pos, 60*sizeof(char));
+		sys->znode_install_list[m].posType = install->posType;
+		sys->znode_install_list[m].type = install->type;
+		retval = 0;
+		printf("edit new install, dev id = %s, idx = %d\n", install->id, m);
 	}
-	else {
-		//if device already in the installation list, simply renew the description
-		memcpy(sys->znode_install_list[idx].id, id, sizeof(char)*8);
-		sys->znode_install_list[idx].type = dev_type;
-		sys->znode_install_list[idx].len_descrip = len_descrip;
-		bzero(sys->znode_install_list[idx].descrip, 50*sizeof(char));
-		memcpy(sys->znode_install_list[idx].descrip, descrip, len_descrip*sizeof(char));
-
-		//add new znode into install and znode_install lists
-		memcpy(sys->znode_list[idx].id, id, sizeof(char)*8);
-		sys->znode_list[idx].type = dev_type;
-		sys->znode_list[idx].model = DEFAULT_MODEL;
-		sys->znode_list[idx].ver = DEFAULT_VER;
-		sys->znode_list[idx].status_len = get_znode_status_len(sys->znode_list[idx].type);
-		sys->znode_list[idx].status = calloc(sys->znode_list[idx].status_len, sizeof(char));
-		sys->znode_list[idx].znet_status = ZNET_ON;
-		sys->znode_list[idx].u_stamp = 0;
-
-		printf("edit install, dev id = %s, dev type = %d, idx = %d\n", id, dev_type, idx);
-	}
+	return retval;
 }
 
 int sys_del_dev_install(sys_t *sys, char id[8]){
-	int idx = -1;
 	int m;
-
+	int n;
+	int retval = -1;
 	for (m = 0; m < ZNET_SIZE; m ++){
-		if (memcmp(sys->znode_install_list[m].id, id, sizeof(char)*8)){
-			idx = m;
+		if(!memcmp(id, sys->znode_install_list[m].id, 8)) {
+			retval = 0;
+			memset(&(sys->znode_install_list[m]), 0, sizeof(znode_install));
+
+			//shrink the scene list
+			for(n = m+1; m < ZNET_SIZE; n ++){
+				memcpy(sys->znode_install_list[n-1].id, sys->znode_install_list[n].id, 8*sizeof(char));
+				memcpy(sys->znode_install_list[n-1].name, sys->znode_install_list[n].name, 60*sizeof(char));
+				memcpy(sys->znode_install_list[n-1].pos, sys->znode_install_list[n].pos, 60*sizeof(char));
+				sys->znode_install_list[n-1].type = sys->znode_install_list[n].type;
+				sys->znode_install_list[n-1].posType = sys->znode_install_list[n].posType;
+			}
+			bzero(&(sys->znode_install_list[ZNET_SIZE]), sizeof(znode_install));
+			break;
+		}
+		else if (sys->znode_install_list[m].type < 0){
+			break;
+		}
+	}
+	return retval;
+}
+
+void sys_get_scene(sys_t *sys, char* scene_file){ //read scenes into file
+	FILE* fp;
+	char str[4096];
+	char strTmp[4096];
+	int cnt;
+	int m;
+	int idx[3];
+	int idxCnt;
+	int len_descrip;
+
+	fp = fopen(FILE_SCENE,"r");
+	if(fp == NULL){
+		printf("file cannot be opened\n");
+		//if file not existing, create one
+		fp = fopen(FILE_SCENE, "w+");
+		if (fp != NULL){
+			fclose(fp);
+		}
+		return;
+	}
+	else {
+		printf("read file: %s\n", FILE_SCENE);
+		cnt = 0;
+		while(fgets(str,4096,fp)!=NULL) {
+			memcpy(&(sys->sces[cnt].scene_type), str, sizeof(int));
+			if (sys->sces[cnt].scene_type == SCENE_TYPE_HARD)
+				memcpy(sys->sces[cnt].host_mac, str+4, sizeof(char)*8);
+			memcpy(sys->sces[cnt].host_id_major, str+12, sizeof(char)*8);
+			memcpy(sys->sces[cnt].host_id_minor, str+20, sizeof(char)*8);
+			memcpy(sys->sces[cnt].scene_name, str+28, sizeof(char)*60);
+			memcpy(&(sys->sces[cnt].trigger_num), str+88, sizeof(int));
+			memcpy(&(sys->sces[cnt].item_num), str+92, sizeof(int));
+			if (sys->sces[cnt].trigger_num > 0)
+				sys->sces[cnt].trigger = calloc(sys->sces[cnt].trigger_num, sizeof(scene_item));
+			if (sys->sces[cnt].item_num > 0)
+				sys->sces[cnt].item = calloc(sys->sces[cnt].item_num, sizeof(scene_item));
+
+			for (m = 0; m < sys->sces[cnt].trigger_num; m ++) 
+				memcpy(&(sys->sces[cnt].trigger[m]), str+96+16*m, sizeof(scene_item));
+			
+			for (m = 0; m < sys->sces[cnt].item_num; m ++) 
+				memcpy(&(sys->sces[cnt].item[m]), str+96+16*sys->sces[cnt].trigger_num + 16*m, sizeof(scene_item));
+
+			
+			cnt ++;
+		}
+		fclose(fp);
+	}
+}
+
+void sys_update_scene(sys_t *sys, char* scene_file){
+	FILE* fp;
+	int m;
+	int len;
+	int cnt;
+
+	fp = fopen(FILE_SCENE, "w+");
+
+	if (fp == NULL) {
+		return;
+	}
+
+	len = sys_get_znode_num(sys);
+	cnt = 0;
+
+	while(sys->sces[cnt].scene_type >0) {
+			printf("save scene into file, type = %d, trigger_num = %d, item_num = %d", sys->sces[cnt].scene_type, sys->sces[cnt].trigger_num, sys->sces[cnt].item_num);
+			fwrite(&(sys->sces[cnt].scene_type), 1, sizeof(int), fp);
+			fwrite(sys->sces[cnt].host_mac, 8, sizeof(char), fp);
+			fwrite(sys->sces[cnt].host_id_major, 8, sizeof(char), fp);
+			fwrite(sys->sces[cnt].host_id_minor, 8, sizeof(char), fp);
+			fwrite(sys->sces[cnt].scene_name, 60, sizeof(char), fp);
+			fwrite(&(sys->sces[cnt].trigger_num), 1, sizeof(int), fp);
+			fwrite(&(sys->sces[cnt].item_num), 1, sizeof(int), fp);
+			for (m = 0; m < sys->sces[cnt].trigger_num; m ++)
+				fwrite(&(sys->sces[cnt].trigger[m]), 1, sizeof(scene_item), fp);
+			for (m = 0; m < sys->sces[cnt].item_num; m ++)
+				fwrite(&(sys->sces[cnt].item[m]), 1, sizeof(scene_item), fp);
+			fprintf(fp, "\n");
+			cnt ++;
+	}
+	fclose(fp);
+}
+
+int sys_edit_scene(sys_t* sys, scene* sce){
+	int m,n;
+	int is_update = -1;
+	int retval = -1;
+	for (m = 0; m < MAX_SCENE_NUM; m ++){
+		if (sys->sces[m].scene_type <= 0) {
+			//found a position for the new scene
+			retval = 0;
+			break;
+		}
+		else if(!memcmp(sce->host_id_major, sys->sces[m].host_id_major, 8) && !memcmp(sce->host_id_minor, sys->sces[m].host_id_minor, 8) ){
+			//update old scene
+			sys->sces[m].trigger_num = sce->trigger_num;
+			sys->sces[m].item_num= sce->item_num;
+			free(sys->sces[m].trigger);
+			free(sys->sces[m].item);
+
+			if (sys->sces[m].trigger_num > 0)
+				sys->sces[m].trigger = calloc(sys->sces[m].trigger_num, sizeof(scene_item));
+			if (sys->sces[m].item_num > 0)
+				sys->sces[m].item = calloc(sys->sces[m].item_num, sizeof(scene_item));
+
+			for (n = 0; n < sys->sces[m].trigger_num; n ++) 
+				memcpy(&(sys->sces[m].trigger[n]), &(sce->trigger[n]), sizeof(scene_item));
+			
+			for (n = 0; n < sys->sces[m].item_num; n ++) 
+				memcpy(&(sys->sces[m].item[n]), &(sce->item[n]), sizeof(scene_item));
+
+			is_update = 1;
+			retval = 0;
+			break;
 		}
 	}
 
-	if (idx < 0) {
-		return idx;
+	//new scene
+	if (is_update < 0 && m < MAX_SCENE_NUM) {
+		if (sys->sces[m].trigger_num > 0)
+			sys->sces[m].trigger = calloc(sys->sces[m].trigger_num, sizeof(scene_item));
+		if (sys->sces[m].item_num > 0)
+			sys->sces[m].item = calloc(sys->sces[m].item_num, sizeof(scene_item));
+
+		for (n = 0; n < sys->sces[m].trigger_num; m ++) 
+			memcpy(&(sys->sces[m].trigger[n]), &(sce->trigger[n]), sizeof(scene_item));
+
+		for (n = 0; n < sys->sces[m].item_num; m ++) 
+			memcpy(&(sys->sces[m].item[n]), &(sce->item[n]), sizeof(scene_item));
 	}
-	else {
 
-		//remove from znode_install list
-		bzero(sys->znode_install_list[idx].descrip, 50*sizeof(char));
-		memset((void*) &(sys->znode_install_list[idx]), 0, sizeof(znode_install));
+	return retval;
+}
 
-		//remove from znode list
-		free(sys->znode_list[idx].status);
-		memset((void*) &(sys->znode_list[idx]), 0, sizeof(znode));
-		return idx;
+int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]){
+	int m;
+	int n;
+	int retval = -1;
+	for (m = 0; m < MAX_SCENE_NUM; m ++){
+		if(!memcmp(id_major, sys->sces[m].host_id_major, 8) && !memcmp(id_minor, sys->sces[m].host_id_minor, 8) ){
+			retval = 0;
+			free(sys->sces[m].trigger);
+			free(sys->sces[m].item);
+			memset(&(sys->sces[m]), 0, sizeof(scene));
+
+			//shrink the scene list
+			for(n = m+1; m < MAX_SCENE_NUM; n ++){
+				memcpy(sys->sces[n-1].host_mac, sys->sces[n].host_mac, 8*sizeof(char));
+				memcpy(sys->sces[n-1].host_id_major, sys->sces[n].host_id_major, 8*sizeof(char));
+				memcpy(sys->sces[n-1].host_id_minor, sys->sces[n].host_id_minor, 8*sizeof(char));
+				memcpy(sys->sces[n-1].scene_name, sys->sces[n].scene_name, 60*sizeof(char));
+				sys->sces[n-1].scene_type = sys->sces[n].scene_type;
+				sys->sces[n-1].trigger_num = sys->sces[n].trigger_num;
+				sys->sces[n-1].item_num = sys->sces[n].item_num;
+				sys->sces[n-1].trigger = sys->sces[n].trigger;
+				sys->sces[n-1].item = sys->sces[n].item;
+			}
+			break;
+		}
 	}
 }
 
@@ -686,4 +756,110 @@ int get_znode_status_len(int type){
 		default:
 			return 0;
 	}
+}
+
+message* message_create_scene(char id_gw[8], scene* sce){
+	int m;
+	int msg_len  = 96+sce->trigger_num*16+sce->item_num*16;
+	message *msg = message_create();
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
+	msg->dev_type = 0;
+	msg->data_type = DATA_SCENE;
+
+	msg->data_len = msg_len;
+	msg->data = realloc(msg->data, msg_len*sizeof(char));
+
+	memcpy(msg->data, &(sce->scene_type), sizeof(int));
+
+	if (sce->scene_type == SCENE_TYPE_HARD)
+		memcpy(msg->data+4, sce->host_mac, sizeof(char)*8);
+
+	memcpy(msg->data+12, sce->host_id_major, sizeof(char)*8);
+	memcpy(msg->data+20, sce->host_id_minor, sizeof(char)*8);
+	memcpy(msg->data+28, sce->scene_name, sizeof(char)*60);
+	memcpy(msg->data+88, &(sce->trigger_num), sizeof(int));
+	memcpy(msg->data+92, &(sce->item_num), sizeof(int));
+	for (m = 0; m < sce->trigger_num; m ++)
+		memcpy(msg->data+96+16*m, &(sce->trigger[m]), sizeof(scene_item));
+	for (m = 0; m < sce->item_num; m ++) 
+		memcpy(msg->data+96+16*sce->trigger_num+16*m, &(sce->item[m]), sizeof(scene_item));
+
+	return msg;
+}
+
+scene* sys_find_scene(sys_t* sys, char id_major[8], char id_minor[8]){
+	int m;
+	scene* sce = NULL;
+	for (m = 0; m < MAX_SCENE_NUM; m ++){
+		if(!memcmp(id_major, sys->sces[m].host_id_major, 8) && !memcmp(id_minor, sys->sces[m].host_id_minor, 8) ){
+			sce = &(sys->sces[m]);
+		}
+	}
+
+	return sce;
+}
+scene* sys_find_scene_bymac(sys_t* sys, char dev_mac[8], char id_minor[8]){
+	int m;
+	scene* sce = NULL;
+	for (m = 0; m < MAX_SCENE_NUM; m ++){
+		if(!memcmp(dev_mac, sys->sces[m].host_mac, 8) && !memcmp(id_minor, sys->sces[m].host_id_minor, 8) ){
+			sce = &(sys->sces[m]);
+		}
+	}
+
+	return sce;
+}
+scene* sys_find_scene_bytrigger(sys_t* sys, char trigger_id[8], char trigger_state[8]){
+	scene * sce = NULL;
+	int m,n;
+
+	for (m = 0; m < MAX_SCENE_NUM; m ++){
+		if (sys->sces[m].scene_type <= 0) 
+			break;
+		for (n = 0; n < sys->sces[m].trigger_num; n ++){
+			if(!memcmp(trigger_id, sys->sces[m].trigger[n].id, 8) && !memcmp(trigger_state, sys->sces[m].trigger[n].state, 8) ){
+				sce = &(sys->sces[m]);
+				break;
+			}
+		}
+	}
+
+	return sce;
+}
+
+
+message* message_create_install_adv(char id_gw[8], znode_install* install){
+	int m;
+	int msg_len  = 136; 
+	message *msg = message_create();
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
+	msg->dev_type = 0;
+	msg->data_type = DATA_INSTALL;
+
+	msg->data_len = msg_len;
+	msg->data = realloc(msg->data, msg_len*sizeof(char));
+
+
+	memcpy(msg->data, install->id, 8*sizeof(char));
+	memcpy(msg->data+8, &(install->type), sizeof(int));
+	memcpy(msg->data+12, install->name, 60*sizeof(char));
+	memcpy(msg->data+72, install->pos, 60*sizeof(char));
+	memcpy(msg->data+132, &(install->posType), sizeof(int));
+
+	return msg;
+}
+
+znode_install* sys_find_install(sys_t* sys, char id[8]){
+	int m;
+	znode_install* install = NULL;
+	for (m = 0; m < ZNET_SIZE; m ++){
+		if(!memcmp(id, sys->znode_install_list[m].id, 8)){
+			install = &(sys->znode_install_list[m]);
+			break;
+		}
+	}
+
+	return install;
 }

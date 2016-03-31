@@ -110,13 +110,43 @@ typedef struct{
 	message *msg;
 }localbundle;
 
+
+#define POS_TYPE_INT 1
+#define POS_TYPE_EXT 2
+
 //znode install 
-typedef struct {
+typedef struct{
 	char id[8];
 	int type;
-	char descrip[50];
-	int len_descrip;
+	char name[60];
+	char pos[60];
+	int  posType;
 }znode_install;
+
+typedef struct{
+	char id[8];
+	char state[8];
+}scene_item;
+
+#define SCENE_TYPE_HARD 1
+#define SCENE_TYPE_SOFT 2
+#define SCENE_TYPE_TRIGGER 3
+#define MAX_SCENE_NUM 100
+
+typedef struct{
+	char host_mac[8];
+	char host_id_major[8];
+	char host_id_minor[8];
+
+	int scene_type;
+	char scene_name[60];
+
+	int trigger_num;
+	scene_item* trigger;
+
+	int item_num;
+	scene_item* item;
+}scene;
 
 /////////////////////////////////////////////
 typedef struct{
@@ -129,6 +159,8 @@ typedef struct{
     //znet
     znode znode_list[ZNET_SIZE]; //fixed length of znode_list
 	znode_install znode_install_list[ZNET_SIZE];
+
+	scene sces[MAX_SCENE_NUM];
 
 	//local client
 	localuser localuser_list[LOCALUSER_SIZE];
@@ -165,11 +197,21 @@ typedef struct{
 void sys_get_id(sys_t *sys, char* id_file); //get GW id from file
 void sys_get_lic(sys_t *sys, char* lic_file); //get license from file
 
-//new codec for device install
+//new codec for device install & scene install
+//installs will be used as whitelist
 void sys_get_dev_install(sys_t *sys, char* install_file); 
 void sys_update_dev_install(sys_t *sys, char* install_file);
-void sys_edit_dev_install(sys_t *sys, char id[8], int dev_type, int len_descrip, char *descrip);
+int sys_edit_dev_install(sys_t *sys, znode_install* install);
 int sys_del_dev_install(sys_t *sys, char id[8]);
+
+
+void sys_get_scene(sys_t *sys, char* scene_file); //read scenes into file
+void sys_update_scene(sys_t *sys, char* scene_file); //store scenes into file
+int sys_edit_scene(sys_t* sys, scene* sce); //modify scene
+int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]); //delete a scene
+scene* sys_find_scene(sys_t* sys, char id_major[8], char id_minor[8]);
+scene* sys_find_scene_bymac(sys_t* sys, char dev_mac[8], char id_minor[8]);
+scene* sys_find_scene_bytrigger(sys_t* sys, char trigger_id[8], char trigger_state[8]);
 
 /*system initialization when program started
 todo:
@@ -197,5 +239,12 @@ int sys_localuser_evict(sys_t* sys); //force logout (passive logout) a localuser
 int sys_get_localuser_idx(sys_t* sys, char id[8]);
 int sys_get_localuser_num(sys_t* sys);
 
+
+/*
+ * new funcs for scene
+ */
+message* message_create_scene(char id_gw[8], scene* sce);
+message* message_create_install_adv(char id_gw[8], znode_install* install);
+znode_install* sys_find_install(sys_t* sys, char id[8]);
 
 #endif

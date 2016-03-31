@@ -780,6 +780,14 @@ int handle_msg_rx(message *msg){
 	int len_descrip;
 	//char descrip[128];
 
+	char name[60];
+	char pos[60];
+	char id_major[8];
+	char id_minor[8];
+	char mac[8];
+	scene* sce;
+	znode_install* install;
+
 	if(!message_isvalid(msg))
 		return -1;
 
@@ -968,44 +976,70 @@ int handle_msg_rx(message *msg){
 			}
 			result = 0;
 			break;
-		case DATA_SET_INSTALL:
-			len_descrip = msg->data_len - 2;
-			printf("received set install, id = %s, dev type = %d\n", msg->dev_id, msg->dev_type);
-			sys_edit_dev_install(&sys, msg->dev_id, msg->dev_type, len_descrip, msg->data+2);
 
-			//send install data to znet
-			msg_tx = message_create_install(msg->gateway_id, msg->dev_id, msg->dev_type);
+		case DATA_SET_INSTALL:
+			printf("received set install, id = %s, dev type = %d\n", msg->dev_id, msg->dev_type);
+			install = calloc(1, sizeof(znode_install));
+			memcpy(install->id, msg->data, 8*sizeof(char));
+			memcpy(&(install->type), msg->data+8, sizeof(int));
+			memcpy(install->name, msg->data+12, 60*sizeof(char));
+			memcpy(install->pos, msg->data+72, 60*sizeof(char));
+			memcpy(&(install->posType), msg->data+132, sizeof(int));
+
+			val = sys_edit_dev_install(&sys, install);
+
+			//send operation result back
 			pthread_mutex_lock(&mut_msg_tx);
+			msg_tx = message_create_ack_install_op(sys.id, install->id, DATA_SET_INSTALL, val);
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-			pthread_mutex_unlock(&mut_msg_tx);
 			message_destroy(msg_tx);
+			pthread_mutex_unlock(&mut_msg_tx);
+
+			free(install);
+			//send ack when set succeeds
+			if (val >=0);
 
 			result = 0;
 			break;
 		case DATA_GET_INSTALL:
 			//send install data to server
 			printf("received get install\n");
-			for (m = 0; m < ZNET_SIZE; m ++) {
-				if (!znode_isempty( &(sys.znode_list[m])) ) {
-					msg_tx = message_create_install_info(sys.id, sys.znode_install_list[m].id, sys.znode_install_list[m].type, sys.znode_install_list[m].len_descrip, sys.znode_install_list[m].descrip);
-					pthread_mutex_lock(&mut_msg_tx);
+			memcpy(mac, msg->data, 8*sizeof(char));
+			install = sys_find_install(&sys, mac);
+
+			if (install == NULL){
+				//send all installs
+				pthread_mutex_lock(&mut_msg_tx);
+				for (m = 0; m < ZNET_SIZE; m ++){
+					if (sys.znode_install_list[m].type <=0)
+						break;
+					install = &sys.znode_install_list[m];
+					msg_tx = message_create_install_adv(sys.id, install);
 					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-					pthread_mutex_unlock(&mut_msg_tx);
 					message_destroy(msg_tx);
 				}
+				pthread_mutex_unlock(&mut_msg_tx);
 			}
-			result = 0;
-			break;
-		case DATA_DEL_INSTALL:
-			idx = sys_del_dev_install(&sys, msg->dev_id);
-			if (idx >= 0) {
-				msg_tx = message_create_del_install(msg->gateway_id, msg->dev_id);
+			else {
+				msg_tx = message_create_install_adv(sys.id, install);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);
 				message_destroy(msg_tx);
 			}
-			
+			result = 0;
+			break;
+
+		case DATA_DEL_INSTALL:
+			idx = sys_del_dev_install(&sys, msg->dev_id);
+
+			//send back operation result
+			pthread_mutex_lock(&mut_msg_tx);
+			msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_DELETE_SCENE, idx);
+			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+			message_destroy(msg_tx);
+			pthread_mutex_unlock(&mut_msg_tx);
+
 			result = 0;
 			break;
 
@@ -1015,6 +1049,109 @@ int handle_msg_rx(message *msg){
 			result = 0;
 			break;
 
+		/*
+		 * new messsages
+		 */
+		case DATA_SCENE_CTRL:
+			memcpy(id_major, msg->data, 8*sizeof(char));
+			memcpy(id_minor, msg->data+8, 8*sizeof(char));
+
+			sce = sys_find_scene(&sys, id_major, id_minor);
+			if (sce != NULL) {
+				pthread_mutex_lock(&mut_msg_tx);
+				for (m = 0; m < sce->item_num; m ++){
+					//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
+					msg_tx = message_create_ctrl(8, sce->item[m].state, sys.id, sce->item[m].id, 0);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					message_destroy(msg_tx);
+				}
+				pthread_mutex_unlock(&mut_msg_tx);
+			}
+
+			result = 0;
+			break;
+		case DATA_SET_SCENE:
+			sce = calloc(1, sizeof(scene));
+			memcpy(sce->host_id_major, msg->data, 8*sizeof(char));
+			memcpy(sce->host_id_minor, msg->data+8, 8*sizeof(char));
+			memcpy(sce->host_mac, msg->data+16, 8*sizeof(char));
+			memcpy(&(sce->scene_type), msg->data+24, sizeof(int));
+			memcpy(sce->scene_name, msg->data+28, 60*sizeof(char));
+			memcpy(&(sce->trigger_num), msg->data+88, sizeof(int));
+			memcpy(&(sce->item_num), msg->data+92, sizeof(int));
+			sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
+			sce->item = calloc(sce->item_num, sizeof(scene_item));
+			for (m = 0; m < sce->trigger_num; m ++){
+				memcpy(sce->trigger[m].id, msg->data+96+m*16, 8*sizeof(char));
+				memcpy(sce->trigger[m].state, msg->data+96+m*16+8, 8*sizeof(char));
+			}
+			for (m = 0; m < sce->item_num; m ++){
+				memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*16+m*16, 8*sizeof(char));
+				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*16+m*16+8, 8*sizeof(char));
+			}
+			
+			val = sys_edit_scene(&sys, sce); //modify scene
+
+			//send operation result back
+			pthread_mutex_lock(&mut_msg_tx);
+			msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_SET_SCENE, val);
+			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+			message_destroy(msg_tx);
+			pthread_mutex_unlock(&mut_msg_tx);
+
+			free(sce->trigger);
+			free(sce->item);
+			free(sce);
+			result = 0;
+			break;
+
+		case DATA_GET_SCENE:
+			memcpy(id_major, msg->data, 8*sizeof(char));
+			memcpy(id_minor, msg->data+8, 8*sizeof(char));
+			sce = sys_find_scene(&sys, id_major, id_minor);
+			if (sce == NULL) {
+				//send all sces
+				pthread_mutex_lock(&mut_msg_tx);
+				for (m = 0; m < MAX_SCENE_NUM; m ++){
+					if (sys.sces[m].scene_type <=0)
+						break;
+					sce = &sys.sces[m];
+					msg_tx = message_create_scene(sys.id, sce);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					message_destroy(msg_tx);
+				}
+				pthread_mutex_unlock(&mut_msg_tx);
+			}
+			else {
+				pthread_mutex_lock(&mut_msg_tx);
+				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+				msg_tx = message_create_scene(sys.id, sce);
+				message_destroy(msg_tx);
+				pthread_mutex_unlock(&mut_msg_tx);
+			}
+
+			result = 0;
+			break;
+
+		case DATA_FINISH_SCENE:
+			sys_update_scene(&sys, FILE_SCENE); //store scenes into file
+			result = 0;
+			break;
+		case DATA_DELETE_SCENE:
+			memcpy(id_major, msg->data, 8*sizeof(char));
+			memcpy(id_minor, msg->data+8, 8*sizeof(char));
+			val = sys_del_scene(&sys, id_major, id_minor);
+			//send operation result back
+			pthread_mutex_lock(&mut_msg_tx);
+			msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_DELETE_SCENE, val);
+			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+			message_destroy(msg_tx);
+			pthread_mutex_unlock(&mut_msg_tx);
+
+			result = 0;
+			break;
+			
+			/*
 		case DATA_DEL_ZNODE:
 			printf("delete znode from znet, id = %s\n", msg->dev_id);
 			idx = -1;
@@ -1063,6 +1200,7 @@ int handle_msg_rx(message *msg){
 				}
 			}
 			break;
+			*/
 		default:
 			result = 0;
 			break;
@@ -1221,10 +1359,14 @@ int handle_local_message(message *msg, localuser *usr){
 						//don't forget to delete the message
 						message_destroy(msg_tx);
 					}
+					else {
+						//if device not found
+					}
 				}
 				retval = 0;
 				break;
 			case DATA_SET_INSTALL:
+				/*
 				printf("set install info");
 				gettimeofday( &(usr->time_lastactive), NULL );
 				len_descrip = msg->data_len - 2;
@@ -1236,11 +1378,13 @@ int handle_local_message(message *msg, localuser *usr){
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);
 				message_destroy(msg_tx);
+				*/
 
 				retval = 0;
 				break;
 
 			case DATA_GET_INSTALL:
+				/*
 				printf("retrive install info");
 				//send install data to server
 				gettimeofday( &(usr->time_lastactive), NULL );
@@ -1255,10 +1399,12 @@ int handle_local_message(message *msg, localuser *usr){
 						message_destroy(msg_tx);
 					}
 				}
+				*/
 				retval = 0;
 				break;
 
 			case DATA_DEL_INSTALL:
+				/*
 				printf("deleted install\n");
 				gettimeofday( &(usr->time_lastactive), NULL );
 				idx = sys_del_dev_install(&sys, msg->dev_id);
@@ -1269,13 +1415,16 @@ int handle_local_message(message *msg, localuser *usr){
 					pthread_mutex_unlock(&mut_msg_tx);
 					message_destroy(msg_tx);
 				}
+				*/
 				retval = 0;
 				break;
 
 			case DATA_FINISH_INSTALL:
+				/*
 				printf("finished install, save to file\n");
 				gettimeofday( &(usr->time_lastactive), NULL );
 				sys_update_dev_install(&sys, FILE_INSTALL);
+				*/
 				retval = 0;
 				break;
 

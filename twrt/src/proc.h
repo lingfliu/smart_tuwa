@@ -92,13 +92,20 @@
 #define DATA_GET_INSTALL 7 //request device installation information
 
 #define DATA_INSTALL 8 //device installation data for data_get_install request (to znet)
-#define DATA_INSTALL_INFO 9 //device installation data for data_get_install_info request (to server and app)
+//#define DATA_INSTALL_INFO 9 //device installation data for data_get_install_info request (to server and app)
 
 #define DATA_DEL_INSTALL 10 //delete device installation data from the system
 
 #define DATA_FINISH_INSTALL 11 //finishing the installation, call the GW to save the data to file
 
 #define DATA_DEL_ZNODE 12 //delete znode from znet
+
+#define DATA_SCENE_CTRL 13 //scene command from app
+#define DATA_GET_SCENE 14 //get scene
+#define DATA_SET_SCENE 15 //set a scene
+#define DATA_SCENE 16 //scene data for get_scene request
+#define DATA_FINISH_SCENE 17 //finish scene setting and save the data to file
+#define DATA_DELETE_SCENE 18 //delete a scene
 
 ///////////////////////////////////////////////////////////////
 
@@ -120,6 +127,10 @@
 //#define DATA_ACK_PULSE 66 //tcp pulse ack (not used)
 
 #define DATA_ACK_AUTH_LOCAL 67 //localuser auth ack
+
+/*new messages for scene operation*/
+#define DATA_ACK_INSTALL_OP 69
+#define DATA_ACK_SCENE_OP 69
 
 #define DATA_SYS_RESET 101 //sys reset command (not used)
 
@@ -268,10 +279,14 @@ message* message_create_null(char id_gw[8], long stamp);
 message* message_create_ack_auth_local(char id_gw[8], char id_dev[8], int dev_type, char auth_result);
 
 message* message_create_install(char id_gw[8], char id_dev[8], int type); //create install info and send to znet
-message* message_create_del_install(char id_gw[8], char id_dev[8]); //delete install into and send to znet
+//message* message_create_del_install(char id_gw[8], char id_dev[8]); //delete install into and send to znet
 message* message_create_install_info(char id_gw[8], char id_dev[8], int dev_type, int len_descrip, char* descrip); //create install info and send to znet
 
 message* message_create_set_password_ack(char id_gw[8]);
 message* message_create_set_lic_ack(char id_gw[8]);
 message* message_create_del_znode(char id_gw[8], char id_dev[8]);
+
+//message* message_create_req_stat(char id_dev[8]);
+message* message_create_ack_install_op(char id_gw[8], char id_dev[8], int op_code, int result);
+message* message_create_ack_scene_op(char id_gw[8], char host_mac[8], char id_major[8], char id_minor[8], int op_code, int result);
 #endif

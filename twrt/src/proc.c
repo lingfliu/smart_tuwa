@@ -92,9 +92,9 @@ int message_tx_dest(message* msg){ //get tx message destination
 		case DATA_NULL:
 			return MSG_TO_SERVER;
 		case DATA_INSTALL:
-			return MSG_TO_ZNET;
-		case DATA_INSTALL_INFO:
 			return MSG_TO_SERVER;
+		//case DATA_INSTALL_INFO:
+		//	return MSG_TO_SERVER;
 		case DATA_DEL_ZNODE:
 			return MSG_TO_SERVER;
 		default:
@@ -521,10 +521,14 @@ message* message_create_install(char id_gw[8], char id_dev[8], int type) {
 	return msg;
 }
 
-message* message_create_del_install(char id_gw[8], char id_dev[8]){
+message* message_create_del_install(char id_gw[8], char id_dev[8], int result){
 	message *msg = message_create();
 	msg->data = realloc(msg->data, 1);
-	msg->data[0] = 0;
+	if (result >= 0)
+		msg->data[0] = 0x00;
+	else 
+		msg->data[0] = 0xff;
+
 	msg->data_len = 1;
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
@@ -532,6 +536,8 @@ message* message_create_del_install(char id_gw[8], char id_dev[8]){
 	msg->data_type = DATA_DEL_INSTALL;
 	return msg;
 }
+
+/*
 message* message_create_install_info(char id_gw[8], char id_dev[8], int dev_type, int len_descrip, char* descrip){
 	message *msg = message_create();
 	msg->data_len = 2+len_descrip;
@@ -542,6 +548,7 @@ message* message_create_install_info(char id_gw[8], char id_dev[8], int dev_type
 	msg->data_type = DATA_INSTALL_INFO;
 	return msg;
 }
+*/
 
 message* message_create_set_password_ack(char id_gw[8]){
 	message *msg = message_create();
@@ -576,5 +583,41 @@ message* message_create_del_znode(char id_gw[8], char id_dev[8]){
 	msg->data[0] = 0;
 	msg->data_type = DATA_DEL_ZNODE;
 	msg->data_len = 1;
+	return msg;
+}
+
+message* message_create_ack_install_op(char id_gw[8], char id_dev[8], int op_code, int result){
+	message *msg = message_create();
+	msg->data = realloc(msg->data, 5);
+	if (result >= 0)
+		msg->data[0] = 0x00;
+	else 
+		msg->data[0] = 0xff;
+	memcpy(msg->data+1, &(op_code), sizeof(int));
+	msg->data_len = 5;
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+	msg->dev_type = 0;
+	msg->data_type = DATA_ACK_INSTALL_OP;
+	return msg;
+}
+
+message* message_create_ack_scene_op(char id_gw[8], char host_mac[8], char id_major[8], char id_minor[8], int op_code, int result){
+	message *msg = message_create();
+	msg->data = realloc(msg->data, 29);
+	if (result >= 0)
+		msg->data[0] = 0x00;
+	else 
+		msg->data[0] = 0xff;
+	memcpy(msg->data+1, &(op_code), sizeof(int));
+	memcpy(msg->data+5, host_mac, 8*sizeof(char));
+	memcpy(msg->data+13, id_major, 8*sizeof(char));
+	memcpy(msg->data+21, id_minor, 8*sizeof(char));
+
+	msg->data_len = 29;
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
+	msg->dev_type = 0;
+	msg->data_type = DATA_ACK_SCENE_OP;
 	return msg;
 }
