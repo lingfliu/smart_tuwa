@@ -411,15 +411,17 @@ message* sys_sync(sys_t *sys, message *msg){
 }
 
 void sys_get_dev_install(sys_t *sys, char* install_file) {
+	int read_len = 136;
 
 	FILE* fp;
-	char str[256];
-	char strTmp[256];
+	//char str[256];
+	//char strTmp[256];
 	int cnt;
 	int m;
-	int idx[3];
-	int idxCnt;
-	int len_descrip;
+	//int idx[3];
+	//int idxCnt;
+	//int len_descrip;
+	znode_install tmp_ins;
 
 	fp = fopen(FILE_INSTALL,"r");
 	if(fp == NULL){
@@ -434,6 +436,13 @@ void sys_get_dev_install(sys_t *sys, char* install_file) {
 	else {
 		printf("read file: %s\n", FILE_INSTALL);
 		cnt = 0;
+
+		while (fread(&(tmp_ins), sizeof(znode_install), 1, fp) > 0){
+			//printf("read install idx = %d\n", cnt);
+			memcpy(&(sys->znode_install_list[cnt]), &tmp_ins, sizeof(znode_install));
+			cnt ++;
+		}
+		/*
 		while(fgets(str,256,fp)!=NULL) {
 			memcpy(sys->znode_install_list[cnt].id, str, 8*sizeof(char));
 			memcpy(&(sys->znode_install_list[cnt].type), str+8, sizeof(int));
@@ -442,6 +451,7 @@ void sys_get_dev_install(sys_t *sys, char* install_file) {
 			memcpy(&(sys->znode_install_list[cnt].posType), str+132, sizeof(int));
 			cnt ++;
 		}
+		*/
 		fclose(fp);
 	}
 }
@@ -460,15 +470,19 @@ void sys_update_dev_install(sys_t *sys, char* install_file) {
 
 	for (m = 0; m < ZNET_SIZE; m ++) {
 		if (sys->znode_install_list[m].type > 0) {
-			printf("save node into file, idx = %d, type = %d\n, name = %s", m, sys->znode_install_list[m].type, sys->znode_install_list[m].name);
+			//printf("save node into file, idx = %d, type = %d\n, name = %s", m, sys->znode_install_list[m].type, sys->znode_install_list[m].name);
 
+			fwrite(&(sys->znode_install_list[m]), 1, sizeof(znode_install), fp);
+
+			/*
 			fwrite(sys->znode_install_list[m].id, 8, sizeof(char), fp);
 			fwrite(&(sys->znode_install_list[m].type), 1, sizeof(int), fp);
 			fwrite(sys->znode_install_list[m].name, 60, sizeof(char), fp);
 			fwrite(sys->znode_install_list[m].pos, 60, sizeof(char), fp);
 			fwrite(&(sys->znode_install_list[m].posType), 1, sizeof(int), fp);
+			*/
 
-			fprintf(fp, "\n");
+			//fprintf(fp, "\n");
 		}
 	}
 	fclose(fp);
@@ -498,7 +512,7 @@ int sys_edit_dev_install(sys_t *sys, znode_install* install){
 	}
 
 	//new znode_install
-	if (is_update < 0 && m < MAX_SCENE_NUM) {
+	if (is_update < 0 && m < ZNET_SIZE) {
 		//update old znode
 		memcpy(sys->znode_install_list[m].id, install->id, 8*sizeof(char));
 		memcpy(sys->znode_install_list[m].name, install->name, 60*sizeof(char));
@@ -522,16 +536,17 @@ int sys_del_dev_install(sys_t *sys, char id[8]){
 
 			//shrink the scene list
 			for(n = m+1; m < ZNET_SIZE; n ++){
+				if (sys->znode_install_list[n].type<= 0) break;
 				memcpy(sys->znode_install_list[n-1].id, sys->znode_install_list[n].id, 8*sizeof(char));
 				memcpy(sys->znode_install_list[n-1].name, sys->znode_install_list[n].name, 60*sizeof(char));
 				memcpy(sys->znode_install_list[n-1].pos, sys->znode_install_list[n].pos, 60*sizeof(char));
 				sys->znode_install_list[n-1].type = sys->znode_install_list[n].type;
 				sys->znode_install_list[n-1].posType = sys->znode_install_list[n].posType;
 			}
-			bzero(&(sys->znode_install_list[ZNET_SIZE]), sizeof(znode_install));
+			bzero(&(sys->znode_install_list[n-1]), sizeof(znode_install));
 			break;
 		}
-		else if (sys->znode_install_list[m].type < 0){
+		else if (sys->znode_install_list[m].type <= 0){
 			break;
 		}
 	}
@@ -540,13 +555,14 @@ int sys_del_dev_install(sys_t *sys, char id[8]){
 
 void sys_get_scene(sys_t *sys, char* scene_file){ //read scenes into file
 	FILE* fp;
-	char str[4096];
-	char strTmp[4096];
+	//char str[4096];
+	//char strTmp[4096];
 	int cnt;
+	int item_num;
+	int trigger_num;
 	int m;
-	int idx[3];
 	int idxCnt;
-	int len_descrip;
+	scene tmp_sce;
 
 	fp = fopen(FILE_SCENE,"r");
 	if(fp == NULL){
@@ -561,10 +577,40 @@ void sys_get_scene(sys_t *sys, char* scene_file){ //read scenes into file
 	else {
 		printf("read file: %s\n", FILE_SCENE);
 		cnt = 0;
+
+		while (fread(&(tmp_sce), sizeof(scene), 1, fp) > 0){
+			if(cnt >= MAX_SCENE_NUM) break;
+
+			item_num = tmp_sce.item_num;
+			trigger_num = tmp_sce.trigger_num;
+			tmp_sce.item = calloc(item_num, sizeof(scene_item));
+
+			if (trigger_num > 0) {
+				if(fread(tmp_sce.trigger, sizeof(scene_item), item_num, fp) <= 0){
+					return;
+				}
+			}
+
+			if (item_num > 0) {
+				if(fread(tmp_sce.item, sizeof(scene_item), item_num, fp) <= 0){
+					return;
+				}
+			}
+
+			//if all configuration read sucessful, copy to sys
+			memcpy(&(sys->sces[cnt]), &tmp_sce, sizeof(scene));
+			sys->sces[cnt].trigger = tmp_sce.trigger;
+			sys->sces[cnt].item = tmp_sce.item;
+
+			cnt ++;
+		}
+
+		/*
 		while(fgets(str,4096,fp)!=NULL) {
 			memcpy(&(sys->sces[cnt].scene_type), str, sizeof(int));
-			if (sys->sces[cnt].scene_type == SCENE_TYPE_HARD)
+			if (sys->sces[cnt].scene_type == SCENE_TYPE_HARD){
 				memcpy(sys->sces[cnt].host_mac, str+4, sizeof(char)*8);
+			}
 			memcpy(sys->sces[cnt].host_id_major, str+12, sizeof(char)*8);
 			memcpy(sys->sces[cnt].host_id_minor, str+20, sizeof(char)*8);
 			memcpy(sys->sces[cnt].scene_name, str+28, sizeof(char)*60);
@@ -584,6 +630,7 @@ void sys_get_scene(sys_t *sys, char* scene_file){ //read scenes into file
 			
 			cnt ++;
 		}
+		*/
 		fclose(fp);
 	}
 }
@@ -604,20 +651,31 @@ void sys_update_scene(sys_t *sys, char* scene_file){
 	cnt = 0;
 
 	while(sys->sces[cnt].scene_type >0) {
-			printf("save scene into file, type = %d, trigger_num = %d, item_num = %d", sys->sces[cnt].scene_type, sys->sces[cnt].trigger_num, sys->sces[cnt].item_num);
-			fwrite(&(sys->sces[cnt].scene_type), 1, sizeof(int), fp);
-			fwrite(sys->sces[cnt].host_mac, 8, sizeof(char), fp);
-			fwrite(sys->sces[cnt].host_id_major, 8, sizeof(char), fp);
-			fwrite(sys->sces[cnt].host_id_minor, 8, sizeof(char), fp);
-			fwrite(sys->sces[cnt].scene_name, 60, sizeof(char), fp);
-			fwrite(&(sys->sces[cnt].trigger_num), 1, sizeof(int), fp);
-			fwrite(&(sys->sces[cnt].item_num), 1, sizeof(int), fp);
-			for (m = 0; m < sys->sces[cnt].trigger_num; m ++)
-				fwrite(&(sys->sces[cnt].trigger[m]), 1, sizeof(scene_item), fp);
-			for (m = 0; m < sys->sces[cnt].item_num; m ++)
-				fwrite(&(sys->sces[cnt].item[m]), 1, sizeof(scene_item), fp);
-			fprintf(fp, "\n");
-			cnt ++;
+		//printf("save scene into file, type = %d, trigger_num = %d, item_num = %d", sys->sces[cnt].scene_type, sys->sces[cnt].trigger_num, sys->sces[cnt].item_num);
+		fwrite(&(sys->sces[cnt]), 1, sizeof(scene), fp);
+		if (fwrite(sys->sces[cnt].trigger, sys->sces[cnt].trigger_num, sizeof(scene_item),fp) <= 0){
+			break;
+		}
+		if (fwrite(sys->sces[cnt].item, sys->sces[cnt].item_num, sizeof(scene_item),fp) <= 0){
+			break;
+		}
+		cnt ++;
+
+		/*
+		   fwrite(&(sys->sces[cnt].scene_type), 1, sizeof(int), fp);
+		   fwrite(sys->sces[cnt].host_mac, 8, sizeof(char), fp);
+		   fwrite(sys->sces[cnt].host_id_major, 8, sizeof(char), fp);
+		   fwrite(sys->sces[cnt].host_id_minor, 8, sizeof(char), fp);
+		   fwrite(sys->sces[cnt].scene_name, 60, sizeof(char), fp);
+		   fwrite(&(sys->sces[cnt].trigger_num), 1, sizeof(int), fp);
+		   fwrite(&(sys->sces[cnt].item_num), 1, sizeof(int), fp);
+		   for (m = 0; m < sys->sces[cnt].trigger_num; m ++)
+		   fwrite(&(sys->sces[cnt].trigger[m]), 1, sizeof(scene_item), fp);
+		   for (m = 0; m < sys->sces[cnt].item_num; m ++)
+		   fwrite(&(sys->sces[cnt].item[m]), 1, sizeof(scene_item), fp);
+		   fprintf(fp, "\n");
+		   cnt ++;
+		 */
 	}
 	fclose(fp);
 }
@@ -686,6 +744,7 @@ int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]){
 
 			//shrink the scene list
 			for(n = m+1; m < MAX_SCENE_NUM; n ++){
+				if (sys->sces[n].scene_type <=0) break; //reach empty position
 				memcpy(sys->sces[n-1].host_mac, sys->sces[n].host_mac, 8*sizeof(char));
 				memcpy(sys->sces[n-1].host_id_major, sys->sces[n].host_id_major, 8*sizeof(char));
 				memcpy(sys->sces[n-1].host_id_minor, sys->sces[n].host_id_minor, 8*sizeof(char));
@@ -696,6 +755,9 @@ int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]){
 				sys->sces[n-1].trigger = sys->sces[n].trigger;
 				sys->sces[n-1].item = sys->sces[n].item;
 			}
+			
+			bzero(&(sys->znode_install_list[n-1]), sizeof(znode_install)); //remove last scene (updated to n-2)
+
 			break;
 		}
 	}

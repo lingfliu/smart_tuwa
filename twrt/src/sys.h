@@ -142,9 +142,9 @@ typedef struct{
 	char scene_name[60];
 
 	int trigger_num;
-	scene_item* trigger;
-
 	int item_num;
+
+	scene_item* trigger;
 	scene_item* item;
 }scene;
 

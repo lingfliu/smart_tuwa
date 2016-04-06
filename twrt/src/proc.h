@@ -92,7 +92,7 @@
 #define DATA_GET_INSTALL 7 //request device installation information
 
 #define DATA_INSTALL 8 //device installation data for data_get_install request (to znet)
-//#define DATA_INSTALL_INFO 9 //device installation data for data_get_install_info request (to server and app)
+#define DATA_INSTALL_INFO 9 //not used 
 
 #define DATA_DEL_INSTALL 10 //delete device installation data from the system
 
@@ -130,7 +130,7 @@
 
 /*new messages for scene operation*/
 #define DATA_ACK_INSTALL_OP 69
-#define DATA_ACK_SCENE_OP 69
+#define DATA_ACK_SCENE_OP 70
 
 #define DATA_SYS_RESET 101 //sys reset command (not used)
 

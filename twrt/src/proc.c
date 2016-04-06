@@ -97,6 +97,12 @@ int message_tx_dest(message* msg){ //get tx message destination
 		//	return MSG_TO_SERVER;
 		case DATA_DEL_ZNODE:
 			return MSG_TO_SERVER;
+		case DATA_SCENE:
+			return MSG_TO_SERVER;
+		case DATA_ACK_INSTALL_OP:
+			return MSG_TO_SERVER;
+		case DATA_ACK_SCENE_OP:
+			return MSG_TO_SERVER;
 		default:
 			return MSG_TO_SERVER; //unspecified message are not forwarded
 	}
