@@ -13,9 +13,9 @@
 
 #define FILE_LIC "/root/lic" //GW license file
 #define FILE_ID_SYS "/root/id_sys" //ID (Wifi MAC) of GW 
-#define FILE_INSTALL "/home/liulingfeng/install" //status file name 
+#define FILE_INSTALL "/root/install" //status file name 
 #define FILE_PASSWORD "/root/password" //place to store password
-#define FILE_SCENE "/home/liulingfeng/scene" //scene file 
+#define FILE_SCENE "/root/scene" //scene file 
 
 /*
  * test code
