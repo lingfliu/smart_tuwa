@@ -14,17 +14,23 @@
 
 static config cfg;
 static sys_t sys;
-
+static scene *sce;
+static message *msg;
+static message msg_decode;
+static buffer_ring_byte bytes;
 
 int main(int argn, char* argv[]){
 	int m;
 	int val;
+	int len;
 	znode_install *install;
 	scene *sce;
+	char buff[5000];
 
 	get_config(&cfg);
 	sys_init(&sys);
 
+	buffer_ring_byte_create(&bytes, 5000); //create ring buffer given size len
 	for (m = 0 ; m < ZNET_SIZE ; m ++){
 		val = m + 30;
 		install = &(sys.znode_install_list[m]);
@@ -63,14 +69,35 @@ int main(int argn, char* argv[]){
 		memcpy(sce->item[0].id, "item001", 7*sizeof(char));
 	}
 
-	sys_update_dev_install(&sys, "/home/liulingfeng/scene");
+	sys_update_scene(&sys, "/home/liulingfeng/scene");
 
 	for (m = 0 ; m < ZNET_SIZE ; m ++){
 		install = &(sys.znode_install_list[m]);
 		bzero(install, sizeof(znode_install));
 	}
 
-	sys_get_dev_install(&sys, "/home/liulingfeng/scene");
+	sys_get_scene(&sys, "/home/liulingfeng/scene");
 
-	m = 20;
+	sce = &(sys.sces[0]);
+
+	msg = message_create_scene(sys.id, sce);
+
+	msg->data_type = DATA_SET_SCENE;
+
+
+
+	len = 96+sce->trigger_num*16+sce->item_num*16;
+
+	val = message2bytes(msg, buff); //return the length of the byte
+
+	buffer_ring_byte_put(&bytes, buff, val); //put data into the buffer
+	val = bytes2message(&bytes, &msg_decode);
+	for (m = 0; m < len; m ++){
+		printf("%x ", msg_decode.data[m] & 0x00ff);
+	}
+	printf("\n");
+
+	for (m = 0; m < val; m ++){
+		printf("%x ", buff[m] & 0x00ff);
+	}
 }

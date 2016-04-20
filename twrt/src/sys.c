@@ -423,9 +423,9 @@ void sys_get_dev_install(sys_t *sys, char* install_file) {
 	//int len_descrip;
 	znode_install tmp_ins;
 
-	fp = fopen(FILE_INSTALL,"r");
+	fp = fopen(install_file,"r");
 	if(fp == NULL){
-		printf("file cannot be opened\n");
+		printf("install file cannot be opened\n");
 		//if file not existing, create one
 		fp = fopen(FILE_INSTALL, "w+");
 		if (fp != NULL){
@@ -462,7 +462,7 @@ void sys_update_dev_install(sys_t *sys, char* install_file) {
 	int len;
 	int cnt;
 
-	fp = fopen(FILE_INSTALL, "w+");
+	fp = fopen(install_file, "w+");
 
 	if (fp == NULL) {
 		return;
@@ -472,7 +472,10 @@ void sys_update_dev_install(sys_t *sys, char* install_file) {
 		if (sys->znode_install_list[m].type > 0) {
 			//printf("save node into file, idx = %d, type = %d\n, name = %s", m, sys->znode_install_list[m].type, sys->znode_install_list[m].name);
 
-			fwrite(&(sys->znode_install_list[m]), 1, sizeof(znode_install), fp);
+			if (fwrite(&(sys->znode_install_list[m]), 1, sizeof(znode_install), fp) < 0){
+				printf("write failed, quit\n");
+				break;
+			}
 
 			/*
 			fwrite(sys->znode_install_list[m].id, 8, sizeof(char), fp);
@@ -483,6 +486,9 @@ void sys_update_dev_install(sys_t *sys, char* install_file) {
 			*/
 
 			//fprintf(fp, "\n");
+		}
+		else {
+			break;
 		}
 	}
 	fclose(fp);
@@ -564,7 +570,7 @@ void sys_get_scene(sys_t *sys, char* scene_file){ //read scenes into file
 	int idxCnt;
 	scene tmp_sce;
 
-	fp = fopen(FILE_SCENE,"r");
+	fp = fopen(scene_file,"r");
 	if(fp == NULL){
 		printf("file cannot be opened\n");
 		//if file not existing, create one
@@ -641,7 +647,7 @@ void sys_update_scene(sys_t *sys, char* scene_file){
 	int len;
 	int cnt;
 
-	fp = fopen(FILE_SCENE, "w+");
+	fp = fopen(scene_file, "w+");
 
 	if (fp == NULL) {
 		return;
@@ -832,13 +838,12 @@ message* message_create_scene(char id_gw[8], scene* sce){
 	msg->data_len = msg_len;
 	msg->data = realloc(msg->data, msg_len*sizeof(char));
 
-	memcpy(msg->data, &(sce->scene_type), sizeof(int));
 
 	if (sce->scene_type == SCENE_TYPE_HARD)
-		memcpy(msg->data+4, sce->host_mac, sizeof(char)*8);
-
-	memcpy(msg->data+12, sce->host_id_major, sizeof(char)*8);
-	memcpy(msg->data+20, sce->host_id_minor, sizeof(char)*8);
+		memcpy(msg->data, sce->host_mac, sizeof(char)*8);
+	memcpy(msg->data+8, sce->host_id_major, sizeof(char)*8);
+	memcpy(msg->data+16, sce->host_id_minor, sizeof(char)*8);
+	memcpy(msg->data+24, &(sce->scene_type), sizeof(int));
 	memcpy(msg->data+28, sce->scene_name, sizeof(char)*60);
 	memcpy(msg->data+88, &(sce->trigger_num), sizeof(int));
 	memcpy(msg->data+92, &(sce->item_num), sizeof(int));

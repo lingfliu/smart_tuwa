@@ -777,7 +777,7 @@ int handle_msg_rx(message *msg){
 	localuser *usr;
 	char* local_tx_result;
 
-	int len_descrip;
+	//int len_descrip;
 	//char descrip[128];
 
 	char name[60];
@@ -1050,7 +1050,7 @@ int handle_msg_rx(message *msg){
 
 			//send back operation result
 			pthread_mutex_lock(&mut_msg_tx);
-			msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_DELETE_SCENE, idx);
+			msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_DEL_INSTALL, idx);
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 			message_destroy(msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -1060,6 +1060,14 @@ int handle_msg_rx(message *msg){
 
 		case DATA_FINISH_INSTALL:
 			sys_update_dev_install(&sys, FILE_INSTALL);
+
+
+			//send back operation result
+			pthread_mutex_lock(&mut_msg_tx);
+			msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_FINISH_INSTALL, 1);
+			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+			message_destroy(msg_tx);
+			pthread_mutex_unlock(&mut_msg_tx);
 
 			result = 0;
 			break;
@@ -1071,6 +1079,7 @@ int handle_msg_rx(message *msg){
 			memcpy(id_major, msg->data, 8*sizeof(char));
 			memcpy(id_minor, msg->data+8, 8*sizeof(char));
 
+			printf("scene ctrl, id_major=%s, id_minor=%s\n", id_major, id_minor);
 			sce = sys_find_scene(&sys, id_major, id_minor);
 			if (sce != NULL) {
 				pthread_mutex_lock(&mut_msg_tx);
@@ -1087,9 +1096,9 @@ int handle_msg_rx(message *msg){
 			break;
 		case DATA_SET_SCENE:
 			sce = calloc(1, sizeof(scene));
-			memcpy(sce->host_id_major, msg->data, 8*sizeof(char));
-			memcpy(sce->host_id_minor, msg->data+8, 8*sizeof(char));
-			memcpy(sce->host_mac, msg->data+16, 8*sizeof(char));
+			memcpy(sce->host_mac, msg->data, 8*sizeof(char));
+			memcpy(sce->host_id_major, msg->data+8, 8*sizeof(char));
+			memcpy(sce->host_id_minor, msg->data+16, 8*sizeof(char));
 			memcpy(&(sce->scene_type), msg->data+24, sizeof(int));
 			memcpy(sce->scene_name, msg->data+28, 60*sizeof(char));
 			memcpy(&(sce->trigger_num), msg->data+88, sizeof(int));
@@ -1104,6 +1113,7 @@ int handle_msg_rx(message *msg){
 				memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*16+m*16, 8*sizeof(char));
 				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*16+m*16+8, 8*sizeof(char));
 			}
+			printf("set scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 			
 			val = sys_edit_scene(&sys, sce); //modify scene
 
@@ -1124,6 +1134,9 @@ int handle_msg_rx(message *msg){
 			memcpy(id_major, msg->data, 8*sizeof(char));
 			memcpy(id_minor, msg->data+8, 8*sizeof(char));
 			sce = sys_find_scene(&sys, id_major, id_minor);
+
+			printf("get scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
+
 			if (sce == NULL) {
 				//send all sces
 				pthread_mutex_lock(&mut_msg_tx);
@@ -1150,12 +1163,23 @@ int handle_msg_rx(message *msg){
 
 		case DATA_FINISH_SCENE:
 			sys_update_scene(&sys, FILE_SCENE); //store scenes into file
+
+			printf("finish scene\n");
+			//send operation result back
+			pthread_mutex_lock(&mut_msg_tx);
+			msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_FINISH_SCENE, 1);
+			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+			message_destroy(msg_tx);
+			pthread_mutex_unlock(&mut_msg_tx);
+
 			result = 0;
 			break;
 		case DATA_DELETE_SCENE:
 			memcpy(id_major, msg->data, 8*sizeof(char));
 			memcpy(id_minor, msg->data+8, 8*sizeof(char));
 			val = sys_del_scene(&sys, id_major, id_minor);
+
+			printf("delete scene, res = %d\n", val);
 			//send operation result back
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_DELETE_SCENE, val);
@@ -1404,19 +1428,22 @@ int handle_local_message(message *msg, localuser *usr){
 
 				val = sys_edit_dev_install(&sys, install);
 
-				//send operation result back
-				pthread_mutex_lock(&mut_msg_tx);
+				/*
+				 * sending back fan status
+				 */
 				msg_tx = message_create_ack_install_op(sys.id, install->id, DATA_SET_INSTALL, val);
-				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+
+				bundle.msg = msg_tx;
+				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+				//the thrd_tx should return a new 
+				pthread_join(usr->thrd_tx, NULL);
+				//don't forget to delete the message
 				message_destroy(msg_tx);
-				pthread_mutex_unlock(&mut_msg_tx);
 
 				free(install);
-				//send ack when set succeeds
-				if (val >=0);
-
 				result = 0;
 				break;
+
 			case DATA_GET_INSTALL:
 				//send install data to server
 				printf("received get install\n");
@@ -1430,17 +1457,26 @@ int handle_local_message(message *msg, localuser *usr){
 						if (sys.znode_install_list[m].type <=0)
 							break;
 						install = &sys.znode_install_list[m];
+
 						msg_tx = message_create_install_adv(sys.id, install);
-						msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+
+						bundle.msg = msg_tx;
+						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+						//the thrd_tx should return a new 
+						pthread_join(usr->thrd_tx, NULL);
+						//don't forget to delete the message
 						message_destroy(msg_tx);
 					}
 					pthread_mutex_unlock(&mut_msg_tx);
 				}
 				else {
 					msg_tx = message_create_install_adv(sys.id, install);
-					pthread_mutex_lock(&mut_msg_tx);
-					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-					pthread_mutex_unlock(&mut_msg_tx);
+
+					bundle.msg = msg_tx;
+					pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+					//the thrd_tx should return a new 
+					pthread_join(usr->thrd_tx, NULL);
+					//don't forget to delete the message
 					message_destroy(msg_tx);
 				}
 				result = 0;
@@ -1449,18 +1485,27 @@ int handle_local_message(message *msg, localuser *usr){
 			case DATA_DEL_INSTALL:
 				idx = sys_del_dev_install(&sys, msg->dev_id);
 
-				//send back operation result
-				pthread_mutex_lock(&mut_msg_tx);
-				msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_DELETE_SCENE, idx);
-				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+				msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_DEL_INSTALL, idx);
+				bundle.msg = msg_tx;
+				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+				//the thrd_tx should return a new 
+				pthread_join(usr->thrd_tx, NULL);
+				//don't forget to delete the message
 				message_destroy(msg_tx);
-				pthread_mutex_unlock(&mut_msg_tx);
 
 				result = 0;
 				break;
 
 			case DATA_FINISH_INSTALL:
 				sys_update_dev_install(&sys, FILE_INSTALL);
+
+				msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_FINISH_INSTALL, 1);
+				bundle.msg = msg_tx;
+				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+				//the thrd_tx should return a new 
+				pthread_join(usr->thrd_tx, NULL);
+				//don't forget to delete the message
+				message_destroy(msg_tx);
 
 				result = 0;
 				break;
@@ -1486,6 +1531,7 @@ int handle_local_message(message *msg, localuser *usr){
 
 				result = 0;
 				break;
+
 			case DATA_SET_SCENE:
 				sce = calloc(1, sizeof(scene));
 				memcpy(sce->host_id_major, msg->data, 8*sizeof(char));
@@ -1509,11 +1555,13 @@ int handle_local_message(message *msg, localuser *usr){
 				val = sys_edit_scene(&sys, sce); //modify scene
 
 				//send operation result back
-				pthread_mutex_lock(&mut_msg_tx);
 				msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_SET_SCENE, val);
-				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+				bundle.msg = msg_tx;
+				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+				//the thrd_tx should return a new 
+				pthread_join(usr->thrd_tx, NULL);
+				//don't forget to delete the message
 				message_destroy(msg_tx);
-				pthread_mutex_unlock(&mut_msg_tx);
 
 				free(sce->trigger);
 				free(sce->item);
@@ -1527,23 +1575,27 @@ int handle_local_message(message *msg, localuser *usr){
 				sce = sys_find_scene(&sys, id_major, id_minor);
 				if (sce == NULL) {
 					//send all sces
-					pthread_mutex_lock(&mut_msg_tx);
 					for (m = 0; m < MAX_SCENE_NUM; m ++){
 						if (sys.sces[m].scene_type <=0)
 							break;
 						sce = &sys.sces[m];
 						msg_tx = message_create_scene(sys.id, sce);
-						msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+						bundle.msg = msg_tx;
+						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+						//the thrd_tx should return a new 
+						pthread_join(usr->thrd_tx, NULL);
+						//don't forget to delete the message
 						message_destroy(msg_tx);
 					}
-					pthread_mutex_unlock(&mut_msg_tx);
 				}
 				else {
-					pthread_mutex_lock(&mut_msg_tx);
-					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 					msg_tx = message_create_scene(sys.id, sce);
+					bundle.msg = msg_tx;
+					pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+					//the thrd_tx should return a new 
+					pthread_join(usr->thrd_tx, NULL);
+					//don't forget to delete the message
 					message_destroy(msg_tx);
-					pthread_mutex_unlock(&mut_msg_tx);
 				}
 
 				result = 0;
@@ -1551,6 +1603,16 @@ int handle_local_message(message *msg, localuser *usr){
 
 			case DATA_FINISH_SCENE:
 				sys_update_scene(&sys, FILE_SCENE); //store scenes into file
+
+				msg_tx = message_create_ack_scene_op(sys.id, NULL_USER, NULL_USER, NULL_USER, DATA_FINISH_SCENE, 1);
+
+				bundle.msg = msg_tx;
+				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+				//the thrd_tx should return a new 
+				pthread_join(usr->thrd_tx, NULL);
+				//don't forget to delete the message
+				message_destroy(msg_tx);
+	
 				result = 0;
 				break;
 			case DATA_DELETE_SCENE:
@@ -1558,12 +1620,15 @@ int handle_local_message(message *msg, localuser *usr){
 				memcpy(id_minor, msg->data+8, 8*sizeof(char));
 				val = sys_del_scene(&sys, id_major, id_minor);
 				//send operation result back
-				pthread_mutex_lock(&mut_msg_tx);
-				msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_DELETE_SCENE, val);
-				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-				message_destroy(msg_tx);
-				pthread_mutex_unlock(&mut_msg_tx);
 
+				msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_DELETE_SCENE, val);
+				bundle.msg = msg_tx;
+				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+				//the thrd_tx should return a new 
+				pthread_join(usr->thrd_tx, NULL);
+				//don't forget to delete the message
+				message_destroy(msg_tx);
+	
 				result = 0;
 				break;
 

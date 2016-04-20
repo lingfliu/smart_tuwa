@@ -137,7 +137,9 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 	else {
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_FIXED); //read the fixed length 
 
-		data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //(temporal issues) converted according to server request
+		/*modified code */
+		memcpy(&data_len, pre_bytes+MSG_POS_DATA_LEN, 2);
+		//data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //(temporal issues) converted according to server request
 
 		if(buffer_ring_byte_getlen(bytes) < data_len+MSG_LEN_FIXED) { //if buffer is too short for the actual message
 			return 0;
@@ -176,7 +178,11 @@ int message2bytes(message* msg, char* bytes){
 	memcpy(bytes+MSG_POS_ID_DEV, &(msg->dev_id), MSG_LEN_ID_DEV);
 	memcpy(bytes+MSG_POS_DEV_TYPE, &(msg->dev_type), MSG_LEN_DEV_TYPE);
 	memcpy(bytes+MSG_POS_DATA_TYPE, &(msg->data_type), MSG_LEN_DATA_TYPE);
-	memcpy(bytes+MSG_POS_DATA_LEN+1, &(msg->data_len), 1);
+
+	/*modified code here*/
+	memcpy(bytes+MSG_POS_DATA_LEN, &(msg->data_len), 2);
+	//memcpy(bytes+MSG_POS_DATA_LEN+1, &(msg->data_len), 1);
+
 	memcpy(bytes+MSG_LEN_FIXED, msg->data, msg->data_len); //conver the data
 
 	return len;
