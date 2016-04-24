@@ -288,5 +288,5 @@ message* message_create_del_znode(char id_gw[8], char id_dev[8]);
 
 //message* message_create_req_stat(char id_dev[8]);
 message* message_create_ack_install_op(char id_gw[8], char id_dev[8], int op_code, int result);
-message* message_create_ack_scene_op(char id_gw[8], char host_mac[8], char id_major[8], char id_minor[8], int op_code, int result);
+message* message_create_ack_scene_op(char id_gw[8], char id_major[8], char id_minor[8], int op_code, int result);
 #endif

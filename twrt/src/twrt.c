@@ -110,7 +110,7 @@ int main(int argn, char* argv[]){
 		/* connect to serial*/
 		if (sys.serial_status == SERIAL_OFF) {
 			if (serial_open(&srl) < 0) {
-				printf("serial cannot be opened, check the hardware\n");
+				//printf("serial cannot be opened, check the hardware\n");
 			}
 			else {
 				printf("serial opened, znet connected\n");
@@ -129,7 +129,9 @@ int main(int argn, char* argv[]){
 					retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 					if(retval == -1 || retval == 0){ //error or timeout
 						//printf("failed to connect server\n");
-						inet_client_close(&client);
+						/*test code*/
+						on_inet_client_disconnect();
+						//inet_client_close(&client);
 					}
 					else {
 						printf("connected to server\n");
@@ -138,7 +140,9 @@ int main(int argn, char* argv[]){
 				}
 				else { 
 					//printf("failed to connect server\n");
-					inet_client_close(&client);
+					/*test code*/
+					on_inet_client_disconnect();
+					//inet_client_close(&client);
 				}
 			}
 			else {
@@ -514,12 +518,13 @@ void* run_localhost(){
 		usleep(5000);
 		skt = accept(localhost.fd, (struct sockaddr *) &localuser_sock, &len);
 		if (skt <= 0){
-			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
 				usleep(5000);
 				continue;
 			}
 			else {
-				pthread_exit(0);
+				continue;
+				//pthread_exit(0);
 			}
 		}
 		else {
@@ -542,13 +547,14 @@ void* run_localuser_rx(void* arg) {
 	char *tx_result;
 	char passwd[8];
 	int res;
+	printf("localuser rx thread started\n");
 
 	while(1) {
 		usleep(5000);
 		gettimeofday(&timer, NULL);
 		len = recv(usr->skt, usr->buff_io, BUFF_IO_LEN, 0);
 		if(len>0){
-			//printf("received data from user %s: %s\n", usr->id, usr->buff_io);
+			printf("localuser rx thread, len = %d\n", len);
 			buffer_ring_byte_put(&(usr->buff), usr->buff_io, len);
 			if( bytes2message(&(usr->buff), msg) > 0 ) {
 				printf("received msg from user %s: dev type = %d data type = %d\n", usr->id, msg->dev_type, msg->data_type);
@@ -620,6 +626,7 @@ void* run_localuser_rx(void* arg) {
 				}
 			}
 			else {
+				printf("message insufficient\n");
 				//check the timeout
 				if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
 					localuser_delete(usr);
@@ -631,11 +638,13 @@ void* run_localuser_rx(void* arg) {
 			}
 		}
 		else if(len == 0){//if disconnected, close the socket
+			printf("localuser disconnected\n");
 			localuser_delete(usr);
 			pthread_exit(0);
 		}
 		else if(errno == EAGAIN || errno == EINTR ){
 			//check the timeout
+			printf("localuser receiving\n");
 			if (timediff_s(usr->time_lastactive, timer) > DEFAULT_LOCALHOST_TIMEOUT) {
 				localuser_delete(usr);
 				pthread_exit(0);
@@ -1011,8 +1020,6 @@ int handle_msg_rx(message *msg){
 			pthread_mutex_unlock(&mut_msg_tx);
 
 			free(install);
-			//send ack when set succeeds
-			if (val >=0);
 
 			result = 0;
 			break;
@@ -1119,7 +1126,7 @@ int handle_msg_rx(message *msg){
 
 			//send operation result back
 			pthread_mutex_lock(&mut_msg_tx);
-			msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_SET_SCENE, val);
+			msg_tx = message_create_ack_scene_op(sys.id, sce->host_id_major, sce->host_id_minor, DATA_SET_SCENE, val);
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 			message_destroy(msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -1167,7 +1174,7 @@ int handle_msg_rx(message *msg){
 			printf("finish scene\n");
 			//send operation result back
 			pthread_mutex_lock(&mut_msg_tx);
-			msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_FINISH_SCENE, 1);
+			msg_tx = message_create_ack_scene_op(sys.id, NULL_DEV, NULL_DEV, DATA_FINISH_SCENE, 1);
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 			message_destroy(msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -1182,7 +1189,7 @@ int handle_msg_rx(message *msg){
 			printf("delete scene, res = %d\n", val);
 			//send operation result back
 			pthread_mutex_lock(&mut_msg_tx);
-			msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_DELETE_SCENE, val);
+			msg_tx = message_create_ack_scene_op(sys.id, id_major, id_minor, DATA_DELETE_SCENE, val);
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 			message_destroy(msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
@@ -1277,7 +1284,7 @@ int handle_local_message(message *msg, localuser *usr){
 		retval = -1;
 	}
 	else {
-		printf("received msg from localuser\n");
+		printf("received msg from localuser, type = %d\n", msg->data_type);
 		switch (msg->data_type){
 			case DATA_REQ_AUTH_LOCAL:
 				/*
@@ -1497,6 +1504,8 @@ int handle_local_message(message *msg, localuser *usr){
 				break;
 
 			case DATA_FINISH_INSTALL:
+				printf("received finish install\n");
+
 				sys_update_dev_install(&sys, FILE_INSTALL);
 
 				msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_FINISH_INSTALL, 1);
@@ -1554,8 +1563,9 @@ int handle_local_message(message *msg, localuser *usr){
 
 				val = sys_edit_scene(&sys, sce); //modify scene
 
+				printf("set scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 				//send operation result back
-				msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_SET_SCENE, val);
+				msg_tx = message_create_ack_scene_op(sys.id, sce->host_id_major, sce->host_id_minor, DATA_SET_SCENE, val);
 				bundle.msg = msg_tx;
 				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 				//the thrd_tx should return a new 
@@ -1573,12 +1583,17 @@ int handle_local_message(message *msg, localuser *usr){
 				memcpy(id_major, msg->data, 8*sizeof(char));
 				memcpy(id_minor, msg->data+8, 8*sizeof(char));
 				sce = sys_find_scene(&sys, id_major, id_minor);
+				printf("id major = %s\n", id_major);
+				printf("id minor = %s\n", id_minor);
+
 				if (sce == NULL) {
 					//send all sces
+					printf("send all scenes\n");
 					for (m = 0; m < MAX_SCENE_NUM; m ++){
 						if (sys.sces[m].scene_type <=0)
 							break;
 						sce = &sys.sces[m];
+						printf("send scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 						msg_tx = message_create_scene(sys.id, sce);
 						bundle.msg = msg_tx;
 						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
@@ -1589,6 +1604,7 @@ int handle_local_message(message *msg, localuser *usr){
 					}
 				}
 				else {
+					printf("get scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 					msg_tx = message_create_scene(sys.id, sce);
 					bundle.msg = msg_tx;
 					pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
@@ -1603,8 +1619,9 @@ int handle_local_message(message *msg, localuser *usr){
 
 			case DATA_FINISH_SCENE:
 				sys_update_scene(&sys, FILE_SCENE); //store scenes into file
+				printf("finish scene\n"); 
 
-				msg_tx = message_create_ack_scene_op(sys.id, NULL_USER, NULL_USER, NULL_USER, DATA_FINISH_SCENE, 1);
+				msg_tx = message_create_ack_scene_op(sys.id, NULL_USER, NULL_USER, DATA_FINISH_SCENE, 1);
 
 				bundle.msg = msg_tx;
 				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
@@ -1621,7 +1638,8 @@ int handle_local_message(message *msg, localuser *usr){
 				val = sys_del_scene(&sys, id_major, id_minor);
 				//send operation result back
 
-				msg_tx = message_create_ack_scene_op(sys.id, sce->host_mac, sce->host_id_major, sce->host_id_minor, DATA_DELETE_SCENE, val);
+				printf("delete scene, result= %d\n", val); 
+				msg_tx = message_create_ack_scene_op(sys.id, id_major, id_minor, DATA_DELETE_SCENE, val);
 				bundle.msg = msg_tx;
 				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 				//the thrd_tx should return a new 

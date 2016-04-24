@@ -82,7 +82,8 @@ int main(int argn, char* argv[]){
 
 	msg = message_create_scene(sys.id, sce);
 
-	msg->data_type = DATA_SET_SCENE;
+	//msg->data_type = DATA_SET_SCENE;
+	msg->data_type = DATA_GET_SCENE;
 
 
 
@@ -99,5 +100,21 @@ int main(int argn, char* argv[]){
 
 	for (m = 0; m < val; m ++){
 		printf("%x ", buff[m] & 0x00ff);
+	}
+
+	printf("\n");
+
+	switch(msg_decode.data_type){
+		case DATA_SET_SCENE:
+			printf("set scene\n");
+			break;
+		case DATA_SCENE:
+			printf("scene\n");
+			break;
+		case DATA_GET_SCENE:
+			printf("get scene\n");
+			break;
+		default:
+			break;
 	}
 }

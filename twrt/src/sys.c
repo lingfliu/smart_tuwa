@@ -470,7 +470,7 @@ void sys_update_dev_install(sys_t *sys, char* install_file) {
 
 	for (m = 0; m < ZNET_SIZE; m ++) {
 		if (sys->znode_install_list[m].type > 0) {
-			//printf("save node into file, idx = %d, type = %d\n, name = %s", m, sys->znode_install_list[m].type, sys->znode_install_list[m].name);
+			printf("save node into file, idx = %d, type = %d\n, name = %s", m, sys->znode_install_list[m].type, sys->znode_install_list[m].name);
 
 			if (fwrite(&(sys->znode_install_list[m]), 1, sizeof(znode_install), fp) < 0){
 				printf("write failed, quit\n");
@@ -498,10 +498,12 @@ int sys_edit_dev_install(sys_t *sys, znode_install* install){
 	int m;
 	int is_update = -1;
 	int retval = -1;
+	int idx = -1;
 	for (m = 0; m < ZNET_SIZE; m ++){
-		if (sys->sces[m].scene_type <= 0) {
+		if (sys->znode_install_list[m].type <= 0) {
 			//found a position for the new znode_install
 			retval = 0;
+			idx = m;
 			break;
 		}
 		else if(!memcmp(install->id, sys->znode_install_list[m].id, 8)){
@@ -518,13 +520,13 @@ int sys_edit_dev_install(sys_t *sys, znode_install* install){
 	}
 
 	//new znode_install
-	if (is_update < 0 && m < ZNET_SIZE) {
+	if (is_update < 0 && idx < ZNET_SIZE) {
 		//update old znode
-		memcpy(sys->znode_install_list[m].id, install->id, 8*sizeof(char));
-		memcpy(sys->znode_install_list[m].name, install->name, 60*sizeof(char));
-		memcpy(sys->znode_install_list[m].pos, install->pos, 60*sizeof(char));
-		sys->znode_install_list[m].posType = install->posType;
-		sys->znode_install_list[m].type = install->type;
+		memcpy(sys->znode_install_list[idx].id, install->id, 8*sizeof(char));
+		memcpy(sys->znode_install_list[idx].name, install->name, 60*sizeof(char));
+		memcpy(sys->znode_install_list[idx].pos, install->pos, 60*sizeof(char));
+		sys->znode_install_list[idx].posType = install->posType;
+		sys->znode_install_list[idx].type = install->type;
 		retval = 0;
 		printf("edit new install, dev id = %s, idx = %d\n", install->id, m);
 	}
@@ -589,10 +591,11 @@ void sys_get_scene(sys_t *sys, char* scene_file){ //read scenes into file
 
 			item_num = tmp_sce.item_num;
 			trigger_num = tmp_sce.trigger_num;
+			tmp_sce.trigger = calloc(trigger_num, sizeof(scene_item));
 			tmp_sce.item = calloc(item_num, sizeof(scene_item));
 
 			if (trigger_num > 0) {
-				if(fread(tmp_sce.trigger, sizeof(scene_item), item_num, fp) <= 0){
+				if(fread(tmp_sce.trigger, sizeof(scene_item), trigger_num, fp) <= 0){
 					return;
 				}
 			}
@@ -642,22 +645,26 @@ void sys_get_scene(sys_t *sys, char* scene_file){ //read scenes into file
 }
 
 void sys_update_scene(sys_t *sys, char* scene_file){
+
+
 	FILE* fp;
 	int m;
-	int len;
 	int cnt;
 
 	fp = fopen(scene_file, "w+");
 
+
 	if (fp == NULL) {
+		printf("failed to open scene file\n");
 		return;
 	}
 
-	len = sys_get_znode_num(sys);
 	cnt = 0;
 
+	printf("sys_update_scene called, scene file = %s\n", scene_file);
+
 	while(sys->sces[cnt].scene_type >0) {
-		//printf("save scene into file, type = %d, trigger_num = %d, item_num = %d", sys->sces[cnt].scene_type, sys->sces[cnt].trigger_num, sys->sces[cnt].item_num);
+		printf("save scene into file, idx = %d, type = %d, trigger_num = %d, item_num = %d", cnt, sys->sces[cnt].scene_type, sys->sces[cnt].trigger_num, sys->sces[cnt].item_num);
 		fwrite(&(sys->sces[cnt]), 1, sizeof(scene), fp);
 		if (fwrite(sys->sces[cnt].trigger, sys->sces[cnt].trigger_num, sizeof(scene_item),fp) <= 0){
 			break;
@@ -688,12 +695,15 @@ void sys_update_scene(sys_t *sys, char* scene_file){
 
 int sys_edit_scene(sys_t* sys, scene* sce){
 	int m,n;
+	int idx = -1;
 	int is_update = -1;
 	int retval = -1;
 	for (m = 0; m < MAX_SCENE_NUM; m ++){
 		if (sys->sces[m].scene_type <= 0) {
 			//found a position for the new scene
 			retval = 0;
+			idx = m;
+			//printf("found new position for scene=%d\n",idx);
 			break;
 		}
 		else if(!memcmp(sce->host_id_major, sys->sces[m].host_id_major, 8) && !memcmp(sce->host_id_minor, sys->sces[m].host_id_minor, 8) ){
@@ -721,19 +731,33 @@ int sys_edit_scene(sys_t* sys, scene* sce){
 	}
 
 	//new scene
-	if (is_update < 0 && m < MAX_SCENE_NUM) {
-		if (sys->sces[m].trigger_num > 0)
-			sys->sces[m].trigger = calloc(sys->sces[m].trigger_num, sizeof(scene_item));
-		if (sys->sces[m].item_num > 0)
-			sys->sces[m].item = calloc(sys->sces[m].item_num, sizeof(scene_item));
+	if (is_update < 0 && idx < MAX_SCENE_NUM) {
+		printf("found new position for scene=%d\n",idx);
+		memcpy(sys->sces[idx].host_id_major, sce->host_id_major, sizeof(char)*8);
+		memcpy(sys->sces[idx].host_id_minor, sce->host_id_minor, sizeof(char)*8);
+		memcpy(sys->sces[idx].host_mac, sce->host_mac, sizeof(char)*8);
 
-		for (n = 0; n < sys->sces[m].trigger_num; m ++) 
-			memcpy(&(sys->sces[m].trigger[n]), &(sce->trigger[n]), sizeof(scene_item));
+		sys->sces[idx].scene_type = sce->scene_type;
+		memcpy(sys->sces[idx].scene_name, sce->scene_name, sizeof(char)*60);
 
-		for (n = 0; n < sys->sces[m].item_num; m ++) 
-			memcpy(&(sys->sces[m].item[n]), &(sce->item[n]), sizeof(scene_item));
+		sys->sces[idx].trigger_num = sce->trigger_num;
+		sys->sces[idx].item_num = sce->item_num;
+
+
+		if (sys->sces[idx].trigger_num > 0)
+			sys->sces[idx].trigger = calloc(sys->sces[idx].trigger_num, sizeof(scene_item));
+		if (sys->sces[idx].item_num > 0)
+			sys->sces[idx].item = calloc(sys->sces[idx].item_num, sizeof(scene_item));
+
+		printf("runs here, trigger %d, item %d\n", sce->trigger_num, sce->item_num);
+
+		for (n = 0; n < sys->sces[idx].trigger_num; n ++) 
+			memcpy(&(sys->sces[idx].trigger[n]), &(sce->trigger[n]), sizeof(scene_item));
+
+		for (n = 0; n < sys->sces[idx].item_num; n ++) 
+			memcpy(&(sys->sces[idx].item[n]), &(sce->item[n]), sizeof(scene_item));
+
 	}
-
 	return retval;
 }
 
@@ -748,9 +772,12 @@ int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]){
 			free(sys->sces[m].item);
 			memset(&(sys->sces[m]), 0, sizeof(scene));
 
+			printf("found delete scene = %d\n", m);
 			//shrink the scene list
-			for(n = m+1; m < MAX_SCENE_NUM; n ++){
+			for(n = m+1; n < MAX_SCENE_NUM; n ++){
 				if (sys->sces[n].scene_type <=0) break; //reach empty position
+
+				printf("moving from %d to %d\n", n, n-1);
 				memcpy(sys->sces[n-1].host_mac, sys->sces[n].host_mac, 8*sizeof(char));
 				memcpy(sys->sces[n-1].host_id_major, sys->sces[n].host_id_major, 8*sizeof(char));
 				memcpy(sys->sces[n-1].host_id_minor, sys->sces[n].host_id_minor, 8*sizeof(char));
@@ -762,11 +789,13 @@ int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]){
 				sys->sces[n-1].item = sys->sces[n].item;
 			}
 			
-			bzero(&(sys->znode_install_list[n-1]), sizeof(znode_install)); //remove last scene (updated to n-2)
+			bzero(&(sys->sces[n-1]), sizeof(scene)); //remove last scene (updated to n-2)
 
 			break;
 		}
 	}
+
+	return retval;
 }
 
 int get_znode_status_len(int type){
@@ -859,7 +888,9 @@ scene* sys_find_scene(sys_t* sys, char id_major[8], char id_minor[8]){
 	int m;
 	scene* sce = NULL;
 	for (m = 0; m < MAX_SCENE_NUM; m ++){
+		//printf("id_major =%s, id_minor=%s\n", sys->sces[m].host_id_major, sys->sces[m].host_id_minor);
 		if(!memcmp(id_major, sys->sces[m].host_id_major, 8) && !memcmp(id_minor, sys->sces[m].host_id_minor, 8) ){
+			//printf("found scene\n");
 			sce = &(sys->sces[m]);
 		}
 	}

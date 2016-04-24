@@ -139,6 +139,9 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 
 		/*modified code */
 		memcpy(&data_len, pre_bytes+MSG_POS_DATA_LEN, 2);
+		data_len = *(pre_bytes+MSG_POS_DATA_LEN) & 0x00FF;
+		printf("data_len in message=%d\n",data_len);
+		printf("buffer length=%d\n",buffer_ring_byte_getlen(bytes));
 		//data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //(temporal issues) converted according to server request
 
 		if(buffer_ring_byte_getlen(bytes) < data_len+MSG_LEN_FIXED) { //if buffer is too short for the actual message
@@ -600,13 +603,17 @@ message* message_create_del_znode(char id_gw[8], char id_dev[8]){
 
 message* message_create_ack_install_op(char id_gw[8], char id_dev[8], int op_code, int result){
 	message *msg = message_create();
-	msg->data = realloc(msg->data, 5);
+	msg->data = realloc(msg->data, 13);
+
+	memcpy(msg->data, id_dev, sizeof(int));
+	memcpy(msg->data+8, &(op_code), sizeof(int));
+
 	if (result >= 0)
-		msg->data[0] = 0x00;
+		msg->data[12] = 0x00;
 	else 
-		msg->data[0] = 0xff;
-	memcpy(msg->data+1, &(op_code), sizeof(int));
-	msg->data_len = 5;
+		msg->data[12] = 0xff;
+
+	msg->data_len = 13;
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
 	msg->dev_type = 0;
@@ -614,19 +621,20 @@ message* message_create_ack_install_op(char id_gw[8], char id_dev[8], int op_cod
 	return msg;
 }
 
-message* message_create_ack_scene_op(char id_gw[8], char host_mac[8], char id_major[8], char id_minor[8], int op_code, int result){
+message* message_create_ack_scene_op(char id_gw[8], char id_major[8], char id_minor[8], int op_code, int result){
 	message *msg = message_create();
-	msg->data = realloc(msg->data, 29);
-	if (result >= 0)
-		msg->data[0] = 0x00;
-	else 
-		msg->data[0] = 0xff;
-	memcpy(msg->data+1, &(op_code), sizeof(int));
-	memcpy(msg->data+5, host_mac, 8*sizeof(char));
-	memcpy(msg->data+13, id_major, 8*sizeof(char));
-	memcpy(msg->data+21, id_minor, 8*sizeof(char));
+	msg->data = realloc(msg->data, 21);
+	memcpy(msg->data, id_major, 8*sizeof(char));
+	memcpy(msg->data+8, id_minor, 8*sizeof(char));
+	memcpy(msg->data+16, &(op_code), sizeof(int));
 
-	msg->data_len = 29;
+	if (result >= 0)
+		msg->data[20] = 0x00;
+	else 
+		msg->data[20] = 0xff;
+
+	msg->data_len = 21;
+
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
 	msg->dev_type = 0;

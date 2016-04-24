@@ -25,14 +25,17 @@ int get_password(char* key){
 	FILE* fp;
 	fp = fopen(FILE_PASSWORD, "r");
 	if (fp == NULL){
+		//printf("password file missing\n");
 		return -1;
 	}
 	else {
 		if(fread(key, sizeof(char), 8, fp)== 8){
+			//printf("password found = %s\n", key);
 			fclose(fp);
 			return 8;
 		}
 		else {
+			//printf("password not found \n");
 			fclose(fp);
 			return 0;
 		}
