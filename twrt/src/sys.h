@@ -212,6 +212,7 @@ int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]); //delete a sc
 scene* sys_find_scene(sys_t* sys, char id_major[8], char id_minor[8]);
 scene* sys_find_scene_bymac(sys_t* sys, char dev_mac[8], char id_minor[8]);
 scene* sys_find_scene_bytrigger(sys_t* sys, char trigger_id[8], char trigger_state[8]);
+int sys_get_scene_num(sys_t* sys);
 
 /*system initialization when program started
 todo:

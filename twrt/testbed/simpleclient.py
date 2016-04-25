@@ -10,19 +10,20 @@ msg_devtype = '\x01\x00'
 msg_auth_key = 'TWRT2015' 
 msg_auth_datatype = '\x1c\x00'
 
-msg_auth = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+msg_auth_datatype+'\x08\x00'+msg_auth_key
+msg_auth = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+msg_auth_datatype+'\x00\x08'+msg_auth_key
 
+x = 5
 install_id = '00000000'
 install_type = '\x02\x00\x00\x00'
 install_name = 'switch001' + '\x00'*51
 install_pos = 'hall' + '\x00'*56
 install_postype = '\x02'+'\x00'*3
 
-msg_set_install = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x06\x00'+'\x88\x00' + install_id+install_type+install_name+install_pos+install_postype
+msg_set_install = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x06\x00'+'\x00\x88' + install_id+install_type+install_name+install_pos+install_postype
 
-msg_get_install = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x07\x00'+'\x08\x00' + install_id
+msg_get_install = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x07\x00'+'\x00\x08' + install_id
 
-msg_finish_install = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0b\x00'+'\x01\x00' + '\x00'
+msg_finish_install = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0b\x00'+'\x00\x01' + '\x00'
 
 scene_mac = '00000000'
 scene_id_major = '00000011'
@@ -38,17 +39,17 @@ scene_mac2 = '00000111'
 scene_id_major2 = '00000031'
 scene_id_minor2 = '00000011'
 
-msg_set_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+'\x80\x00' + scene_id_major+scene_id_minor+scene_mac+scene_type+scene_name+'\x01\x00\x00\x00'+'\x01\x00\x00\x00'+scene_trigger+scene_item
+msg_set_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+'\x00\x80' + scene_id_major+scene_id_minor+scene_mac+scene_type+scene_name+'\x01\x00\x00\x00'+'\x01\x00\x00\x00'+scene_trigger+scene_item
 
-msg_set_scene2 = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+'\x80\x00' + scene_id_major2+scene_id_minor2+scene_mac2+scene_type+scene_name+'\x01\x00\x00\x00'+'\x01\x00\x00\x00'+scene_trigger+scene_item
+msg_set_scene2 = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+'\x00\x80' + scene_id_major2+scene_id_minor2+scene_mac2+scene_type+scene_name+'\x01\x00\x00\x00'+'\x01\x00\x00\x00'+scene_trigger+scene_item
 
-msg_del_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x12\x00'+'\x10\x00' + scene_id_major+scene_id_minor
+msg_del_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x12\x00'+'\x00\x10' + scene_id_major+scene_id_minor
 
-msg_get_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0e\x00'+'\x10\x00' + scene_id_major+scene_id_minor
+msg_get_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0e\x00'+'\x00\x10' + scene_id_major+scene_id_minor
 
-msg_get_scene_null = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0e\x00'+'\x10\x00' + '\x01'+'\x00'*7+scene_id_minor
+msg_get_scene_null = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0e\x00'+'\x00\x10' + '\x01'+'\x00'*7+scene_id_minor
 
-msg_finish_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x11\x00'+'\x01\x00' + '\x00'
+msg_finish_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x11\x00'+'\x00\x01' + '\x00'
 
 LEN_BUFF_IO = 1000
 
@@ -107,38 +108,15 @@ print len
 msg_bak = skt.recv(1024)
 print msg_bak
 
-len = skt.send(msg_del_scene)
-print len
-msg_bak = skt.recv(1024)
-print 'delete scene result' + msg_bak
+#len = skt.send(msg_del_scene)
+#print len
+#msg_bak = skt.recv(1024)
+#print 'delete scene result' + msg_bak
 
-len = skt.send(msg_finish_scene)
-print len
-msg_bak = skt.recv(1024)
-print msg_bak
+#len = skt.send(msg_finish_scene)
+#print len
+#msg_bak = skt.recv(1024)
+#print 'finish scene result' + msg_bak
 
-while True:
-	pass
-#skts = []
-# for idx in range(numSkt):
-# time.sleep(1)
-# 	skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# 	skt.connect(serverAddress)
-# 	print 'socket connected'
-# 	skts.append(skt)
-#
-# while(True):
-# 	for idx in range(numSkt):
-# 		len = skts[idx].send('hello')
-# 		if len <= 0:
-# 			skt.close()
-# 			print 'disconnected'
-# 			break
-# 		else:
-# 			print 'send sth to server'
-# 		time.sleep(1)
-
-
-
-
-
+#while True:
+#	pass

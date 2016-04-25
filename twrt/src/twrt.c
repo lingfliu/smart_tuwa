@@ -523,8 +523,8 @@ void* run_localhost(){
 				continue;
 			}
 			else {
-				continue;
-				//pthread_exit(0);
+				//continue;
+				pthread_exit(0);
 			}
 		}
 		else {
@@ -1186,7 +1186,7 @@ int handle_msg_rx(message *msg){
 			memcpy(id_minor, msg->data+8, 8*sizeof(char));
 			val = sys_del_scene(&sys, id_major, id_minor);
 
-			printf("delete scene, res = %d\n", val);
+			printf("delete scene, res = %d, scene remains = %d\n", val, sys_get_scene_num(&sys));
 			//send operation result back
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_tx = message_create_ack_scene_op(sys.id, id_major, id_minor, DATA_DELETE_SCENE, val);
@@ -1618,8 +1618,8 @@ int handle_local_message(message *msg, localuser *usr){
 				break;
 
 			case DATA_FINISH_SCENE:
-				sys_update_scene(&sys, FILE_SCENE); //store scenes into file
 				printf("finish scene\n"); 
+				sys_update_scene(&sys, FILE_SCENE); //store scenes into file
 
 				msg_tx = message_create_ack_scene_op(sys.id, NULL_USER, NULL_USER, DATA_FINISH_SCENE, 1);
 
@@ -1638,7 +1638,7 @@ int handle_local_message(message *msg, localuser *usr){
 				val = sys_del_scene(&sys, id_major, id_minor);
 				//send operation result back
 
-				printf("delete scene, result= %d\n", val); 
+				printf("delete scene, res = %d, scene remains = %d\n", val, sys_get_scene_num(&sys));
 				msg_tx = message_create_ack_scene_op(sys.id, id_major, id_minor, DATA_DELETE_SCENE, val);
 				bundle.msg = msg_tx;
 				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
