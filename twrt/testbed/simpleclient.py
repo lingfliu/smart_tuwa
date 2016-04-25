@@ -63,21 +63,21 @@ print len
 msg_bak = skt.recv(1024)
 print msg_bak
 
-len = skt.send(msg_set_install)
-print len
-msg_bak = skt.recv(1024)
-print msg_bak
+#len = skt.send(msg_set_install)
+#print len
+#msg_bak = skt.recv(1024)
+#print msg_bak
 
-len = skt.send(msg_get_install)
-print len
-msg_bak = skt.recv(1024)
-print msg_bak
+#len = skt.send(msg_get_install)
+#print len
+#msg_bak = skt.recv(1024)
+#print msg_bak
 
 
-len = skt.send(msg_finish_install)
-print len
-msg_bak = skt.recv(1024)
-print msg_bak
+#len = skt.send(msg_finish_install)
+#print len
+#msg_bak = skt.recv(1024)
+#print msg_bak
 
 len = skt.send(msg_set_scene)
 print len
@@ -89,6 +89,13 @@ len = skt.send(msg_set_scene2)
 print len
 msg_bak = skt.recv(1024)
 print msg_bak
+
+
+len = skt.send(msg_finish_scene)
+print len
+msg_bak = skt.recv(1024)
+print 'finish scene result' + msg_bak
+
 
 len = skt.send(msg_get_scene)
 print len
@@ -102,21 +109,15 @@ print len
 msg_bak = skt.recv(1024)
 print msg_bak
 
+len = skt.send(msg_del_scene)
+print len
+msg_bak = skt.recv(1024)
+print 'delete scene result' + msg_bak
 
 len = skt.send(msg_finish_scene)
 print len
 msg_bak = skt.recv(1024)
-print msg_bak
-
-#len = skt.send(msg_del_scene)
-#print len
-#msg_bak = skt.recv(1024)
-#print 'delete scene result' + msg_bak
-
-#len = skt.send(msg_finish_scene)
-#print len
-#msg_bak = skt.recv(1024)
-#print 'finish scene result' + msg_bak
+print 'finish scene result' + msg_bak
 
 #while True:
 #	pass

@@ -530,16 +530,18 @@ int sys_del_dev_install(sys_t *sys, char id[8]){
 			retval = 0;
 			memset(&(sys->znode_install_list[m]), 0, sizeof(znode_install));
 
-			//shrink the scene list
-			for(n = m+1; m < ZNET_SIZE; n ++){
-				if (sys->znode_install_list[n].type<= 0) break;
-				memcpy(sys->znode_install_list[n-1].id, sys->znode_install_list[n].id, 8*sizeof(char));
-				memcpy(sys->znode_install_list[n-1].name, sys->znode_install_list[n].name, 60*sizeof(char));
-				memcpy(sys->znode_install_list[n-1].pos, sys->znode_install_list[n].pos, 60*sizeof(char));
-				sys->znode_install_list[n-1].type = sys->znode_install_list[n].type;
-				sys->znode_install_list[n-1].posType = sys->znode_install_list[n].posType;
+			if (m > 0){
+				//shrink the scene list
+				for(n = m+1; m < ZNET_SIZE; n ++){
+					if (sys->znode_install_list[n].type<= 0) break;
+					memcpy(sys->znode_install_list[n-1].id, sys->znode_install_list[n].id, 8*sizeof(char));
+					memcpy(sys->znode_install_list[n-1].name, sys->znode_install_list[n].name, 60*sizeof(char));
+					memcpy(sys->znode_install_list[n-1].pos, sys->znode_install_list[n].pos, 60*sizeof(char));
+					sys->znode_install_list[n-1].type = sys->znode_install_list[n].type;
+					sys->znode_install_list[n-1].posType = sys->znode_install_list[n].posType;
+				}
+				bzero(&(sys->znode_install_list[n-1]), sizeof(znode_install));
 			}
-			bzero(&(sys->znode_install_list[n-1]), sizeof(znode_install));
 			break;
 		}
 		else if (sys->znode_install_list[m].type <= 0){
@@ -720,24 +722,25 @@ int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]){
 			memset(&(sys->sces[m]), 0, sizeof(scene));
 
 			printf("found delete scene = %d\n", m);
-			//shrink the scene list
-			for(n = m+1; n < MAX_SCENE_NUM; n ++){
-				if (sys->sces[n].scene_type <=0) break; //reach empty position
+			if (m > 0){
+				//shrink the scene list
+				for(n = m+1; n < MAX_SCENE_NUM; n ++){
+					if (sys->sces[n].scene_type <=0) break; //reach empty position
 
-				printf("moving from %d to %d\n", n, n-1);
-				memcpy(sys->sces[n-1].host_mac, sys->sces[n].host_mac, 8*sizeof(char));
-				memcpy(sys->sces[n-1].host_id_major, sys->sces[n].host_id_major, 8*sizeof(char));
-				memcpy(sys->sces[n-1].host_id_minor, sys->sces[n].host_id_minor, 8*sizeof(char));
-				memcpy(sys->sces[n-1].scene_name, sys->sces[n].scene_name, 60*sizeof(char));
-				sys->sces[n-1].scene_type = sys->sces[n].scene_type;
-				sys->sces[n-1].trigger_num = sys->sces[n].trigger_num;
-				sys->sces[n-1].item_num = sys->sces[n].item_num;
-				sys->sces[n-1].trigger = sys->sces[n].trigger;
-				sys->sces[n-1].item = sys->sces[n].item;
+					printf("moving from %d to %d\n", n, n-1);
+					memcpy(sys->sces[n-1].host_mac, sys->sces[n].host_mac, 8*sizeof(char));
+					memcpy(sys->sces[n-1].host_id_major, sys->sces[n].host_id_major, 8*sizeof(char));
+					memcpy(sys->sces[n-1].host_id_minor, sys->sces[n].host_id_minor, 8*sizeof(char));
+					memcpy(sys->sces[n-1].scene_name, sys->sces[n].scene_name, 60*sizeof(char));
+					sys->sces[n-1].scene_type = sys->sces[n].scene_type;
+					sys->sces[n-1].trigger_num = sys->sces[n].trigger_num;
+					sys->sces[n-1].item_num = sys->sces[n].item_num;
+					sys->sces[n-1].trigger = sys->sces[n].trigger;
+					sys->sces[n-1].item = sys->sces[n].item;
+				}
+
+				bzero(&(sys->sces[n-1]), sizeof(scene)); //remove last scene (updated to n-2)
 			}
-			
-			bzero(&(sys->sces[n-1]), sizeof(scene)); //remove last scene (updated to n-2)
-
 			break;
 		}
 	}
