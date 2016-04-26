@@ -805,10 +805,11 @@ int handle_msg_rx(message *msg){
 			//update stat
 			idx = sys_znode_update(&sys, msg);
 
-			printf("received data stat from znet, dev index = %d\n", idx);
 
 			//if update valid, send synchronization to server
 			if(idx >= 0) {
+
+				printf("received data stat from znet, dev index = %d, device type = %d", idx, sys.znode_list[idx].type);
 				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
@@ -840,6 +841,24 @@ int handle_msg_rx(message *msg){
 					message_destroy(msg_tx);
 				}
 
+				//if is scene
+				if (sys.znode_list[idx].type == DEV_THEME_4 || sys.znode_list[idx].type == DEV_DOUBLE_CTRL) {
+					printf("received theme from device, mac = %s, id = %s\n", sys.znode_list[idx].id, sys.znode_list[idx].status);
+					sce = sys_find_scene_bymac(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
+					if (sce != NULL){
+						printf("found scene, start sending ctrl\n");
+						pthread_mutex_lock(&mut_msg_tx);
+						for (m = 0; m < sce->item_num; m ++){
+							//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
+							printf("sending scene ctrl %d\n, mac = %s", m, sce->item[m].id);
+							msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
+							msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+							message_destroy(msg_tx);
+						}
+						pthread_mutex_unlock(&mut_msg_tx);
+					}
+				}
+
 				//if trigger status, send ctrl to the znet
 				if (sys.znode_list[idx].type > 100 && sys.znode_list[idx].type < 200){ //sensor as trigger
 					sce = sys_find_scene_bytrigger(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
@@ -847,7 +866,8 @@ int handle_msg_rx(message *msg){
 						pthread_mutex_lock(&mut_msg_tx);
 						for (m = 0; m < sce->item_num; m ++){
 							//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
-							msg_tx = message_create_ctrl(8, sce->item[m].state, sys.id, sce->item[m].id, 0);
+
+							msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
 							msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 							message_destroy(msg_tx);
 						}
@@ -1092,7 +1112,8 @@ int handle_msg_rx(message *msg){
 				pthread_mutex_lock(&mut_msg_tx);
 				for (m = 0; m < sce->item_num; m ++){
 					//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
-					msg_tx = message_create_ctrl(8, sce->item[m].state, sys.id, sce->item[m].id, 0);
+
+					msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
 					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 					message_destroy(msg_tx);
 				}
@@ -1103,9 +1124,9 @@ int handle_msg_rx(message *msg){
 			break;
 		case DATA_SET_SCENE:
 			sce = calloc(1, sizeof(scene));
-			memcpy(sce->host_mac, msg->data, 8*sizeof(char));
-			memcpy(sce->host_id_major, msg->data+8, 8*sizeof(char));
-			memcpy(sce->host_id_minor, msg->data+16, 8*sizeof(char));
+			memcpy(sce->host_id_major, msg->data, 8*sizeof(char));
+			memcpy(sce->host_id_minor, msg->data+8, 8*sizeof(char));
+			memcpy(sce->host_mac, msg->data+16, 8*sizeof(char));
 			memcpy(&(sce->scene_type), msg->data+24, sizeof(int));
 			memcpy(sce->scene_name, msg->data+28, 60*sizeof(char));
 			memcpy(&(sce->trigger_num), msg->data+88, sizeof(int));
@@ -1113,12 +1134,16 @@ int handle_msg_rx(message *msg){
 			sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
 			sce->item = calloc(sce->item_num, sizeof(scene_item));
 			for (m = 0; m < sce->trigger_num; m ++){
-				memcpy(sce->trigger[m].id, msg->data+96+m*16, 8*sizeof(char));
-				memcpy(sce->trigger[m].state, msg->data+96+m*16+8, 8*sizeof(char));
+				memcpy(sce->trigger[m].id, msg->data+96+m*24, 8*sizeof(char));
+				memcpy(sce->trigger[m].state, msg->data+96+m*24+8, 8*sizeof(char));
+				memcpy(&(sce->trigger[m].state_len), msg->data+96+m*24+16, sizeof(int));
+				memcpy(&(sce->trigger[m].type), msg->data+96+m*24+20, sizeof(int));
 			}
 			for (m = 0; m < sce->item_num; m ++){
-				memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*16+m*16, 8*sizeof(char));
-				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*16+m*16+8, 8*sizeof(char));
+				memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*24+m*24, 8*sizeof(char));
+				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*24+m*24+8, 8*sizeof(char));
+				memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*24+m*24+16, sizeof(int));
+				memcpy(&(sce->item[m].type), msg->data+96+sce->trigger_num*24+m*24+20, sizeof(int));
 			}
 			printf("set scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 			
@@ -1531,7 +1556,7 @@ int handle_local_message(message *msg, localuser *usr){
 					pthread_mutex_lock(&mut_msg_tx);
 					for (m = 0; m < sce->item_num; m ++){
 						//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
-						msg_tx = message_create_ctrl(8, sce->item[m].state, sys.id, sce->item[m].id, 0);
+						msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
 						msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 						message_destroy(msg_tx);
 					}
@@ -1553,12 +1578,16 @@ int handle_local_message(message *msg, localuser *usr){
 				sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
 				sce->item = calloc(sce->item_num, sizeof(scene_item));
 				for (m = 0; m < sce->trigger_num; m ++){
-					memcpy(sce->trigger[m].id, msg->data+96+m*16, 8*sizeof(char));
-					memcpy(sce->trigger[m].state, msg->data+96+m*16+8, 8*sizeof(char));
+					memcpy(sce->trigger[m].id, msg->data+96+m*24, 8*sizeof(char));
+					memcpy(sce->trigger[m].state, msg->data+96+m*24+8, 8*sizeof(char));
+					memcpy(&(sce->trigger[m].state_len), msg->data+96+m*24+16, sizeof(int));
+					memcpy(&(sce->trigger[m].type), msg->data+96+m*24+20, sizeof(int));
 				}
 				for (m = 0; m < sce->item_num; m ++){
-					memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*16+m*16, 8*sizeof(char));
-					memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*16+m*16+8, 8*sizeof(char));
+					memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*24+m*24, 8*sizeof(char));
+					memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*24+m*24+8, 8*sizeof(char));
+					memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*24+m*24+16, sizeof(int));
+					memcpy(&(sce->item[m].type), msg->data+96+sce->trigger_num*24+m*24+20, sizeof(int));
 				}
 
 				val = sys_edit_scene(&sys, sce); //modify scene

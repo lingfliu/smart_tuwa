@@ -34,14 +34,15 @@ scene_trigger_num = 1
 scene_item_num = 1
 scene_trigger = '00000011'*2
 scene_item  = '00000012'*2
+scene_item_extra = '\x02\x00\x00\x00'*2
 
 scene_mac2 = '00000111'
 scene_id_major2 = '00000031'
 scene_id_minor2 = '00000011'
 
-msg_set_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+'\x00\x80' + scene_id_major+scene_id_minor+scene_mac+scene_type+scene_name+'\x01\x00\x00\x00'+'\x01\x00\x00\x00'+scene_trigger+scene_item
+msg_set_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+'\x00\x88' + scene_id_major+scene_id_minor+scene_mac+scene_type+scene_name+'\x01\x00\x00\x00'+'\x01\x00\x00\x00'+scene_trigger+scene_item_extra+scene_item+scene_item_extra
 
-msg_set_scene2 = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+'\x00\x80' + scene_id_major2+scene_id_minor2+scene_mac2+scene_type+scene_name+'\x01\x00\x00\x00'+'\x01\x00\x00\x00'+scene_trigger+scene_item
+msg_set_scene2 = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+'\x00\x88' + scene_id_major2+scene_id_minor2+scene_mac2+scene_type+scene_name+'\x01\x00\x00\x00'+'\x01\x00\x00\x00'+scene_trigger+scene_item_extra+scene_item+scene_item_extra
 
 msg_del_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x12\x00'+'\x00\x10' + scene_id_major+scene_id_minor
 
@@ -63,21 +64,21 @@ print len
 msg_bak = skt.recv(1024)
 print msg_bak
 
-#len = skt.send(msg_set_install)
-#print len
-#msg_bak = skt.recv(1024)
-#print msg_bak
+len = skt.send(msg_set_install)
+print len
+msg_bak = skt.recv(1024)
+print msg_bak
 
-#len = skt.send(msg_get_install)
-#print len
-#msg_bak = skt.recv(1024)
-#print msg_bak
+len = skt.send(msg_get_install)
+print len
+msg_bak = skt.recv(1024)
+print msg_bak
 
 
-#len = skt.send(msg_finish_install)
-#print len
-#msg_bak = skt.recv(1024)
-#print msg_bak
+len = skt.send(msg_finish_install)
+print len
+msg_bak = skt.recv(1024)
+print msg_bak
 
 len = skt.send(msg_set_scene)
 print len
@@ -108,11 +109,6 @@ len = skt.send(msg_get_scene_null)
 print len
 msg_bak = skt.recv(1024)
 print msg_bak
-
-len = skt.send(msg_del_scene)
-print len
-msg_bak = skt.recv(1024)
-print 'delete scene result' + msg_bak
 
 len = skt.send(msg_finish_scene)
 print len

@@ -49,7 +49,7 @@
 #define DEV_MECH_VALVE 201 
 #define DEV_THEME_4 202 
 #define DEV_INFRACTRL 203
-#define DEV_ALARM 204
+#define DEV_DOUBLE_CTRL 204
 
 #define NULL_DEV "00000000" 
 /*************************************************
