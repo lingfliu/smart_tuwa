@@ -613,7 +613,7 @@ void sys_update_scene(sys_t *sys, char* scene_file){
 	FILE* fp;
 	int m;
 
-	printf("update_scene\n");
+	//printf("update_scene\n");
 	fp = fopen(scene_file, "w+");
 
 	if (fp == NULL) {
@@ -656,11 +656,16 @@ int sys_edit_scene(sys_t* sys, scene* sce){
 		}
 		else if(!memcmp(sce->host_id_major, sys->sces[m].host_id_major, 8) && !memcmp(sce->host_id_minor, sys->sces[m].host_id_minor, 8) ){
 			//update old scene
+
+			if (sys->sces[m].trigger_num > 0)
+				free(sys->sces[m].trigger);
+			if (sys->sces[m].item_num > 0)
+				free(sys->sces[m].item);
+
 			sys->sces[m].trigger_num = sce->trigger_num;
 			sys->sces[m].item_num= sce->item_num;
-			free(sys->sces[m].trigger);
-			free(sys->sces[m].item);
 
+			printf("update old scene at %d\n, trigger num = %d, item num = %d",m, sys->sces[m].trigger_num, sys->sces[m].item_num);
 			if (sys->sces[m].trigger_num > 0)
 				sys->sces[m].trigger = calloc(sys->sces[m].trigger_num, sizeof(scene_item));
 			if (sys->sces[m].item_num > 0)
@@ -716,8 +721,12 @@ int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]){
 	for (m = 0; m < MAX_SCENE_NUM; m ++){
 		if(!memcmp(id_major, sys->sces[m].host_id_major, 8) && !memcmp(id_minor, sys->sces[m].host_id_minor, 8) ){
 			retval = 0;
-			free(sys->sces[m].trigger);
-			free(sys->sces[m].item);
+
+			if (sys->sces[m].trigger_num > 0)
+				free(sys->sces[m].trigger);
+			if (sys->sces[m].item_num > 0)
+				free(sys->sces[m].item);
+
 			memset(&(sys->sces[m]), 0, sizeof(scene));
 
 			printf("found delete scene = %d\n", m);
@@ -847,6 +856,7 @@ scene* sys_find_scene(sys_t* sys, char id_major[8], char id_minor[8]){
 		if(!memcmp(id_major, sys->sces[m].host_id_major, 8) && !memcmp(id_minor, sys->sces[m].host_id_minor, 8) ){
 			//printf("found scene\n");
 			sce = &(sys->sces[m]);
+			break;
 		}
 	}
 
