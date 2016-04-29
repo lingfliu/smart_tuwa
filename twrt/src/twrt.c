@@ -230,8 +230,9 @@ void *run_serial_tx(void *arg){
 	if(len == 0)
 		pthread_exit(0);
 
+	usleep(100000);
 	while (pos < len && sys.serial_status == SERIAL_ON) {
-		printf("sending msg, type=%d\n",msg->data_type);
+		printf("sending msg to znet, type=%d\n",msg->data_type);
 	   ret = write(srl.fd, bytes+pos, len);
 	   if (ret == len-pos) {
 		   //printf("message is send to znet at once\n");
@@ -448,6 +449,7 @@ void *run_sys_msg_tx(){
 						break;
 					}
 				case MSG_TO_SERVER:
+					printf("sending to server, msg type = %d\n", msg->data_type);
 					if(sys.server_status == SERVER_CONNECT) {
 						if(sys.lic_status != LIC_VALID){//if not authed, send only auth msg
 							if(msg->data_type == DATA_REQ_AUTH_GW){
@@ -850,7 +852,12 @@ int handle_msg_rx(message *msg){
 						pthread_mutex_lock(&mut_msg_tx);
 						for (m = 0; m < sce->item_num; m ++){
 							//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
-							printf("sending scene ctrl %d\n, mac = %s", m, sce->item[m].id);
+
+							printf("sending scene ctrl %d, mac = ", m);
+							for (idx = 0; idx < 8; idx++)
+								printf("%d ", sce->item[m].id[idx] & 0x00FF);
+							printf(", state len = %d, dev type = %d\n", sce->item[m].state_len, sce->item[m].type);
+
 							msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
 							msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 							message_destroy(msg_tx);
@@ -1039,10 +1046,37 @@ int handle_msg_rx(message *msg){
 			message_destroy(msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
 
+
+			//send stat message to localuser if stat msg is valid
+			if(sys_get_localuser_num(&sys) > 0 && val >= 0) {
+				msg_tx = message_create_install_adv(sys.id, &(sys.znode_install_list[val]));
+
+				//send the status to local-users
+				for( m = 0; m < LOCALUSER_SIZE; m ++) {
+					usr = &(sys.localuser_list[m]);
+					if ( !localuser_isnull(usr) ) {
+						bundle.usr = usr;
+						bundle.msg = msg_tx;
+						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+						pthread_join(usr->thrd_tx, (void**) &local_tx_result);
+						//every tx thread should be checked for the connection
+						if (*local_tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+							localuser_delete(usr);
+						}
+						else {
+							//update the time_lastactive
+							gettimeofday( &(usr->time_lastactive), NULL );
+						}
+					}
+				}
+				message_destroy(msg_tx);
+			}
+
 			free(install);
 
 			result = 0;
 			break;
+
 		case DATA_GET_INSTALL:
 			//send install data to server
 			printf("received get install\n");
@@ -1082,6 +1116,31 @@ int handle_msg_rx(message *msg){
 			message_destroy(msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
 
+			//send del install message to localuser if stat msg is valid
+			if(sys_get_localuser_num(&sys) > 0 && idx >= 0) {
+				msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_DEL_INSTALL, idx);
+
+				//send the status to local-users
+				for( m = 0; m < LOCALUSER_SIZE; m ++) {
+					usr = &(sys.localuser_list[m]);
+					if ( !localuser_isnull(usr) ) {
+						bundle.usr = usr;
+						bundle.msg = msg_tx;
+						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+						pthread_join(usr->thrd_tx, (void**) &local_tx_result);
+						//every tx thread should be checked for the connection
+						if (*local_tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+							localuser_delete(usr);
+						}
+						else {
+							//update the time_lastactive
+							gettimeofday( &(usr->time_lastactive), NULL );
+						}
+					}
+				}
+				message_destroy(msg_tx);
+			}
+
 			result = 0;
 			break;
 
@@ -1105,14 +1164,12 @@ int handle_msg_rx(message *msg){
 		case DATA_SCENE_CTRL:
 			memcpy(id_major, msg->data, 8*sizeof(char));
 			memcpy(id_minor, msg->data+8, 8*sizeof(char));
-
-			printf("scene ctrl, id_major=%s, id_minor=%s\n", id_major, id_minor);
 			sce = sys_find_scene(&sys, id_major, id_minor);
+			printf("scene ctrl, id_major=%s, id_minor=%s\n", id_major, id_minor);
+
 			if (sce != NULL) {
 				pthread_mutex_lock(&mut_msg_tx);
 				for (m = 0; m < sce->item_num; m ++){
-					//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
-
 					msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
 					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 					message_destroy(msg_tx);
@@ -1156,6 +1213,31 @@ int handle_msg_rx(message *msg){
 			message_destroy(msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
 
+			//send del install message to localuser if stat msg is valid
+			if(sys_get_localuser_num(&sys) > 0 && val >= 0) {
+				msg_tx = message_create_scene(sys.id, &(sys.sces[val]));
+
+				//send the status to local-users
+				for( m = 0; m < LOCALUSER_SIZE; m ++) {
+					usr = &(sys.localuser_list[m]);
+					if ( !localuser_isnull(usr) ) {
+						bundle.usr = usr;
+						bundle.msg = msg_tx;
+						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+						pthread_join(usr->thrd_tx, (void**) &local_tx_result);
+						//every tx thread should be checked for the connection
+						if (*local_tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+							localuser_delete(usr);
+						}
+						else {
+							//update the time_lastactive
+							gettimeofday( &(usr->time_lastactive), NULL );
+						}
+					}
+				}
+				message_destroy(msg_tx);
+			}
+
 			free(sce->trigger);
 			free(sce->item);
 			free(sce);
@@ -1167,7 +1249,7 @@ int handle_msg_rx(message *msg){
 			memcpy(id_minor, msg->data+8, 8*sizeof(char));
 			sce = sys_find_scene(&sys, id_major, id_minor);
 
-			printf("get scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
+			printf("get scene, host_mac=%s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 
 			if (sce == NULL) {
 				//send all sces
@@ -1218,6 +1300,31 @@ int handle_msg_rx(message *msg){
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 			message_destroy(msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
+
+			//send del install message to localuser if stat msg is valid
+			if(sys_get_localuser_num(&sys) > 0 && val >= 0) {
+				msg_tx = message_create_ack_scene_op(sys.id, id_major, id_minor, DATA_DELETE_SCENE, val);
+
+				//send the status to local-users
+				for( m = 0; m < LOCALUSER_SIZE; m ++) {
+					usr = &(sys.localuser_list[m]);
+					if ( !localuser_isnull(usr) ) {
+						bundle.usr = usr;
+						bundle.msg = msg_tx;
+						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+						pthread_join(usr->thrd_tx, (void**) &local_tx_result);
+						//every tx thread should be checked for the connection
+						if (*local_tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+							localuser_delete(usr);
+						}
+						else {
+							//update the time_lastactive
+							gettimeofday( &(usr->time_lastactive), NULL );
+						}
+					}
+				}
+				message_destroy(msg_tx);
+			}
 
 			result = 0;
 			break;
@@ -1460,11 +1567,18 @@ int handle_local_message(message *msg, localuser *usr){
 
 				val = sys_edit_dev_install(&sys, install);
 
-				/*
-				 * sending back fan status
-				 */
-				msg_tx = message_create_ack_install_op(sys.id, install->id, DATA_SET_INSTALL, val);
 
+				/*new code: sending install back to server*/
+				if (val >= 0){
+					msg_tx = message_create_install_adv(sys.id, &(sys.znode_install_list[val]));
+					pthread_mutex_lock(&mut_msg_tx);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					message_destroy(msg_tx);
+					pthread_mutex_unlock(&mut_msg_tx);
+				}
+
+				/*sending install ack to local user*/
+				msg_tx = message_create_ack_install_op(sys.id, install->id, DATA_SET_INSTALL, val);
 				bundle.msg = msg_tx;
 				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 				//the thrd_tx should return a new 
@@ -1518,6 +1632,14 @@ int handle_local_message(message *msg, localuser *usr){
 				idx = sys_del_dev_install(&sys, msg->dev_id);
 
 				msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_DEL_INSTALL, idx);
+
+				/*new code: sending scene set info back to server*/
+				if (idx >= 0){
+					pthread_mutex_lock(&mut_msg_tx);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					pthread_mutex_unlock(&mut_msg_tx);
+				}
+
 				bundle.msg = msg_tx;
 				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 				//the thrd_tx should return a new 
@@ -1551,11 +1673,13 @@ int handle_local_message(message *msg, localuser *usr){
 				memcpy(id_major, msg->data, 8*sizeof(char));
 				memcpy(id_minor, msg->data+8, 8*sizeof(char));
 
+				printf("scene ctrl, id_major = %s, id_minor = %s\n", id_major, id_minor);
 				sce = sys_find_scene(&sys, id_major, id_minor);
 				if (sce != NULL) {
+					printf("found scene, send ctrl\n");
 					pthread_mutex_lock(&mut_msg_tx);
 					for (m = 0; m < sce->item_num; m ++){
-						//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
+						printf("send ctrl, id = %s\n", sce->item[m].id);
 						msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
 						msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 						message_destroy(msg_tx);
@@ -1592,6 +1716,15 @@ int handle_local_message(message *msg, localuser *usr){
 
 				val = sys_edit_scene(&sys, sce); //modify scene
 
+				/*new code: sending scene set info back to server*/
+				if (val >= 0){
+					msg_tx = message_create_scene(sys.id, &(sys.sces[val]));
+					pthread_mutex_lock(&mut_msg_tx);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					message_destroy(msg_tx);
+					pthread_mutex_unlock(&mut_msg_tx);
+				}
+
 				printf("set scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 				//send operation result back
 				msg_tx = message_create_ack_scene_op(sys.id, sce->host_id_major, sce->host_id_minor, DATA_SET_SCENE, val);
@@ -1612,8 +1745,7 @@ int handle_local_message(message *msg, localuser *usr){
 				memcpy(id_major, msg->data, 8*sizeof(char));
 				memcpy(id_minor, msg->data+8, 8*sizeof(char));
 				sce = sys_find_scene(&sys, id_major, id_minor);
-				printf("id major = %s\n", id_major);
-				printf("id minor = %s\n", id_minor);
+				printf("get scene, id major = %s, id_minor = %s\n", id_major, id_minor);
 
 				if (sce == NULL) {
 					//send all sces
@@ -1622,7 +1754,7 @@ int handle_local_message(message *msg, localuser *usr){
 						if (sys.sces[m].scene_type <=0)
 							break;
 						sce = &sys.sces[m];
-						printf("send scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
+						printf("found scene, send scene\n");
 						msg_tx = message_create_scene(sys.id, sce);
 						bundle.msg = msg_tx;
 						pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
@@ -1642,7 +1774,6 @@ int handle_local_message(message *msg, localuser *usr){
 					//don't forget to delete the message
 					message_destroy(msg_tx);
 				}
-
 				result = 0;
 				break;
 
@@ -1661,6 +1792,7 @@ int handle_local_message(message *msg, localuser *usr){
 	
 				result = 0;
 				break;
+
 			case DATA_DELETE_SCENE:
 				memcpy(id_major, msg->data, 8*sizeof(char));
 				memcpy(id_minor, msg->data+8, 8*sizeof(char));
@@ -1669,6 +1801,14 @@ int handle_local_message(message *msg, localuser *usr){
 
 				printf("delete scene, res = %d, scene remains = %d\n", val, sys_get_scene_num(&sys));
 				msg_tx = message_create_ack_scene_op(sys.id, id_major, id_minor, DATA_DELETE_SCENE, val);
+
+				/*new code: sending del scene back to server*/
+				if (val >= 0){
+					pthread_mutex_lock(&mut_msg_tx);
+					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+					pthread_mutex_unlock(&mut_msg_tx);
+				}
+
 				bundle.msg = msg_tx;
 				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 				//the thrd_tx should return a new 
