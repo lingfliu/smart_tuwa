@@ -173,6 +173,11 @@
 #define MSG_HEADER_GW "AADD" //for packets over gw server and znet, 4 bytes
 #define MSG_HEADER_FE "A" //for packets over znode and fe, 1 byte
 
+
+/*new code*/
+#define THEME_CTRL 64
+#define THEME_LEARN 32
+#define THEME_LEARN_ACK 16
 /*************************************************
   Message properties
   minimal message structure: 

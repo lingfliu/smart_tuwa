@@ -783,7 +783,7 @@ int handle_msg_rx(message *msg){
 	int result = 0;
 	int val;
 	long vall;
-	int m;
+	int m, n;
 	localbundle bundle;
 	localuser *usr;
 	char* local_tx_result;
@@ -846,23 +846,93 @@ int handle_msg_rx(message *msg){
 				//if is scene
 				if (sys.znode_list[idx].type == DEV_THEME_4 || sys.znode_list[idx].type == DEV_DOUBLE_CTRL) {
 					printf("received theme from device, mac = %s, id = %s\n", sys.znode_list[idx].id, sys.znode_list[idx].status);
-					sce = sys_find_scene_bymac(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
-					if (sce != NULL){
-						printf("found scene, start sending ctrl\n");
-						pthread_mutex_lock(&mut_msg_tx);
-						for (m = 0; m < sce->item_num; m ++){
-							//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
+					for (m = 0; m < 8; m ++){
+						if (sys.znode_list[idx].status[m] == THEME_CTRL){
+							//Setting
+							sce = sys_find_scene_bymac(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
+							if (sce != NULL){
+								printf("found scene, start sending ctrl\n");
+								pthread_mutex_lock(&mut_msg_tx);
+								for (n = 0; n < sce->item_num; m ++){
+									//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
 
-							printf("sending scene ctrl %d, mac = ", m);
-							for (idx = 0; idx < 8; idx++)
-								printf("%d ", sce->item[m].id[idx] & 0x00FF);
-							printf(", state len = %d, dev type = %d\n", sce->item[m].state_len, sce->item[m].type);
+									printf("sending scene ctrl %d, mac = ", m);
+									for (idx = 0; idx < 8; idx++)
+										printf("%d ", sce->item[m].id[idx] & 0x00FF);
+									printf(", state len = %d, dev type = %d\n", sce->item[n].state_len, sce->item[n].type);
 
-							msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
-							msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-							message_destroy(msg_tx);
+									msg_tx = message_create_ctrl(sce->item[n].state_len, sce->item[n].state, sys.id, sce->item[n].id, sce->item[n].type);
+									msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+									message_destroy(msg_tx);
+								}
+								pthread_mutex_unlock(&mut_msg_tx);
+							}
+							break;
 						}
-						pthread_mutex_unlock(&mut_msg_tx);
+						else if (sys.znode_list[idx].status[m] == THEME_LEARN){
+							//Learning
+							val = 0;
+							sys.znode_list[idx].status[m] = THEME_CTRL;
+
+							for (n = 0; n < ZNET_SIZE; n ++){
+								if (znode_isempty(&(sys.znode_list[n])) <= 0 && sys.znode_list[n].type != DEV_THEME_4 && sys.znode_list[n].type != DEV_DOUBLE_CTRL && !(sys.znode_list[n].type > 100 && sys.znode_list[n].type < 200)){ 
+									val ++;
+								}
+							}
+
+							sce = calloc(1, sizeof(scene));
+							sce->trigger_num = 0;
+							sce->item_num = val;
+							sce->item = calloc(val, sizeof(scene_item));
+							
+							val = 0;
+							for (n = 0; n < ZNET_SIZE; n ++){
+								if (znode_isempty(&(sys.znode_list[n])) <= 0 && sys.znode_list[n].type != DEV_THEME_4 && sys.znode_list[n].type != DEV_DOUBLE_CTRL && !(sys.znode_list[n].type > 100 && sys.znode_list[n].type < 200)){ 
+									memcpy(sce->item[val].id, sys.znode_list[n].id, 8*sizeof(char)); 
+									memcpy(sce->item[val].id, sys.znode_list[n].id, sys.znode_list[n].status_len*sizeof(char)); 
+									val ++;
+								}
+							}
+
+							val = sys_edit_scene(&sys, sce); //modify scene
+
+							/*new code: sending scene set info back to server*/
+							if (val >= 0){
+								msg_tx = message_create_scene(sys.id, &(sys.sces[val]));
+								pthread_mutex_lock(&mut_msg_tx);
+								msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+								message_destroy(msg_tx);
+								pthread_mutex_unlock(&mut_msg_tx);
+
+								/*new code*/
+								//send scene message to localusers
+								if(sys_get_localuser_num(&sys) > 0 && val >= 0) {
+									msg_tx = message_create_scene(sys.id, &(sys.sces[val]));
+
+									//send the status to local-users
+									for( n = 0; n < LOCALUSER_SIZE; n ++) {
+										usr = &(sys.localuser_list[n]);
+										if ( !localuser_isnull(usr) ) {
+											bundle.usr = usr;
+											bundle.msg = msg_tx;
+											pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+											pthread_join(usr->thrd_tx, (void**) &local_tx_result);
+											//every tx thread should be checked for the connection
+											if (*local_tx_result == LOCAL_STATUS_SKTDISCONNECT) {
+												localuser_delete(usr);
+											}
+											else {
+												//update the time_lastactive
+												gettimeofday( &(usr->time_lastactive), NULL );
+											}
+										}
+									}
+									message_destroy(msg_tx);
+								}
+							}
+
+							break;
+						}
 					}
 				}
 
@@ -1109,6 +1179,8 @@ int handle_msg_rx(message *msg){
 		case DATA_DEL_INSTALL:
 			idx = sys_del_dev_install(&sys, msg->dev_id);
 
+			if (idx >=0)
+				printf("delete suceeded\n");
 			//send back operation result
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_DEL_INSTALL, idx);
@@ -1630,6 +1702,9 @@ int handle_local_message(message *msg, localuser *usr){
 
 			case DATA_DEL_INSTALL:
 				idx = sys_del_dev_install(&sys, msg->dev_id);
+
+				if (idx >=0)
+					printf("delete suceeded\n");
 
 				msg_tx = message_create_ack_install_op(sys.id, msg->dev_id, DATA_DEL_INSTALL, idx);
 
