@@ -11,18 +11,18 @@
 #define FILE_CFG "/etc/twrt/config"//config file
 #define FILE_CFG_PARSER '='// config parser
 
-#define FILE_LIC "/root/lic" //GW license file
-#define FILE_ID_SYS "/root/id_sys" //ID (Wifi MAC) of GW 
-#define FILE_INSTALL "/root/install" //status file name 
-#define FILE_PASSWORD "/root/password" //place to store password
-#define FILE_SCENE "/root/scene" //scene file 
+//#define FILE_LIC "/root/lic" //GW license file
+//#define FILE_ID_SYS "/root/id_sys" //ID (Wifi MAC) of GW 
+//#define FILE_INSTALL "/root/install" //status file name 
+//#define FILE_PASSWORD "/root/password" //place to store password
+//#define FILE_SCENE "/root/scene" //scene file 
 
 
-//#define FILE_LIC "/home/liulingfeng/lic" //GW license file
-//#define FILE_ID_SYS "/home/liulingfeng/id_sys" //ID (Wifi MAC) of GW 
-//#define FILE_INSTALL "/home/liulingfeng/install" //status file name 
-//#define FILE_PASSWORD "/home/liulingfeng/password" //place to store password
-//#define FILE_SCENE "/home/liulingfeng/scene" //scene file 
+#define FILE_LIC "/home/liulingfeng/lic" //GW license file
+#define FILE_ID_SYS "/home/liulingfeng/id_sys" //ID (Wifi MAC) of GW 
+#define FILE_INSTALL "/home/liulingfeng/install" //status file name 
+#define FILE_PASSWORD "/home/liulingfeng/password" //place to store password
+#define FILE_SCENE "/home/liulingfeng/scene" //scene file 
 
 
 /*

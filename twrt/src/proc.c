@@ -130,6 +130,7 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 			return 0; 
 		buffer_ring_byte_read(bytes, pre_bytes, MSG_LEN_HEADER_GW);
 	}
+	printf("msg header matched\n");
 
 	if(buffer_ring_byte_getlen(bytes) < MSG_LEN_MIN) {
 		return 0;  //header found, but length too short for a message
@@ -143,6 +144,8 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 		//data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //(temporal issues) converted according to server request
 		data_len = ((*(pre_bytes+MSG_POS_DATA_LEN) & 0x00FF)<<8) + (*(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF);
 
+		printf("data_len 1st = %d\n", *(pre_bytes+MSG_POS_DATA_LEN) &0x00FF);
+		printf("data_len 2st = %d\n", *(pre_bytes+MSG_POS_DATA_LEN+1) &0x00FF);
 		printf("data_len in message=%d\n",data_len);
 		printf("buffer length=%d\n",buffer_ring_byte_getlen(bytes));
 

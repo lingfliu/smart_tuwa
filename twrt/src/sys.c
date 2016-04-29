@@ -485,12 +485,10 @@ void sys_update_dev_install(sys_t *sys, char* install_file) {
 int sys_edit_dev_install(sys_t *sys, znode_install* install){
 	int m;
 	int is_update = -1;
-	int retval = -1;
 	int idx = -1;
 	for (m = 0; m < ZNET_SIZE; m ++){
 		if (sys->znode_install_list[m].type <= 0) {
 			//found a position for the new znode_install
-			retval = 0;
 			idx = m;
 			break;
 		}
@@ -501,8 +499,8 @@ int sys_edit_dev_install(sys_t *sys, znode_install* install){
 			sys->znode_install_list[m].posType = install->posType;
 
 			is_update = 1;
-			retval = 0;
 			printf("edit old install, dev id = %s, idx = %d\n", sys->znode_install_list[m].id, m);
+			idx = m;
 			break;
 		}
 	}
@@ -515,10 +513,9 @@ int sys_edit_dev_install(sys_t *sys, znode_install* install){
 		memcpy(sys->znode_install_list[idx].pos, install->pos, 60*sizeof(char));
 		sys->znode_install_list[idx].posType = install->posType;
 		sys->znode_install_list[idx].type = install->type;
-		retval = 0;
 		printf("edit new install, dev id = %s, idx = %d\n", install->id, m);
 	}
-	return retval;
+	return idx;
 }
 
 int sys_del_dev_install(sys_t *sys, char id[8]){
@@ -906,7 +903,6 @@ message* message_create_install_adv(char id_gw[8], znode_install* install){
 
 	msg->data_len = msg_len;
 	msg->data = realloc(msg->data, msg_len*sizeof(char));
-
 
 	memcpy(msg->data, install->id, 8*sizeof(char));
 	memcpy(msg->data+8, &(install->type), sizeof(int));

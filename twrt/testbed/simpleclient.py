@@ -121,10 +121,10 @@ print 'finish scene result' + msg_bak
 
 
 
-#len = skt.send(msg_set_scene1)
-#print len
-#msg_bak = skt.recv(1024)
-#print msg_bak
+len = skt.send(msg_del_scene)
+print len
+msg_bak = skt.recv(1024)
+print msg_bak
 
 
 
