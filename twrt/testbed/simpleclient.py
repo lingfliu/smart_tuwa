@@ -24,6 +24,8 @@ msg_get_install = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x07\x0
 
 msg_finish_install = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0b\x00'+'\x00\x01' + '\x00'
 
+msg_del_install = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0a\x00'+'\x00\x08' + install_id
+
 scene_mac = '00000000'
 scene_id_major = '00000011'
 scene_id_minor = '00000001'
@@ -67,18 +69,26 @@ len = skt.send(msg_auth)
 msg_bak = skt.recv(1024)
 print msg_bak
 
-#len = skt.send(msg_set_install)
-#msg_bak = skt.recv(1024)
-#print msg_bak
+len = skt.send(msg_set_install)
+print len
+msg_bak = skt.recv(1024)
+print msg_bak
 
-#len = skt.send(msg_get_install)
-#msg_bak = skt.recv(1024)
-#print msg_bak
+len = skt.send(msg_get_install)
+print len
+msg_bak = skt.recv(1024)
+print msg_bak
 
 
-#len = skt.send(msg_finish_install)
-#msg_bak = skt.recv(1024)
-#print msg_bak
+len = skt.send(msg_finish_install)
+print len
+msg_bak = skt.recv(1024)
+print msg_bak
+
+len = skt.send(msg_del_install)
+print len
+msg_bak = skt.recv(1024)
+print msg_bak
 
 len = skt.send(msg_set_scene)
 print len

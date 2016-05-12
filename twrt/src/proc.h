@@ -175,9 +175,9 @@
 
 
 /*new code*/
-#define THEME_CTRL 64
-#define THEME_LEARN 32
-#define THEME_LEARN_ACK 16
+#define THEME_CTRL 100 
+#define THEME_LEARN 50 
+#define THEME_LEARN_ACK 22 
 /*************************************************
   Message properties
   minimal message structure: 

@@ -780,6 +780,8 @@ void* run_sys_ptask(){
 int handle_msg_rx(message *msg){
 	message *msg_tx;
 	int idx;
+	int isnew;
+	int idxx;
 	int result = 0;
 	int val;
 	long vall;
@@ -845,20 +847,24 @@ int handle_msg_rx(message *msg){
 
 				//if is scene
 				if (sys.znode_list[idx].type == DEV_THEME_4 || sys.znode_list[idx].type == DEV_DOUBLE_CTRL) {
-					printf("received theme from device, mac = %s, id = %s\n", sys.znode_list[idx].id, sys.znode_list[idx].status);
+					printf("received theme from device, mac = %s, id = %s, data = ", sys.znode_list[idx].id, sys.znode_list[idx].status);
+					for (idxx = 0; idxx < 8; idxx++)
+						printf("%d ", sys.znode_list[idx].status[idxx] & 0x00FF);
+					printf("\n");
+
 					for (m = 0; m < 8; m ++){
 						if (sys.znode_list[idx].status[m] == THEME_CTRL){
 							//Setting
 							sce = sys_find_scene_bymac(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
 							if (sce != NULL){
-								printf("found scene, start sending ctrl\n");
+								printf("found scene, start sending ctrl, total ctrl = %d\n", sce->item_num);
 								pthread_mutex_lock(&mut_msg_tx);
-								for (n = 0; n < sce->item_num; m ++){
+								for (n = 0; n < sce->item_num; n ++){
 									//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
 
-									printf("sending scene ctrl %d, mac = ", m);
-									for (idx = 0; idx < 8; idx++)
-										printf("%d ", sce->item[m].id[idx] & 0x00FF);
+									printf("sending scene ctrl %d, mac = ", n);
+									for (idxx = 0; idxx < 8; idxx++)
+										printf("%d ", sce->item[n].id[idxx] & 0x00FF);
 									printf(", state len = %d, dev type = %d\n", sce->item[n].state_len, sce->item[n].type);
 
 									msg_tx = message_create_ctrl(sce->item[n].state_len, sce->item[n].state, sys.id, sce->item[n].id, sce->item[n].type);
@@ -871,8 +877,9 @@ int handle_msg_rx(message *msg){
 						}
 						else if (sys.znode_list[idx].status[m] == THEME_LEARN){
 							//Learning
+
+
 							val = 0;
-							sys.znode_list[idx].status[m] = THEME_CTRL;
 
 							for (n = 0; n < ZNET_SIZE; n ++){
 								if (znode_isempty(&(sys.znode_list[n])) <= 0 && sys.znode_list[n].type != DEV_THEME_4 && sys.znode_list[n].type != DEV_DOUBLE_CTRL && !(sys.znode_list[n].type > 100 && sys.znode_list[n].type < 200)){ 
@@ -880,25 +887,100 @@ int handle_msg_rx(message *msg){
 								}
 							}
 
-							sce = calloc(1, sizeof(scene));
-							sce->trigger_num = 0;
-							sce->item_num = val;
-							sce->item = calloc(val, sizeof(scene_item));
+							printf("put %d znodes into scene ", val);
+
+							sys.znode_list[idx].status[m] = THEME_CTRL;
+							sce = sys_find_scene_bymac(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
+							if (sce == NULL){
+								isnew = 1;
+								sce = calloc(1, sizeof(scene));
+								memcpy(sce->host_mac, sys.znode_list[idx].id, 8*sizeof(char));
+								memcpy(sce->host_id_major, sys.znode_list[idx].id, 8*sizeof(char));
+								memcpy(sce->host_id_minor, sys.znode_list[idx].status, 8*sizeof(char));
+
+								sce->trigger_num = 0;
+								sce->item_num = val;
+								sce->item = calloc(val, sizeof(scene_item));
+							}
+							else{
+								isnew = -1;
+								if (sce->trigger_num >0){
+									free(sce->trigger);
+								}
+								if (sce->item_num > 0){
+									free(sce->item);
+								}
+								sce->trigger_num = 0;
+								sce->item_num = val;
+								sce->item = calloc(val,sizeof(scene_item));
+							}
 							
 							val = 0;
 							for (n = 0; n < ZNET_SIZE; n ++){
 								if (znode_isempty(&(sys.znode_list[n])) <= 0 && sys.znode_list[n].type != DEV_THEME_4 && sys.znode_list[n].type != DEV_DOUBLE_CTRL && !(sys.znode_list[n].type > 100 && sys.znode_list[n].type < 200)){ 
-									memcpy(sce->item[val].id, sys.znode_list[n].id, 8*sizeof(char)); 
-									memcpy(sce->item[val].id, sys.znode_list[n].id, sys.znode_list[n].status_len*sizeof(char)); 
+									
+									printf("put znode at %d into scene, type = %d, len = %d, mac = ", n, sys.znode_list[n].type, sys.znode_list[n].status_len);
+
+									for (idxx = 0; idxx < 8; idxx++)
+										printf("%d ", sys.znode_list[n].id[idxx] & 0x00FF);
+									printf("status = ");
+									for (idxx = 0; idxx < sys.znode_list[n].status_len; idxx++)
+										printf("%d ", sys.znode_list[n].status[idxx] & 0x00FF);
+									printf("\n");
+
+									memcpy(sce->item[val].id, sys.znode_list[n].id, 8); 
+									memcpy(sce->item[val].state, sys.znode_list[n].status, sys.znode_list[n].status_len); 
+									sce->item[val].state_len = sys.znode_list[n].status_len;
+									sce->item[val].type = sys.znode_list[n].type;
+
 									val ++;
+									printf("idx=%d\n",val);
 								}
 							}
 
-							val = sys_edit_scene(&sys, sce); //modify scene
+							if (isnew >=0){
+								val = sys_edit_scene(&sys, sce); //modify scene
+							}
+							else {
+								for (n = 0; n < MAX_SCENE_NUM; n ++){
+									if (!memcmp(sce->host_id_major, sys.sces[n].host_id_major, 8) && !memcmp(sce->host_id_minor, sys.sces[n].host_id_minor, 8)){
+										val = n;
+										break;
+									}
+								}
+								printf("old scene update, idx=%d\n",val);
+							}
 
-							/*new code: sending scene set info back to server*/
 							if (val >= 0){
-								msg_tx = message_create_scene(sys.id, &(sys.sces[val]));
+								/*new code, sys learning test*/
+								printf("updated scene, host mac=");
+								for (idxx = 0; idxx < 8; idxx++)
+									printf("%d ", sys.sces[val].host_mac[idxx] & 0x00FF);
+								printf("\n");
+
+								for (n = 0; n < sce->item_num; n ++){
+									printf("%d item mac=", n);
+									for (idxx = 0; idxx < 8; idxx++){
+										printf("%d ", sys.sces[val].item[n].id[idxx] & 0x00FF);
+									}
+									printf(" state=");
+									for (idxx = 0; idxx < 8; idxx++){
+										printf("%d ", sys.sces[val].item[n].state[idxx] & 0x00FF);
+									}
+									printf("\n");
+								}
+
+								/*new code*/
+								//send ctrl with THEME_LEARN_ACK back to the znet
+								sys.znode_list[idx].status[m] = THEME_LEARN_ACK;
+								msg_tx = message_create_ctrl(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
+								pthread_mutex_lock(&mut_msg_tx);
+								msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+								message_destroy(msg_tx);
+								pthread_mutex_unlock(&mut_msg_tx);
+
+								/*new code: sending scene set info back to server*/
+								msg_tx = message_create_scene(sys.id, &(sys.sces[n]));
 								pthread_mutex_lock(&mut_msg_tx);
 								msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 								message_destroy(msg_tx);
@@ -906,8 +988,8 @@ int handle_msg_rx(message *msg){
 
 								/*new code*/
 								//send scene message to localusers
-								if(sys_get_localuser_num(&sys) > 0 && val >= 0) {
-									msg_tx = message_create_scene(sys.id, &(sys.sces[val]));
+								if(sys_get_localuser_num(&sys) > 0 ) {
+									msg_tx = message_create_scene(sys.id, sce);
 
 									//send the status to local-users
 									for( n = 0; n < LOCALUSER_SIZE; n ++) {
@@ -928,8 +1010,21 @@ int handle_msg_rx(message *msg){
 										}
 									}
 									message_destroy(msg_tx);
+
+									//remove temp scene
+									if(isnew >= 0){
+										if (sce->trigger_num > 0){
+											free(sce->trigger);
+										}
+										if (sce->item_num > 0){
+											free(sce->item);
+										}
+										free(sce);
+									}
 								}
 							}
+							/*new code: restore the theme status*/
+							sys.znode_list[idx].status[m] = THEME_LEARN;
 
 							break;
 						}
@@ -1278,14 +1373,14 @@ int handle_msg_rx(message *msg){
 			
 			val = sys_edit_scene(&sys, sce); //modify scene
 
-			//send operation result back
+			//send result back to server
 			pthread_mutex_lock(&mut_msg_tx);
 			msg_tx = message_create_ack_scene_op(sys.id, sce->host_id_major, sce->host_id_minor, DATA_SET_SCENE, val);
 			msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 			message_destroy(msg_tx);
 			pthread_mutex_unlock(&mut_msg_tx);
 
-			//send del install message to localuser if stat msg is valid
+			//send scene to localuser
 			if(sys_get_localuser_num(&sys) > 0 && val >= 0) {
 				msg_tx = message_create_scene(sys.id, &(sys.sces[val]));
 
@@ -1310,8 +1405,12 @@ int handle_msg_rx(message *msg){
 				message_destroy(msg_tx);
 			}
 
-			free(sce->trigger);
-			free(sce->item);
+			if (sce->trigger_num > 0){
+				free(sce->trigger);
+			}
+			if (sce->item_num > 0){
+				free(sce->item);
+			}
 			free(sce);
 			result = 0;
 			break;
@@ -1464,10 +1563,11 @@ int handle_local_message(message *msg, localuser *usr){
 	localbundle bundle;
 	bundle.usr = usr;
 	int retval = -1;
-	int m;
+	int m,n;
 	char* tx_result;
-	int idx;
+	int idx, idxx;
 	int res;
+	int isnew;
 	char passwd[8];
 
 	int len_descrip;
@@ -1490,6 +1590,201 @@ int handle_local_message(message *msg, localuser *usr){
 	else {
 		printf("received msg from localuser, type = %d\n", msg->data_type);
 		switch (msg->data_type){
+			/*new test code*/
+			case DATA_STAT: 
+				//update stat
+				idx = sys_znode_update(&sys, msg);
+
+
+				//if update valid, send synchronization to server
+				if(idx >= 0) {
+
+					printf("received data stat from znet, dev index = %d, device type = %d", idx, sys.znode_list[idx].type);
+					msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
+
+					bundle.msg = msg_tx;
+					pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+					//the thrd_tx should return a new 
+					pthread_join(usr->thrd_tx, NULL);
+					//don't forget to delete the message
+					message_destroy(msg_tx);
+
+					result = 0;
+
+					//if is scene
+					if (sys.znode_list[idx].type == DEV_THEME_4 || sys.znode_list[idx].type == DEV_DOUBLE_CTRL) {
+						printf("received theme from device, mac = %s, id = %s, data = ", sys.znode_list[idx].id, sys.znode_list[idx].status);
+						for (idxx = 0; idxx < 8; idxx++)
+							printf("%d ", sys.znode_list[idx].status[idxx] & 0x00FF);
+						printf("\n");
+
+						for (m = 0; m < 8; m ++){
+							if (sys.znode_list[idx].status[m] == THEME_CTRL){
+								//Setting
+								sce = sys_find_scene_bymac(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
+								if (sce != NULL){
+									printf("found scene, start sending ctrl, total ctrl = %d\n", sce->item_num);
+									pthread_mutex_lock(&mut_msg_tx);
+									for (n = 0; n < sce->item_num; n ++){
+										//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
+
+										printf("sending scene ctrl %d, mac = ", n);
+										for (idxx = 0; idxx < 8; idxx++)
+											printf("%d ", sce->item[n].id[idxx] & 0x00FF);
+										printf(", state len = %d, dev type = %d\n", sce->item[n].state_len, sce->item[n].type);
+
+										msg_tx = message_create_ctrl(sce->item[n].state_len, sce->item[n].state, sys.id, sce->item[n].id, sce->item[n].type);
+										msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+										message_destroy(msg_tx);
+									}
+									pthread_mutex_unlock(&mut_msg_tx);
+								}
+								break;
+							}
+							else if (sys.znode_list[idx].status[m] == THEME_LEARN){
+								//Learning
+
+								val = 0;
+
+								for (n = 0; n < ZNET_SIZE; n ++){
+									if (znode_isempty(&(sys.znode_list[n])) <= 0 && sys.znode_list[n].type != DEV_THEME_4 && sys.znode_list[n].type != DEV_DOUBLE_CTRL && !(sys.znode_list[n].type > 100 && sys.znode_list[n].type < 200)){ 
+										val ++;
+									}
+								}
+
+								printf("put %d znodes into scene ", val);
+
+								sys.znode_list[idx].status[m] = THEME_CTRL;
+								sce = sys_find_scene_bymac(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
+								if (sce == NULL){
+									isnew = 1;
+									sce = calloc(1, sizeof(scene));
+									memcpy(sce->host_mac, sys.znode_list[idx].id, 8*sizeof(char));
+									memcpy(sce->host_id_major, sys.znode_list[idx].id, 8*sizeof(char));
+									memcpy(sce->host_id_minor, sys.znode_list[idx].status, 8*sizeof(char));
+
+									sce->trigger_num = 0;
+									sce->item_num = val;
+									sce->item = calloc(val, sizeof(scene_item));
+									sce->scene_type = 1;
+								}
+								else{
+									isnew = -1;
+									if (sce->trigger_num >0 && sce->trigger != NULL){
+										free(sce->trigger);
+									}
+									if (sce->item_num > 0 && sce->item != NULL){
+										free(sce->item);
+									}
+									sce->trigger_num = 0;
+									sce->item_num = val;
+									sce->item = calloc(val,sizeof(scene_item));
+									sce->scene_type = 1;
+								}
+
+								val = 0;
+								for (n = 0; n < ZNET_SIZE; n ++){
+									if (znode_isempty(&(sys.znode_list[n])) <= 0 && sys.znode_list[n].type != DEV_THEME_4 && sys.znode_list[n].type != DEV_DOUBLE_CTRL && !(sys.znode_list[n].type > 100 && sys.znode_list[n].type < 200)){ 
+
+										printf("put znode at %d into scene, type = %d, len = %d, mac = ", n, sys.znode_list[n].type, sys.znode_list[n].status_len);
+
+										for (idxx = 0; idxx < 8; idxx++)
+											printf("%d ", sys.znode_list[n].id[idxx] & 0x00FF);
+										printf("status = ");
+										for (idxx = 0; idxx < sys.znode_list[n].status_len; idxx++)
+											printf("%d ", sys.znode_list[n].status[idxx] & 0x00FF);
+										printf("\n");
+
+										memcpy(sce->item[val].id, sys.znode_list[n].id, 8); 
+										memcpy(sce->item[val].state, sys.znode_list[n].status, sys.znode_list[n].status_len); 
+										sce->item[val].state_len = sys.znode_list[n].status_len;
+										sce->item[val].type = sys.znode_list[n].type;
+
+										val ++;
+									}
+								}
+								printf("num item = %d\n",val);
+							
+								if (isnew >=0){
+									val = sys_edit_scene(&sys, sce); //modify scene
+								}
+								else {
+									for (n = 0; n < MAX_SCENE_NUM; n ++){
+										if (!memcmp(sce->host_id_major, sys.sces[n].host_id_major, 8) && !memcmp(sce->host_id_minor, sys.sces[n].host_id_minor, 8)){
+											val = n;
+											break;
+										}
+									}
+									printf("old scene update, idx=%d\n",val);
+								}
+
+								if (val >= 0){
+									/*new code, sys learning test*/
+									printf("updated scene, host mac=");
+									for (idxx = 0; idxx < 8; idxx++)
+										printf("%d ", sys.sces[val].host_mac[idxx] & 0x00FF);
+									printf("\n");
+
+									for (n = 0; n < sce->item_num; n ++){
+										printf("%d item mac=", n);
+										for (idxx = 0; idxx < 8; idxx++){
+											printf("%d ", sys.sces[val].item[n].id[idxx] & 0x00FF);
+										}
+										printf(" state=");
+										for (idxx = 0; idxx < 8; idxx++){
+											printf("%d ", sys.sces[val].item[n].state[idxx] & 0x00FF);
+										}
+										printf("\n");
+									}
+
+									/*new code: sending scene set info back to server*/
+									msg_tx = message_create_scene(sys.id, &(sys.sces[val]));
+									
+									bundle.msg = msg_tx;
+									pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+									//the thrd_tx should return a new 
+									pthread_join(usr->thrd_tx, NULL);
+									//don't forget to delete the message
+									message_destroy(msg_tx);
+
+
+								}
+							}
+
+							//remove temp scene
+							if (isnew >= 0){
+								if (sce->trigger_num > 0){
+									free(sce->trigger);
+								}
+								if (sce->item_num > 0){
+									free(sce->item);
+								}
+								free(sce);
+							}
+							/*new code: restore the theme status*/
+							sys.znode_list[idx].status[m] = THEME_LEARN;
+							break;
+						}
+					}
+
+				//if trigger status, send ctrl to the znet
+				if (sys.znode_list[idx].type > 100 && sys.znode_list[idx].type < 200){ //sensor as trigger
+					sce = sys_find_scene_bytrigger(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
+					if (sce != NULL) {
+						pthread_mutex_lock(&mut_msg_tx);
+						for (m = 0; m < sce->item_num; m ++){
+							//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
+
+							msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
+							msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+							message_destroy(msg_tx);
+						}
+						pthread_mutex_unlock(&mut_msg_tx);
+					}
+				}
+			}
+			break;
+
 			case DATA_REQ_AUTH_LOCAL:
 				/*
 				 * newly added auth_local handling after user is logged in
@@ -1612,6 +1907,7 @@ int handle_local_message(message *msg, localuser *usr){
 				else {
 					idx = sys_get_znode_idx(&sys, msg->dev_id); 
 					if (idx >= 0){
+						printf("sending znodes at %d\n", idx);
 						msg_tx = message_create_stat(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
 						printf("sending znode status to localuser: id = %s, type = %d, status = %s\n", sys.znode_list[idx].id, sys.znode_list[idx].type, sys.znode_list[idx].status);
 						bundle.msg = msg_tx;
@@ -1622,6 +1918,7 @@ int handle_local_message(message *msg, localuser *usr){
 						message_destroy(msg_tx);
 					}
 					else {
+						printf("znode not found\n");
 						//if device not found
 					}
 				}
@@ -1774,8 +2071,12 @@ int handle_local_message(message *msg, localuser *usr){
 				memcpy(sce->scene_name, msg->data+28, 60*sizeof(char));
 				memcpy(&(sce->trigger_num), msg->data+88, sizeof(int));
 				memcpy(&(sce->item_num), msg->data+92, sizeof(int));
-				sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
-				sce->item = calloc(sce->item_num, sizeof(scene_item));
+				if (sce->trigger_num > 0){
+					sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
+				}
+				if (sce->item_num > 0){
+					sce->item = calloc(sce->item_num, sizeof(scene_item));
+				}
 				for (m = 0; m < sce->trigger_num; m ++){
 					memcpy(sce->trigger[m].id, msg->data+96+m*24, 8*sizeof(char));
 					memcpy(sce->trigger[m].state, msg->data+96+m*24+8, 8*sizeof(char));
@@ -1810,8 +2111,12 @@ int handle_local_message(message *msg, localuser *usr){
 				//don't forget to delete the message
 				message_destroy(msg_tx);
 
-				free(sce->trigger);
-				free(sce->item);
+				if (sce->trigger_num > 0){
+					free(sce->trigger);
+				}
+				if (sce->item_num > 0){
+					free(sce->item);
+				}
 				free(sce);
 				result = 0;
 				break;

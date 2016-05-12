@@ -640,15 +640,13 @@ void sys_update_scene(sys_t *sys, char* scene_file){
 
 int sys_edit_scene(sys_t* sys, scene* sce){
 	int m,n;
+	int idxx;
 	int idx = -1;
 	int is_update = -1;
-	int retval = -1;
 	for (m = 0; m < MAX_SCENE_NUM; m ++){
 		if (sys->sces[m].scene_type <= 0) {
 			//found a position for the new scene
-			retval = 0;
 			idx = m;
-			//printf("found new position for scene=%d\n",idx);
 			break;
 		}
 		else if(!memcmp(sce->host_id_major, sys->sces[m].host_id_major, 8) && !memcmp(sce->host_id_minor, sys->sces[m].host_id_minor, 8) ){
@@ -659,14 +657,20 @@ int sys_edit_scene(sys_t* sys, scene* sce){
 			if (sys->sces[m].item_num > 0)
 				free(sys->sces[m].item);
 
+			
 			sys->sces[m].trigger_num = sce->trigger_num;
 			sys->sces[m].item_num= sce->item_num;
+
+	
 
 			printf("update old scene at %d\n, trigger num = %d, item num = %d",m, sys->sces[m].trigger_num, sys->sces[m].item_num);
 			if (sys->sces[m].trigger_num > 0)
 				sys->sces[m].trigger = calloc(sys->sces[m].trigger_num, sizeof(scene_item));
 			if (sys->sces[m].item_num > 0)
 				sys->sces[m].item = calloc(sys->sces[m].item_num, sizeof(scene_item));
+
+
+		
 
 			for (n = 0; n < sys->sces[m].trigger_num; n ++) 
 				memcpy(&(sys->sces[m].trigger[n]), &(sce->trigger[n]), sizeof(scene_item));
@@ -675,7 +679,8 @@ int sys_edit_scene(sys_t* sys, scene* sce){
 				memcpy(&(sys->sces[m].item[n]), &(sce->item[n]), sizeof(scene_item));
 
 			is_update = 1;
-			retval = 0;
+			idx = m;
+
 			break;
 		}
 	}
@@ -693,22 +698,41 @@ int sys_edit_scene(sys_t* sys, scene* sce){
 		sys->sces[idx].trigger_num = sce->trigger_num;
 		sys->sces[idx].item_num = sce->item_num;
 
-
-		if (sys->sces[idx].trigger_num > 0)
+		if (sys->sces[idx].trigger_num > 0){
 			sys->sces[idx].trigger = calloc(sys->sces[idx].trigger_num, sizeof(scene_item));
-		if (sys->sces[idx].item_num > 0)
+		}
+		if (sys->sces[idx].item_num > 0){
 			sys->sces[idx].item = calloc(sys->sces[idx].item_num, sizeof(scene_item));
+		}
 
-		//printf("runs here, trigger %d, item %d\n", sce->trigger_num, sce->item_num);
+		printf("runs here, trigger %d, item %d\n", sce->trigger_num, sce->item_num);
 
 		for (n = 0; n < sys->sces[idx].trigger_num; n ++) 
 			memcpy(&(sys->sces[idx].trigger[n]), &(sce->trigger[n]), sizeof(scene_item));
 
 		for (n = 0; n < sys->sces[idx].item_num; n ++) 
 			memcpy(&(sys->sces[idx].item[n]), &(sce->item[n]), sizeof(scene_item));
-
 	}
-	return retval;
+
+	
+	/*new code, sys learning test*/
+	printf("scene, host mac=");
+	for (idxx = 0; idxx < 8; idxx++)
+		printf("%d ", sce->host_mac[idxx] & 0x00FF);
+	printf("\n");
+
+	for (n = 0; n < sce->item_num; n ++){
+		printf("%d item mac=", n);
+		for (idxx = 0; idxx < 8; idxx++){
+			printf("%d ", sce->item[n].id[idxx] & 0x00FF);
+		}
+		printf(" state=");
+		for (idxx = 0; idxx < 8; idxx++){
+			printf("%d ", sce->item[n].state[idxx] & 0x00FF);
+		}
+		printf("\n");
+	}
+	return idx;
 }
 
 int sys_del_scene(sys_t* sys, char id_major[8], char id_minor[8]){
@@ -859,6 +883,7 @@ scene* sys_find_scene(sys_t* sys, char id_major[8], char id_minor[8]){
 
 	return sce;
 }
+
 scene* sys_find_scene_bymac(sys_t* sys, char dev_mac[8], char id_minor[8]){
 	int m;
 	scene* sce = NULL;
