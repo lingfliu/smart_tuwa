@@ -835,7 +835,7 @@ int get_znode_status_len(int type){
 
 message* message_create_scene(char id_gw[8], scene* sce){
 	int m;
-	int msg_len  = 96+sce->trigger_num*24+sce->item_num*24;
+	int msg_len  = 96+sce->trigger_num*48+sce->item_num*48;
 	message *msg = message_create();
 	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
 	memcpy(msg->dev_id, NULL_DEV, MSG_LEN_ID_DEV);
@@ -854,16 +854,16 @@ message* message_create_scene(char id_gw[8], scene* sce){
 	memcpy(msg->data+88, &(sce->trigger_num), sizeof(int));
 	memcpy(msg->data+92, &(sce->item_num), sizeof(int));
 	for (m = 0; m < sce->trigger_num; m ++){
-		memcpy(msg->data+96+24*m, sce->trigger[m].id, 8*sizeof(char));
-		memcpy(msg->data+96+24*m+8, sce->trigger[m].state, 8*sizeof(char));
-		memcpy(msg->data+96+24*m+16, &(sce->trigger[m].state_len), sizeof(int));
-		memcpy(msg->data+96+24*m+20, &(sce->trigger[m].type), sizeof(int));
+		memcpy(msg->data+96+48*m, sce->trigger[m].id, 8*sizeof(char));
+		memcpy(msg->data+96+48*m+8, sce->trigger[m].state, 8*sizeof(char));
+		memcpy(msg->data+96+48*m+40, &(sce->trigger[m].state_len), sizeof(int));
+		memcpy(msg->data+96+48*m+44, &(sce->trigger[m].type), sizeof(int));
 	}
 	for (m = 0; m < sce->item_num; m ++) {
-		memcpy(msg->data+96+sce->trigger_num*24+24*m, sce->item[m].id, 8*sizeof(char));
-		memcpy(msg->data+96+sce->trigger_num*24+24*m+8, sce->item[m].state, 8*sizeof(char));
-		memcpy(msg->data+96+sce->trigger_num*24+24*m+16, &(sce->item[m].state_len), sizeof(int));
-		memcpy(msg->data+96+sce->trigger_num*24+24*m+20, &(sce->item[m].type), sizeof(int));
+		memcpy(msg->data+96+sce->trigger_num*48+48*m, sce->item[m].id, 8*sizeof(char));
+		memcpy(msg->data+96+sce->trigger_num*48+48*m+8, sce->item[m].state, 8*sizeof(char));
+		memcpy(msg->data+96+sce->trigger_num*48+48*m+40, &(sce->item[m].state_len), sizeof(int));
+		memcpy(msg->data+96+sce->trigger_num*48+48*m+44, &(sce->item[m].type), sizeof(int));
 	}
 		
 	return msg;

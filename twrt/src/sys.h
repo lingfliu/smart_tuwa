@@ -125,7 +125,7 @@ typedef struct{
 
 typedef struct{
 	char id[8];
-	char state[8];
+	char state[32];
 	int state_len;
 	int type;
 }scene_item;

@@ -714,6 +714,11 @@ void* run_sys_ptask(){
     message* msg;
     int m;
 
+	//variables for buff_serial check
+	int lenOld = 0;
+	int len = 0;
+	int cnt = 0;
+
 	while(1){	
 		//periodic tasks
 		sleep(1);
@@ -729,6 +734,20 @@ void* run_sys_ptask(){
 			message_flush(msg);
 		}
 		pthread_mutex_unlock(&mut_msg_tx);
+
+		//buff_serial clearance
+		len = buffer_ring_byte_getlen(&buff_serial);//get the actual data length in the buffer
+		if(len == lenOld && len > 0){
+			cnt ++;
+			if (cnt > 2){
+				buffer_ring_byte_flush(&buff_serial); //flush the buffer: something's wrong
+				cnt = 0;
+			}
+		}
+		else {
+			printf("buffer serial len = %d\n", len);
+			lenOld = len; //always keep the last buffer
+		}
 
 		//sync the gw and znet
 		if(timediff_s(sys.timer_sync, timer)>TIMER_SYNC){
@@ -878,9 +897,7 @@ int handle_msg_rx(message *msg){
 						else if (sys.znode_list[idx].status[m] == THEME_LEARN){
 							//Learning
 
-
 							val = 0;
-
 							for (n = 0; n < ZNET_SIZE; n ++){
 								if (znode_isempty(&(sys.znode_list[n])) <= 0 && sys.znode_list[n].type != DEV_THEME_4 && sys.znode_list[n].type != DEV_DOUBLE_CTRL && !(sys.znode_list[n].type > 100 && sys.znode_list[n].type < 200)){ 
 									val ++;
@@ -980,16 +997,14 @@ int handle_msg_rx(message *msg){
 								pthread_mutex_unlock(&mut_msg_tx);
 
 								/*new code: sending scene set info back to server*/
-								msg_tx = message_create_scene(sys.id, &(sys.sces[n]));
+								msg_tx = message_create_scene(sys.id, &(sys.sces[val]));
 								pthread_mutex_lock(&mut_msg_tx);
 								msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-								message_destroy(msg_tx);
 								pthread_mutex_unlock(&mut_msg_tx);
 
 								/*new code*/
 								//send scene message to localusers
 								if(sys_get_localuser_num(&sys) > 0 ) {
-									msg_tx = message_create_scene(sys.id, sce);
 
 									//send the status to local-users
 									for( n = 0; n < LOCALUSER_SIZE; n ++) {
@@ -1009,20 +1024,22 @@ int handle_msg_rx(message *msg){
 											}
 										}
 									}
-									message_destroy(msg_tx);
-
-									//remove temp scene
-									if(isnew >= 0){
-										if (sce->trigger_num > 0){
-											free(sce->trigger);
-										}
-										if (sce->item_num > 0){
-											free(sce->item);
-										}
-										free(sce);
-									}
 								}
+
+								message_destroy(msg_tx);
 							}
+
+							//remove temp scene
+							if(isnew >= 0){
+								if (sce->trigger_num > 0){
+									free(sce->trigger);
+								}
+								if (sce->item_num > 0){
+									free(sce->item);
+								}
+								free(sce);
+							}
+
 							/*new code: restore the theme status*/
 							sys.znode_list[idx].status[m] = THEME_LEARN;
 
@@ -1358,16 +1375,16 @@ int handle_msg_rx(message *msg){
 			sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
 			sce->item = calloc(sce->item_num, sizeof(scene_item));
 			for (m = 0; m < sce->trigger_num; m ++){
-				memcpy(sce->trigger[m].id, msg->data+96+m*24, 8*sizeof(char));
-				memcpy(sce->trigger[m].state, msg->data+96+m*24+8, 8*sizeof(char));
-				memcpy(&(sce->trigger[m].state_len), msg->data+96+m*24+16, sizeof(int));
-				memcpy(&(sce->trigger[m].type), msg->data+96+m*24+20, sizeof(int));
+				memcpy(sce->trigger[m].id, msg->data+96+m*48, 8*sizeof(char));
+				memcpy(sce->trigger[m].state, msg->data+96+m*48+8, 8*sizeof(char));
+				memcpy(&(sce->trigger[m].state_len), msg->data+96+m*48+40, sizeof(int));
+				memcpy(&(sce->trigger[m].type), msg->data+96+m*48+44, sizeof(int));
 			}
 			for (m = 0; m < sce->item_num; m ++){
-				memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*24+m*24, 8*sizeof(char));
-				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*24+m*24+8, 8*sizeof(char));
-				memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*24+m*24+16, sizeof(int));
-				memcpy(&(sce->item[m].type), msg->data+96+sce->trigger_num*24+m*24+20, sizeof(int));
+				memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*48+m*48, 8*sizeof(char));
+				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*48+m*48+8, 8*sizeof(char));
+				memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*48+m*48+40, sizeof(int));
+				memcpy(&(sce->item[m].type), msg->data+96+sce->trigger_num*48+m*48+44, sizeof(int));
 			}
 			printf("set scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 			
@@ -1746,8 +1763,6 @@ int handle_local_message(message *msg, localuser *usr){
 									pthread_join(usr->thrd_tx, NULL);
 									//don't forget to delete the message
 									message_destroy(msg_tx);
-
-
 								}
 							}
 
@@ -2078,16 +2093,16 @@ int handle_local_message(message *msg, localuser *usr){
 					sce->item = calloc(sce->item_num, sizeof(scene_item));
 				}
 				for (m = 0; m < sce->trigger_num; m ++){
-					memcpy(sce->trigger[m].id, msg->data+96+m*24, 8*sizeof(char));
-					memcpy(sce->trigger[m].state, msg->data+96+m*24+8, 8*sizeof(char));
-					memcpy(&(sce->trigger[m].state_len), msg->data+96+m*24+16, sizeof(int));
-					memcpy(&(sce->trigger[m].type), msg->data+96+m*24+20, sizeof(int));
+					memcpy(sce->trigger[m].id, msg->data+96+m*48, 8*sizeof(char));
+					memcpy(sce->trigger[m].state, msg->data+96+m*48+8, 8*sizeof(char));
+					memcpy(&(sce->trigger[m].state_len), msg->data+96+m*48+40, sizeof(int));
+					memcpy(&(sce->trigger[m].type), msg->data+96+m*48+44, sizeof(int));
 				}
 				for (m = 0; m < sce->item_num; m ++){
-					memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*24+m*24, 8*sizeof(char));
-					memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*24+m*24+8, 8*sizeof(char));
-					memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*24+m*24+16, sizeof(int));
-					memcpy(&(sce->item[m].type), msg->data+96+sce->trigger_num*24+m*24+20, sizeof(int));
+					memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*48+m*48, 8*sizeof(char));
+					memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*48+m*48+8, 8*sizeof(char));
+					memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*48+m*48+40, sizeof(int));
+					memcpy(&(sce->item[m].type), msg->data+96+sce->trigger_num*48+m*48+44, sizeof(int));
 				}
 
 				val = sys_edit_scene(&sys, sce); //modify scene
