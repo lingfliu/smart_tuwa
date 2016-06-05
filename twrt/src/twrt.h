@@ -46,6 +46,10 @@ void *run_localuser_tx();
    result for multiple uses
    *********************************************/
 static int retval;
+/***********************************************
+   counter for bakup 
+   *********************************************/
+static int update_num;
 
 //threads, runnables, muts and conds
 static pthread_t thrd_serial_rx;

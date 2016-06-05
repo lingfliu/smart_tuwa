@@ -92,10 +92,17 @@ int main(int argn, char* argv[]){
 	gettimeofday(&(sys.timer_pulse), NULL);
 	gettimeofday(&(sys.timer_reset), NULL);
 	gettimeofday(&(sys.timer_sync), NULL);
+	gettimeofday(&(sys.timer_bakup), NULL);
 
 	if(pthread_create(&thrd_sys_ptask, NULL, run_sys_ptask, NULL) < 0){
 		return -1;
 	}
+
+	/*
+	 * new code: initialize bakup counter 
+	 */
+	update_num = 0;
+
 
 	//create fixed messages
 	msg_auth = message_create_req_auth_gw(SYS_LEN_LIC, sys.lic, sys.id, sys.tx_msg_stamp++); //create auth gw message
@@ -745,7 +752,7 @@ void* run_sys_ptask(){
 			}
 		}
 		else {
-			printf("buffer serial len = %d\n", len);
+			//printf("buffer serial len = %d\n", len);
 			lenOld = len; //always keep the last buffer
 		}
 
@@ -791,6 +798,24 @@ void* run_sys_ptask(){
 
 		if(msg != NULL){
 			message_destroy(msg); //memory cleanup
+		}
+
+		/*
+		 * new code: cyclic bakup ( based on timer or update counter)
+		 */
+		if (timediff_s(sys.timer_bakup, timer) > TIMER_BAKUP || update_num >= 20){
+			if (sys_get_znode_num(&sys) > 0){
+				printf("bakup znet\n");
+				sys_znet_bakup(&sys, FILE_ZNET_BAKUP);
+			}
+			else {
+				printf("no znode\n");
+			}
+			//reset the timer
+			gettimeofday(&(sys.timer_bakup), NULL);
+
+			//reset the counter
+			update_num = 0;
 		}
 	}
 }
@@ -1064,6 +1089,12 @@ int handle_msg_rx(message *msg){
 					}
 				}
 			}
+
+			/*
+			 * new code: increment counter
+			 */
+			update_num ++;
+
 			break;
 
 		case DATA_CTRL:
@@ -1376,13 +1407,13 @@ int handle_msg_rx(message *msg){
 			sce->item = calloc(sce->item_num, sizeof(scene_item));
 			for (m = 0; m < sce->trigger_num; m ++){
 				memcpy(sce->trigger[m].id, msg->data+96+m*48, 8*sizeof(char));
-				memcpy(sce->trigger[m].state, msg->data+96+m*48+8, 8*sizeof(char));
+				memcpy(sce->trigger[m].state, msg->data+96+m*48+8, 32*sizeof(char));
 				memcpy(&(sce->trigger[m].state_len), msg->data+96+m*48+40, sizeof(int));
 				memcpy(&(sce->trigger[m].type), msg->data+96+m*48+44, sizeof(int));
 			}
 			for (m = 0; m < sce->item_num; m ++){
 				memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*48+m*48, 8*sizeof(char));
-				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*48+m*48+8, 8*sizeof(char));
+				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*48+m*48+8, 32*sizeof(char));
 				memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*48+m*48+40, sizeof(int));
 				memcpy(&(sce->item[m].type), msg->data+96+sce->trigger_num*48+m*48+44, sizeof(int));
 			}
@@ -2094,13 +2125,13 @@ int handle_local_message(message *msg, localuser *usr){
 				}
 				for (m = 0; m < sce->trigger_num; m ++){
 					memcpy(sce->trigger[m].id, msg->data+96+m*48, 8*sizeof(char));
-					memcpy(sce->trigger[m].state, msg->data+96+m*48+8, 8*sizeof(char));
+					memcpy(sce->trigger[m].state, msg->data+96+m*48+8, 32*sizeof(char));
 					memcpy(&(sce->trigger[m].state_len), msg->data+96+m*48+40, sizeof(int));
 					memcpy(&(sce->trigger[m].type), msg->data+96+m*48+44, sizeof(int));
 				}
 				for (m = 0; m < sce->item_num; m ++){
 					memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*48+m*48, 8*sizeof(char));
-					memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*48+m*48+8, 8*sizeof(char));
+					memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*48+m*48+8, 32*sizeof(char));
 					memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*48+m*48+40, sizeof(int));
 					memcpy(&(sce->item[m].type), msg->data+96+sce->trigger_num*48+m*48+44, sizeof(int));
 				}

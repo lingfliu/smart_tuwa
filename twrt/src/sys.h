@@ -54,6 +54,7 @@
 //timer settings
 #define TIMER_PULSE 1000 //pulse ack waiting time in milli-second
 #define TIMER_RESET 72 //pulse ack waiting time in hour 
+#define TIMER_BAKUP 1800 //bakup time in seconds ( 30 minutes by default)
 #define TIMER_REQ 2000 //request waiting time in milli-second
 #define TIMER_SYNC 30 //synchronization time in seconds 
 
@@ -183,6 +184,7 @@ typedef struct{
     struct timeval timer_pulse; //timer to send tcp pulse to the server
     struct timeval  timer_reset; //timer to reset the sys_t (not used)
     struct timeval  timer_sync; //timer to synchronization 
+	struct timeval timer_bakup;
 
 	//connection status
     int server_status;//server status
@@ -250,4 +252,9 @@ message* message_create_scene(char id_gw[8], scene* sce);
 message* message_create_install_adv(char id_gw[8], znode_install* install);
 znode_install* sys_find_install(sys_t* sys, char id[8]);
 
+/*
+ * new funcs for sys synchronization
+ */
+void sys_znet_bakup(sys_t* sys, char* bakup_file);
+void sys_znet_restore(sys_t* sys, char* bakup_file);
 #endif

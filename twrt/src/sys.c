@@ -4,9 +4,11 @@
 ******************************************************/
 int znode_isempty(znode *znd){
     if(znd->status_len == 0 || znd->type == 0){
+		//printf("znode is empty, %d, %d\n", znd->status_len, znd->type);
 		return 1;
 	}
     else {
+		//printf("znode is not empty, %d, %d\n", znd->status_len, znd->type);
 		return 0;
 	}
 }
@@ -109,8 +111,9 @@ int sys_get_znode_num(sys_t *sys) {
     int num = 0;
     int m;
     for(m = 0; m < ZNET_SIZE; m++) {
-	if(!znode_isempty(&(sys->znode_list[m])))
-	    num++;
+		if(!znode_isempty(&(sys->znode_list[m]))){
+			num++;
+		}
     }
     return num;
 }
@@ -334,9 +337,19 @@ void sys_init(sys_t* sys){
 	/* removed */
 	sys_get_dev_install(sys, FILE_INSTALL);
 
+	/*
+	 * new code: restore znet
+	 */
+	sys_znet_restore(sys, FILE_ZNET_BAKUP);
+
 	for (m = 0; m < ZNET_SIZE; m ++){
-		sys->znode_list[m].type = 0;
-		sys->znode_list[m].u_stamp = -1;
+		/*
+		 * new code: flush empty znodes
+		 */
+		if (znode_isempty(&(sys->znode_list[m]))){
+			sys->znode_list[m].type = 0;
+			sys->znode_list[m].u_stamp = -1;
+		}
 	}
 
 	/*
@@ -855,13 +868,13 @@ message* message_create_scene(char id_gw[8], scene* sce){
 	memcpy(msg->data+92, &(sce->item_num), sizeof(int));
 	for (m = 0; m < sce->trigger_num; m ++){
 		memcpy(msg->data+96+48*m, sce->trigger[m].id, 8*sizeof(char));
-		memcpy(msg->data+96+48*m+8, sce->trigger[m].state, 8*sizeof(char));
+		memcpy(msg->data+96+48*m+8, sce->trigger[m].state, 32*sizeof(char));
 		memcpy(msg->data+96+48*m+40, &(sce->trigger[m].state_len), sizeof(int));
 		memcpy(msg->data+96+48*m+44, &(sce->trigger[m].type), sizeof(int));
 	}
 	for (m = 0; m < sce->item_num; m ++) {
 		memcpy(msg->data+96+sce->trigger_num*48+48*m, sce->item[m].id, 8*sizeof(char));
-		memcpy(msg->data+96+sce->trigger_num*48+48*m+8, sce->item[m].state, 8*sizeof(char));
+		memcpy(msg->data+96+sce->trigger_num*48+48*m+8, sce->item[m].state, 32*sizeof(char));
 		memcpy(msg->data+96+sce->trigger_num*48+48*m+40, &(sce->item[m].state_len), sizeof(int));
 		memcpy(msg->data+96+sce->trigger_num*48+48*m+44, &(sce->item[m].type), sizeof(int));
 	}
@@ -962,4 +975,88 @@ int sys_get_scene_num(sys_t* sys){
 	}
 
 	return cnt;
+}
+
+
+void sys_znet_bakup(sys_t* sys, char* bakup_file){
+
+	FILE* fp;
+	int m;
+	int cnt;
+
+	fp = fopen(bakup_file, "w+");
+
+	if (fp == NULL) {
+		return;
+	}
+	else{
+		cnt = sys_get_znode_num(sys);
+
+		if (fwrite(&(cnt), 1, sizeof(int), fp) < 0){
+			printf("write znode num failed, quit\n");
+			fclose(fp);
+			return;
+		}
+		else{
+			for (m = 0; m < ZNET_SIZE; m ++) {
+				if (znode_isempty(&(sys->znode_list[m]))){
+					continue;
+				}
+				else{
+					printf("bakup znode status, idx = %d, type = %d, status_len = %d\n", m, sys->znode_list[m].type, sys->znode_list[m].status_len);
+
+					if (fwrite(&(sys->znode_list[m]), sizeof(znode_install), 1, fp) < 0){
+						printf("write znode failed, quit\n");
+						break;
+					}
+
+					if (fwrite(sys->znode_list[m].status, sizeof(char), 32, fp) < 0){
+						printf("write status failed, quit\n");
+						break;
+					}
+				}
+			}
+			fclose(fp);
+		}
+	}
+}
+
+void sys_znet_restore(sys_t* sys, char* bakup_file){
+
+	FILE* fp;
+	int m;
+	int cnt;
+	char status_buff[32];
+
+	fp = fopen(bakup_file, "r");
+
+	if (fp == NULL) {
+		return;
+	}
+	else{
+		if(fread(&(cnt), sizeof(int), 1, fp) < 0){
+			printf("read znode num failed, quit\n");
+			fclose(fp);
+			return;
+		}
+
+		for (m = 0; m < cnt; m ++) {
+
+			if (fread(&(sys->znode_list[m]), sizeof(znode_install), 1, fp) < 0){
+				printf("read znode failed, quit\n");
+				break;
+			}
+
+			if (fread(status_buff, sizeof(char), 32, fp) < 0){
+				printf("read status failed, quit\n");
+				break;
+			}
+			sys->znode_list[m].status = calloc(sys->znode_list[m].status_len, sizeof(char));
+			memcpy(sys->znode_list[m].status, status_buff, sys->znode_list[m].status_len); //dev_is is the user id (app phone id)
+
+			printf("restore znode status, idx = %d, type = %d status_len = %d\n", m, sys->znode_list[m].type, sys->znode_list[m].status_len);
+		}
+
+		fclose(fp);
+	}
 }
