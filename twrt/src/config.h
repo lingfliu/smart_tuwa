@@ -30,9 +30,6 @@
 /*
  * test code
  */
-//#define FILE_ID_SYS "/etc/twrt/id_sys"
-//#define FILE_LIC "/home/liulingfeng/lic" //GW license file
-//#define FILE_PASSWORD "/home/liulingfeng/password" //place to store password
 #define DEFAULT_LIC "0000000000000000"
 
 //serial, server, and localhost configuration

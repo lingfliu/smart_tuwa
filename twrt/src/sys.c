@@ -340,6 +340,7 @@ void sys_init(sys_t* sys){
 	/*
 	 * new code: restore znet
 	 */
+	//printf(FILE_ZNET_BAKUP);
 	sys_znet_restore(sys, FILE_ZNET_BAKUP);
 
 	for (m = 0; m < ZNET_SIZE; m ++){
@@ -1034,10 +1035,15 @@ void sys_znet_restore(sys_t* sys, char* bakup_file){
 		return;
 	}
 	else{
-		if(fread(&(cnt), sizeof(int), 1, fp) < 0){
-			printf("read znode num failed, quit\n");
+		int num_read = fread(&(cnt), sizeof(int), 1, fp);
+		if( num_read < 0 || num_read < 1){
+			printf("%d\n", num_read);
 			fclose(fp);
 			return;
+		}
+		printf("stored znode num = %d\n", cnt);
+		if (cnt > ZNET_SIZE) {
+			cnt = ZNET_SIZE;
 		}
 
 		for (m = 0; m < cnt; m ++) {
