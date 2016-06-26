@@ -1035,15 +1035,32 @@ void sys_znet_restore(sys_t* sys, char* bakup_file){
 		return;
 	}
 	else{
-		int num_read = fread(&(cnt), sizeof(int), 1, fp);
-		if( num_read < 0 || num_read < 1){
-			printf("%d\n", num_read);
+		int res = fgetc(fp);
+
+		//printf("first char %d\n", res&0x00ff);
+		if (res == EOF){
+			printf("EOF empty znet file, leaving\n");
 			fclose(fp);
 			return;
 		}
+		
+		fseek(fp, 0, SEEK_SET);//back to file head
+		//res = fgetc(fp);
+		//printf("first char %d\n", res&0x00ff);
+
+		int num_read = fread(&(cnt), sizeof(int), 1, fp);
+
+		if( num_read < 0 || num_read < 1){
+			printf("no content, num = %d, leaving\n", num_read);
+			fclose(fp);
+			return;
+		}
+
 		printf("stored znode num = %d\n", cnt);
 		if (cnt > ZNET_SIZE) {
-			cnt = ZNET_SIZE;
+			printf("znet file overflow, leaving\n");
+			fclose(fp);
+			return;
 		}
 
 		for (m = 0; m < cnt; m ++) {
