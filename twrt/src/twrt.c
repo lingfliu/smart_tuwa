@@ -889,6 +889,12 @@ int handle_msg_rx(message *msg){
 					message_destroy(msg_tx);
 				}
 
+				/*new code*/
+				val = sys.znode_list[idx].type;
+				if (type == 110 || type == 113 || type == 118 || type == 115){
+					memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
+				}
+
 				//if is scene
 				if (sys.znode_list[idx].type == DEV_THEME_4 || sys.znode_list[idx].type == DEV_DOUBLE_CTRL) {
 					printf("received theme from device, mac = %s, id = %s, data = ", sys.znode_list[idx].id, sys.znode_list[idx].status);
@@ -1548,7 +1554,6 @@ int handle_msg_rx(message *msg){
 			result = 0;
 			break;
 			
-			/*
 		case DATA_DEL_ZNODE:
 			printf("delete znode from znet, id = %s\n", msg->dev_id);
 			idx = -1;
@@ -1597,7 +1602,7 @@ int handle_msg_rx(message *msg){
 				}
 			}
 			break;
-			*/
+
 		default:
 			result = 0;
 			break;
@@ -2289,7 +2294,6 @@ int handle_local_message(message *msg, localuser *usr){
 				}
 				break;
 
-				/*
 			case DATA_DEL_ZNODE:
 				printf("delete znode from znet, id = %s\n", msg->dev_id);
 				idx = -1;
@@ -2313,9 +2317,7 @@ int handle_local_message(message *msg, localuser *usr){
 					message_destroy(msg_tx);
 					retval = 0;
 				}
-
 				break;
-				*/
 
 			case DATA_PULSE:
 				gettimeofday( &(usr->time_lastactive), NULL );
