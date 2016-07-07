@@ -857,7 +857,7 @@ int handle_msg_rx(message *msg){
 			//if update valid, send synchronization to server
 			if(idx >= 0) {
 
-				printf("received data stat from znet, dev index = %d, device type = %d", idx, sys.znode_list[idx].type);
+				printf("received data stat from znet, dev index = %d, device type = %d\n", idx, sys.znode_list[idx].type);
 				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
@@ -891,7 +891,8 @@ int handle_msg_rx(message *msg){
 
 				/*new code*/
 				val = sys.znode_list[idx].type;
-				if (type == 110 || type == 113 || type == 118 || type == 115){
+				if (val == 110 || val == 113 || val == 118 || val == 115){
+					printf("alarm, type = %d, reset trigger at idx %d\n", val, idx);
 					memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
 				}
 
@@ -1652,7 +1653,7 @@ int handle_local_message(message *msg, localuser *usr){
 				//if update valid, send synchronization to server
 				if(idx >= 0) {
 
-					printf("received data stat from znet, dev index = %d, device type = %d", idx, sys.znode_list[idx].type);
+					printf("received data stat from znet, dev index = %d, device type = %d\n", idx, sys.znode_list[idx].type);
 					msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
 
 					bundle.msg = msg_tx;
@@ -1663,6 +1664,13 @@ int handle_local_message(message *msg, localuser *usr){
 					message_destroy(msg_tx);
 
 					result = 0;
+
+					/*new code*/
+					val = sys.znode_list[idx].type;
+					if (val == 110 || val == 113 || val == 118 || val == 115){
+						printf("alarm type = %d, reset trigger at idx %d\n", val, idx);
+						memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
+					}
 
 					//if is scene
 					if (sys.znode_list[idx].type == DEV_THEME_4 || sys.znode_list[idx].type == DEV_DOUBLE_CTRL) {

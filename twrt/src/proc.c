@@ -144,10 +144,10 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 		//data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //(temporal issues) converted according to server request
 		data_len = ((*(pre_bytes+MSG_POS_DATA_LEN) & 0x00FF)<<8) + (*(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF);
 
-		printf("data_len 1st = %d\n", *(pre_bytes+MSG_POS_DATA_LEN) &0x00FF);
-		printf("data_len 2st = %d\n", *(pre_bytes+MSG_POS_DATA_LEN+1) &0x00FF);
-		printf("data_len in message=%d\n",data_len);
-		printf("buffer length=%d\n",buffer_ring_byte_getlen(bytes));
+		//printf("data_len 1st = %d\n", *(pre_bytes+MSG_POS_DATA_LEN) &0x00FF);
+		//printf("data_len 2st = %d\n", *(pre_bytes+MSG_POS_DATA_LEN+1) &0x00FF);
+		//printf("data_len in message=%d\n",data_len);
+		//printf("buffer length=%d\n",buffer_ring_byte_getlen(bytes));
 
 		if(buffer_ring_byte_getlen(bytes) < data_len+MSG_LEN_FIXED) { //if buffer is too short for the actual message
 			return 0;
