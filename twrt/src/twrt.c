@@ -913,14 +913,31 @@ int handle_msg_rx(message *msg){
 								for (n = 0; n < sce->item_num; n ++){
 									//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
 
+									/*test code*/
 									printf("sending scene ctrl %d, mac = ", n);
 									for (idxx = 0; idxx < 8; idxx++)
 										printf("%d ", sce->item[n].id[idxx] & 0x00FF);
 									printf(", state len = %d, dev type = %d\n", sce->item[n].state_len, sce->item[n].type);
 
-									msg_tx = message_create_ctrl(sce->item[n].state_len, sce->item[n].state, sys.id, sce->item[n].id, sce->item[n].type);
-									msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-									message_destroy(msg_tx);
+									/*begin--new code for fan ctrl*/
+									if (sce->item[n].type == DEV_GW_FAN){
+										if (*(sce->item[n].state) == CTRL_ON){
+											fan_control(1);
+											sys.fan_status = STAT_ON;
+										}
+										else if (*(sce->item[n].state) == CTRL_OFF){
+											fan_control(0);
+											sys.fan_status = STAT_OFF;
+										}
+										else {
+											//do nothing
+										}
+									}
+									else {
+										msg_tx = message_create_ctrl(sce->item[n].state_len, sce->item[n].state, sys.id, sce->item[n].id, sce->item[n].type);
+										msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+										message_destroy(msg_tx);
+									}
 								}
 								pthread_mutex_unlock(&mut_msg_tx);
 							}
@@ -935,6 +952,9 @@ int handle_msg_rx(message *msg){
 									val ++;
 								}
 							}
+
+							/*new code, add fan to scene*/
+							val ++;
 
 							printf("put %d znodes into scene ", val);
 
@@ -965,6 +985,20 @@ int handle_msg_rx(message *msg){
 							}
 							
 							val = 0;
+
+							/*begin--new code, add fan to scene*/
+							memset(sce->item[0].id, 0, 8);
+							if (sys.fan_status == STAT_ON){
+								sce->item[0].state[0] = CTRL_ON;
+							}
+							else {
+								sce->item[0].state[0] = CTRL_OFF;
+							}
+							sce->item[0].state_len = 1;
+							sce->item[0].type = DEV_GW_FAN;
+							val ++;
+							/*end------------------------------*/
+							
 							for (n = 0; n < ZNET_SIZE; n ++){
 								if (znode_isempty(&(sys.znode_list[n])) <= 0 && sys.znode_list[n].type != DEV_THEME_4 && sys.znode_list[n].type != DEV_DOUBLE_CTRL && !(sys.znode_list[n].type > 100 && sys.znode_list[n].type < 200)){ 
 									
@@ -1392,9 +1426,24 @@ int handle_msg_rx(message *msg){
 			if (sce != NULL) {
 				pthread_mutex_lock(&mut_msg_tx);
 				for (m = 0; m < sce->item_num; m ++){
-					msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
-					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-					message_destroy(msg_tx);
+					if (sce->item[m].type == DEV_GW_FAN){
+						if (*(sce->item[m].state) == CTRL_ON){
+							fan_control(1);
+							sys.fan_status = STAT_ON;
+						}
+						else if (*(sce->item[m].state) == CTRL_OFF){
+							fan_control(0);
+							sys.fan_status = STAT_OFF;
+						}
+						else {
+							//do nothing
+						}
+					}
+					else {
+						msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
+						msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+						message_destroy(msg_tx);
+					}
 				}
 				pthread_mutex_unlock(&mut_msg_tx);
 			}
@@ -1402,6 +1451,7 @@ int handle_msg_rx(message *msg){
 			result = 0;
 			break;
 		case DATA_SET_SCENE:
+
 			sce = calloc(1, sizeof(scene));
 			memcpy(sce->host_id_major, msg->data, 8*sizeof(char));
 			memcpy(sce->host_id_minor, msg->data+8, 8*sizeof(char));
@@ -1410,8 +1460,12 @@ int handle_msg_rx(message *msg){
 			memcpy(sce->scene_name, msg->data+28, 60*sizeof(char));
 			memcpy(&(sce->trigger_num), msg->data+88, sizeof(int));
 			memcpy(&(sce->item_num), msg->data+92, sizeof(int));
+			if (sce->trigger_num < 0 || sce->item_num < 0 || sce->trigger_num + sce->item_num > 255){
+				break;
+			}
 			sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
 			sce->item = calloc(sce->item_num, sizeof(scene_item));
+			printf("%d, %d\n", sce->trigger_num, sce->item_num);
 			for (m = 0; m < sce->trigger_num; m ++){
 				memcpy(sce->trigger[m].id, msg->data+96+m*48, 8*sizeof(char));
 				memcpy(sce->trigger[m].state, msg->data+96+m*48+8, 32*sizeof(char));
@@ -1419,13 +1473,14 @@ int handle_msg_rx(message *msg){
 				memcpy(&(sce->trigger[m].type), msg->data+96+m*48+44, sizeof(int));
 			}
 			for (m = 0; m < sce->item_num; m ++){
+				printf("at %d, id = %s\n", m, msg->data+96+sce->trigger_num*48);
 				memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*48+m*48, 8*sizeof(char));
 				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*48+m*48+8, 32*sizeof(char));
 				memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*48+m*48+40, sizeof(int));
 				memcpy(&(sce->item[m].type), msg->data+96+sce->trigger_num*48+m*48+44, sizeof(int));
 			}
-			printf("set scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 			
+			printf("set scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 			val = sys_edit_scene(&sys, sce); //modify scene
 
 			//send result back to server
@@ -2109,11 +2164,27 @@ int handle_local_message(message *msg, localuser *usr){
 				if (sce != NULL) {
 					printf("found scene, send ctrl\n");
 					pthread_mutex_lock(&mut_msg_tx);
+					/*begin---new code for fan ctrl in scene*/
 					for (m = 0; m < sce->item_num; m ++){
-						printf("send ctrl, id = %s\n", sce->item[m].id);
-						msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
-						msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-						message_destroy(msg_tx);
+						if (sce->item[m].type == DEV_GW_FAN){
+							if (*(sce->item[m].state) == CTRL_ON){
+								fan_control(1);
+								sys.fan_status = STAT_ON;
+							}
+							else if (*(sce->item[m].state) == CTRL_OFF){
+								fan_control(0);
+								sys.fan_status = STAT_OFF;
+							}
+							else {
+								//do nothing
+							}
+						}
+						else {
+							printf("send ctrl, id = %s\n", sce->item[m].id);
+							msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
+							msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+							message_destroy(msg_tx);
+						}
 					}
 					pthread_mutex_unlock(&mut_msg_tx);
 				}
