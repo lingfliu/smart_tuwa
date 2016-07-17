@@ -80,10 +80,9 @@ while(True):
         print len
         msg_bak = conn.recv(1024)
         print msg_bak
-
         '''
         #control test
-        for i in range(1, 500):
+        for i in range(0, 100):
             dev_mac_idx = round(random.random()*5000)
             dev_mac = '%08d'%dev_mac_idx
             dev_type_val = round(random.random()*100)
@@ -98,20 +97,20 @@ while(True):
             print('msg = ' + msg_dev_ctrl)
             len = conn.send(msg_dev_ctrl)
             print len
-        '''
-
+            time.sleep(0.1)
+            '''
         #scene set
-        for i in range(0,50):
+        for i in range(0,100): 
             sce_type_val = int(math.ceil(random.random()*3))
             sce_type = '%c'%sce_type_val
 
-            sce_id_major_val = round(random.random()*100)
+            sce_id_major_val = round(random.random()*1000)
             sce_id_major = '%08d'%sce_id_major_val
 
-            sce_id_minor_val = round(random.random()*100)
+            sce_id_minor_val = round(random.random()*1000)
             sce_id_minor = '%08d'%sce_id_minor_val
 
-            sce_mac_val= round(random.random()*100)
+            sce_mac_val= round(random.random()*1000)
             sce_mac = '%08d'%sce_mac_val
 
             sce_name_val = round(random.random()*100)
@@ -145,12 +144,14 @@ while(True):
             msg_set_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+ body_len + sce_id_major +sce_id_minor+sce_mac+sce_type+sce_name+'%c'%sce_trigger_num + '\x00'*3+'%c'%sce_item_num+'\x00'*3+sce_trigger+sce_item
 
             print (sce_id_major + ' ' + sce_id_minor + ' ' + sce_mac + ' ' + sce_name + ' ' + str(sce_trigger_num) + ' ' + str(sce_item_num) )
+            print(str('%c'%sce_trigger_num))
+
             #print('msg = ' + msg_set_scene)
             len = conn.send(msg_set_scene)
             print len
             #msg_bak = conn.recv(1024)
             #print msg_bak
-            time.sleep(0.02)
+            time.sleep(0.2)
 
         msg_finish_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x11\x00'+'\x00\x01' + '\x00'
             
@@ -158,6 +159,7 @@ while(True):
         len = conn.send(msg_finish_scene)
         print len
 
-
+        conn.close()
+        skt.close()
         break
         #time.sleep(5)
