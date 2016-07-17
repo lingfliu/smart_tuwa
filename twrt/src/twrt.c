@@ -1460,12 +1460,18 @@ int handle_msg_rx(message *msg){
 			memcpy(sce->scene_name, msg->data+28, 60*sizeof(char));
 			memcpy(&(sce->trigger_num), msg->data+88, sizeof(int));
 			memcpy(&(sce->item_num), msg->data+92, sizeof(int));
+
 			if (sce->trigger_num < 0 || sce->item_num < 0 || sce->trigger_num + sce->item_num > 255){
+				free(sce);
 				break;
 			}
-			sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
-			sce->item = calloc(sce->item_num, sizeof(scene_item));
-			printf("%d, %d\n", sce->trigger_num, sce->item_num);
+			if(sce->trigger_num > 0){
+				sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
+			}
+			if (sce->item_num > 0){
+				sce->item = calloc(sce->item_num, sizeof(scene_item));
+			}
+			printf("trigger num = %d, item num = %d\n", sce->trigger_num, sce->item_num);
 			for (m = 0; m < sce->trigger_num; m ++){
 				memcpy(sce->trigger[m].id, msg->data+96+m*48, 8*sizeof(char));
 				memcpy(sce->trigger[m].state, msg->data+96+m*48+8, 32*sizeof(char));
@@ -1473,7 +1479,7 @@ int handle_msg_rx(message *msg){
 				memcpy(&(sce->trigger[m].type), msg->data+96+m*48+44, sizeof(int));
 			}
 			for (m = 0; m < sce->item_num; m ++){
-				printf("at %d, id = %s\n", m, msg->data+96+sce->trigger_num*48);
+				//printf("at %d, item id = %s\n", m, msg->data+96+sce->trigger_num*48);
 				memcpy(sce->item[m].id, msg->data+96+sce->trigger_num*48+m*48, 8*sizeof(char));
 				memcpy(sce->item[m].state, msg->data+96+sce->trigger_num*48+m*48+8, 32*sizeof(char));
 				memcpy(&(sce->item[m].state_len), msg->data+96+sce->trigger_num*48+m*48+40, sizeof(int));
@@ -2201,6 +2207,13 @@ int handle_local_message(message *msg, localuser *usr){
 				memcpy(sce->scene_name, msg->data+28, 60*sizeof(char));
 				memcpy(&(sce->trigger_num), msg->data+88, sizeof(int));
 				memcpy(&(sce->item_num), msg->data+92, sizeof(int));
+
+				/*new code*/
+				if (sce->trigger_num < 0 || sce->item_num < 0 || sce->trigger_num + sce->item_num > 255){
+					free(sce);
+					break;
+				}
+
 				if (sce->trigger_num > 0){
 					sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
 				}
