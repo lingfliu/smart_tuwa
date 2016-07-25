@@ -47,7 +47,7 @@
 #define LOCAL_STATUS_EXITNORMAL 'c'
 
 //memory settings
-#define BUFF_IO_LEN 500 
+#define BUFF_IO_LEN 1000 
 #define BUFF_RING_LEN 5000 
 #define MSG_Q_LEN 50  //length of message queue
 

@@ -117,6 +117,7 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 	int data_len;
 	char pre_bytes[50];
 	char *data;
+	int m;
 
 	//if buffer is too short for a message, return 
 	if(buffer_ring_byte_getlen(bytes)<MSG_LEN_MIN)
@@ -144,10 +145,8 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 		//data_len = *(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF; //(temporal issues) converted according to server request
 		data_len = ((*(pre_bytes+MSG_POS_DATA_LEN) & 0x00FF)<<8) + (*(pre_bytes+MSG_POS_DATA_LEN+1) & 0x00FF);
 
-		//printf("data_len 1st = %d\n", *(pre_bytes+MSG_POS_DATA_LEN) &0x00FF);
-		//printf("data_len 2st = %d\n", *(pre_bytes+MSG_POS_DATA_LEN+1) &0x00FF);
-		//printf("data_len in message=%d\n",data_len);
-		//printf("buffer length=%d\n",buffer_ring_byte_getlen(bytes));
+		//printf("data_len 1st = %d, 2nd = %d\n", *(pre_bytes+MSG_POS_DATA_LEN) &0x00FF, *(pre_bytes+MSG_POS_DATA_LEN+1) &0x00FF);
+		//printf("data_len in message=%d buffer length=%d\n",data_len, buffer_ring_byte_getlen(bytes));
 
 		if(buffer_ring_byte_getlen(bytes) < data_len+MSG_LEN_FIXED) { //if buffer is too short for the actual message
 			return 0;
@@ -163,13 +162,21 @@ int bytes2message(buffer_ring_byte* bytes, message* msg){
 			memcpy(&(msg->dev_id), pre_bytes+MSG_POS_ID_DEV, MSG_LEN_ID_DEV);
 			memcpy(&(msg->dev_type), pre_bytes+MSG_POS_DEV_TYPE, MSG_LEN_DEV_TYPE);
 			memcpy(&(msg->data_type), pre_bytes+MSG_POS_DATA_TYPE, MSG_LEN_DATA_TYPE);
-			memcpy(&(msg->data_len), pre_bytes+MSG_POS_DATA_LEN+1, 1);//(temporal issues) only receive the lower 8 bits
+			msg->data_len = data_len;
+			//memcpy(&(msg->data_len), pre_bytes+MSG_POS_DATA_LEN+1, 1);//(temporal issues) only receive the lower 8 bits
 
 			if(msg->data != NULL)
 				free(msg->data);
 			msg->data = calloc(sizeof(char)*data_len, sizeof(char));
 			memcpy(msg->data, data, data_len);
-
+		
+			/*	
+			printf("body= ");
+			for(m = 0; m < data_len; m ++){
+				printf("%d " ,(msg->data[m] & 0x00ff));
+			}
+			printf("\n");
+			*/
 			free(data);//free the temp data buffer
 			return MSG_LEN_FIXED+data_len;
 		}

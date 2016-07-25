@@ -1451,6 +1451,14 @@ int handle_msg_rx(message *msg){
 			result = 0;
 			break;
 		case DATA_SET_SCENE:
+	
+			/*
+			printf("scene body_len = %d, body= ", msg->data_len);
+			for(m = 0; m < msg->data_len; m ++){
+				printf("%d " ,(msg->data[m] & 0x00ff));
+			}
+			printf("\n");
+			*/
 
 			sce = calloc(1, sizeof(scene));
 			memcpy(sce->host_id_major, msg->data, 8*sizeof(char));
@@ -1461,10 +1469,18 @@ int handle_msg_rx(message *msg){
 			memcpy(&(sce->trigger_num), msg->data+88, sizeof(int));
 			memcpy(&(sce->item_num), msg->data+92, sizeof(int));
 
-			if (sce->trigger_num < 0 || sce->item_num < 0 || sce->trigger_num + sce->item_num > 255){
+			if (sce->trigger_num < 0 || sce->item_num < 0 || sce->trigger_num + sce->item_num > 255 || sce->trigger_num+sce->item_num == 0){
+				printf("trigger num = %d, item num = %d\n, invalid, quit\n", sce->trigger_num, sce->item_num);
 				free(sce);
 				break;
 			}
+			/*test code*/
+			/*
+			if (sce->trigger_num > 20){
+				free(sce);
+				break;
+			}
+			*/
 			if(sce->trigger_num > 0){
 				sce->trigger = calloc(sce->trigger_num, sizeof(scene_item));
 			}

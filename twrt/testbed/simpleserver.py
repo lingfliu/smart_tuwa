@@ -34,8 +34,8 @@ def work(skt):
     sce_id_minor_base = 1
 
     #Authorization
-    len = skt.send(msg_auth_ack)
-    print len
+    length = skt.send(msg_auth_ack)
+    print length
     msg_bak = skt.recv(1024)
     print msg_bak
 
@@ -50,8 +50,8 @@ def work(skt):
 
         msg_dev_ctrl = msg_header + msg_stamp + msg_id_gw+dev_mac+dev_type+'\x02\x00'+dev_status_len+dev_status
         print('msg = ' + msg_dev_ctrl)
-        len = skt.send(msg_dev_ctrl)
-        print len
+        length = skt.send(msg_dev_ctrl)
+        print length
         msg_bak = skt.recv(1024)
         print msg_bak
 
@@ -76,8 +76,8 @@ while(True):
         sce_id_minor_base = 1
 
         #Authorization
-        len = conn.send(msg_auth_ack)
-        print len
+        length = conn.send(msg_auth_ack)
+        print length
         msg_bak = conn.recv(1024)
         print msg_bak
         '''
@@ -120,35 +120,33 @@ while(True):
             sce_type = '%c'%sce_type_val
             sce_type +='\x00'*3
 
-            sce_trigger_num = int(math.ceil(random.random()*20))
+            sce_trigger_num = int(random.random()*20)
             sce_trigger = ''
             for m in range(0, sce_trigger_num):
                  sce_trigger_val = round(random.random()*100)
                  sce_trigger += ('%08d'%sce_trigger_val)*6
 
-            sce_item_num = int(round(random.random()*20))
+            sce_item_num = int(random.random()*20)
             sce_item = ''
-            for m in range(1, sce_item_num):
+            for m in range(0, sce_item_num):
                 sce_item_val = round(random.random()*100) 
-                sce_item += ('%08d'%sce_trigger_val)*6 
+                sce_item += ('%08d'%sce_item_val)*6 
             body_len_val = 48*sce_item_num + 48*sce_trigger_num + 96 
             body_len = ''
-            if (body_len_val > 256): 
-                body_len +='%c'%(int(body_len_val/256))
-                body_len +='%c'%(body_len_val%256)
-            else:
-                body_len +='\x00'
-                body_len +='%c'%(body_len_val)
-
+            body_len +='%c'%(int(body_len_val/256))
+            body_len +='%c'%(body_len_val%256)
 
             msg_set_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0f\x00'+ body_len + sce_id_major +sce_id_minor+sce_mac+sce_type+sce_name+'%c'%sce_trigger_num + '\x00'*3+'%c'%sce_item_num+'\x00'*3+sce_trigger+sce_item
 
+            print('message length=' + str(len(msg_set_scene)))
+            print('body length=' + str(body_len_val))
             print (sce_id_major + ' ' + sce_id_minor + ' ' + sce_mac + ' ' + sce_name + ' ' + str(sce_trigger_num) + ' ' + str(sce_item_num) )
-            print(str('%c'%sce_trigger_num))
+            #print(str('%c'%sce_trigger_num))
+            print(body_len)
 
             #print('msg = ' + msg_set_scene)
-            len = conn.send(msg_set_scene)
-            print len
+            length = conn.send(msg_set_scene)
+            print length
             #msg_bak = conn.recv(1024)
             #print msg_bak
             time.sleep(0.2)
@@ -156,8 +154,8 @@ while(True):
         msg_finish_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x11\x00'+'\x00\x01' + '\x00'
             
         print('msg finish = ' + msg_finish_scene)
-        len = conn.send(msg_finish_scene)
-        print len
+        length = conn.send(msg_finish_scene)
+        print length
 
         conn.close()
         skt.close()
