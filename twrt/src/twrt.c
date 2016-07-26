@@ -889,13 +889,6 @@ int handle_msg_rx(message *msg){
 					message_destroy(msg_tx);
 				}
 
-				/*new code*/
-				val = sys.znode_list[idx].type;
-				if (val == 110 || val == 113 || val == 118 || val == 115){
-					printf("alarm, type = %d, reset trigger at idx %d\n", val, idx);
-					memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
-				}
-
 				//if is scene
 				if (sys.znode_list[idx].type == DEV_THEME_4 || sys.znode_list[idx].type == DEV_DOUBLE_CTRL) {
 					printf("received theme from device, mac = %s, id = %s, data = ", sys.znode_list[idx].id, sys.znode_list[idx].status);
@@ -1129,13 +1122,19 @@ int handle_msg_rx(message *msg){
 						pthread_mutex_unlock(&mut_msg_tx);
 					}
 				}
+
+				/*new code*/
+				val = sys.znode_list[idx].type;
+				if (val == 110 || val == 113 || val == 118 || val == 115){
+					printf("alarm, type = %d, reset trigger at idx %d\n", val, idx);
+					memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
+				}
+
+				/*
+				 * new code: increment counter
+				 */
+				update_num ++;
 			}
-
-			/*
-			 * new code: increment counter
-			 */
-			update_num ++;
-
 			break;
 
 		case DATA_CTRL:
@@ -1726,11 +1725,11 @@ int handle_local_message(message *msg, localuser *usr){
 				//update stat
 				idx = sys_znode_update(&sys, msg);
 
-
 				//if update valid, send synchronization to server
+				printf("stat test from local user, idx=%d\n", idx);
 				if(idx >= 0) {
 
-					printf("received data stat from znet, dev index = %d, device type = %d\n", idx, sys.znode_list[idx].type);
+					//printf("received data stat from znet, dev index = %d, device type = %d\n", idx, sys.znode_list[idx].type);
 					msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
 
 					bundle.msg = msg_tx;
@@ -1741,13 +1740,6 @@ int handle_local_message(message *msg, localuser *usr){
 					message_destroy(msg_tx);
 
 					result = 0;
-
-					/*new code*/
-					val = sys.znode_list[idx].type;
-					if (val == 110 || val == 113 || val == 118 || val == 115){
-						printf("alarm type = %d, reset trigger at idx %d\n", val, idx);
-						memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
-					}
 
 					//if is scene
 					if (sys.znode_list[idx].type == DEV_THEME_4 || sys.znode_list[idx].type == DEV_DOUBLE_CTRL) {
@@ -1907,6 +1899,7 @@ int handle_local_message(message *msg, localuser *usr){
 				if (sys.znode_list[idx].type > 100 && sys.znode_list[idx].type < 200){ //sensor as trigger
 					sce = sys_find_scene_bytrigger(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
 					if (sce != NULL) {
+						printf("found trigger \n");
 						pthread_mutex_lock(&mut_msg_tx);
 						for (m = 0; m < sce->item_num; m ++){
 							//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
@@ -1918,6 +1911,16 @@ int handle_local_message(message *msg, localuser *usr){
 						pthread_mutex_unlock(&mut_msg_tx);
 					}
 				}
+
+				/*new code*/
+				val = sys.znode_list[idx].type;
+				if (val == 110 || val == 113 || val == 118 || val == 115){
+					printf("alarm, type = %d, reset trigger at idx %d\n", val, idx);
+					memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
+				}
+
+				update_num ++;
+
 			}
 			break;
 
