@@ -142,6 +142,9 @@
 #define DATA_SET_PASSWORD_ACK 104
 #define DATA_SET_LIC_ACK 105
 
+#define DATA_SET_WDS 120
+#define DATA_SET_WIRELESS 121
+
 #define DATA_NULL 201  //null data type for general purposes
 
 /*************************************************

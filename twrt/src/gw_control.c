@@ -142,3 +142,43 @@ int set_lic(char* lic_prev, char* lic_new){
 		}
 	}
 }
+
+
+void set_wds(char* ssid, int ssid_len, char* password, int password_len, char *encrypt, int encrypt_len){
+	FILE *fp;
+	fp = fopen(ETC_NETWORK, "w");
+	if (fp == NULL){
+		return -1;
+	}
+	else {
+
+		//overwrite ssid, password, encrypt type
+		write_res = fwrite("config \n", sizeof(char), fp);
+		write_res = fwrite("config \n", sizeof(char), fp);
+		write_res = fwrite("config \n", sizeof(char), fp);
+
+		execlp("ifup", "ifup", "wifi", (char*)0);
+
+		fclose(fp);
+		return 0;
+	}
+}
+
+void set_wifi(char* ssid, int ssid_len, char* password, int password_len, char *encrypt, int encrypt_len){
+	FILE *fp;
+	fp = fopen(ETC_WIRELESS, "w");
+	if (fp == NULL){
+		return -1;
+	}
+	else {
+
+		//overwrite ssid, password, encrypt type
+		write_res = fwrite("config \n", sizeof(char), fp);
+		write_res = fwrite("config \n", sizeof(char), fp);
+
+		execlp("ifup", "ifup", "wifi", (char*)0);
+
+		fclose(fp);
+		return 0;
+	}
+}
