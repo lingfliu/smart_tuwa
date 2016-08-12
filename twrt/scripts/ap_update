@@ -1,0 +1,22 @@
+#!/bash/sh
+
+SLEEP=5
+
+if [ $(cat /etc/config/wireless | grep -c "mode sta") -ge 1]; then
+	cat /etc/config/wireless.common > /etc/config/wireless
+	cat /etc/config/wireless.ap >> /etc/config/wireless
+	cat /etc/config/wireless.sta >> /etc/config/wireless
+else
+	cat /etc/config/wireless.common > /etc/config/wireless
+	cat /etc/config/wireless.ap >> /etc/config/wireless
+fi
+
+cat /etc/config/wireless.common > /etc/config/wireless_AP
+cat /etc/config/wireless.ap >> /etc/config/wireless_AP
+
+cat /etc/config/wireless.common > /etc/config/wireless_APSTA
+cat /etc/config/wireless.ap >> /etc/config/wireless_APSTA
+cat /etc/config/wireless.sta >> /etc/config/wireless_APSTA
+
+wifi up
+sleep $SLEEP

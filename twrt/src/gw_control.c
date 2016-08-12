@@ -144,41 +144,169 @@ int set_lic(char* lic_prev, char* lic_new){
 }
 
 
-void set_wds(char* ssid, int ssid_len, char* password, int password_len, char *encrypt, int encrypt_len){
+int set_ap(char* ssid, int ssid_len, char* password, int password_len, char *encrypt, int encrypt_len){
 	FILE *fp;
-	fp = fopen(ETC_NETWORK, "w");
+	int w_res;
+	int i;
+
+	char *ln[4] = {"config wifi-iface\n",
+		"\toption device radio0\n",
+		"\topiton mode ap\n",
+		"\toption network lan\n"};
+	char *op_ssid = "\toption ssid ";
+	char *op_encrypt= "\toption encryption psk2\n";
+	char *op_key= "\toption key ";
+
+	bakup_ap();
+
+	fp = fopen(ETC_WIRELESS_COMPONENT_AP, "w+");
 	if (fp == NULL){
 		return -1;
 	}
 	else {
+		//bakup wireless.ap
+		for (i = 0; i < 4; i++){
+			w_res = fwrite(ln[i], strlen(ln[i]), sizeof(char), fp);
+			if (w_res < 0){
+				//write fails
+				fclose(fp);
+				restore_ap();
+				return -1;
+			}
+		}
 
-		//overwrite ssid, password, encrypt type
-		write_res = fwrite("config \n", sizeof(char), fp);
-		write_res = fwrite("config \n", sizeof(char), fp);
-		write_res = fwrite("config \n", sizeof(char), fp);
+		w_res = fwrite(op_ssid, strlen(op_ssid), sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_ap();
+				return -1;
+		}
 
-		execlp("ifup", "ifup", "wifi", (char*)0);
+		ssid[ssid_len] = '\n';
+		w_res = fwrite(ssid, ssid_len+1, sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_ap();
+				return -1;
+		}
+
+		w_res = fwrite(op_encrypt, strlen(op_encrypt), sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_ap();
+				return -1;
+		}
+
+		w_res = fwrite(op_key, strlen(op_key), sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_ap();
+				return -1;
+		}
+
+
+		password[password_len] = '\n';
+		w_res = fwrite(password, password_len+1, sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_ap();
+				return -1;
+		}
 
 		fclose(fp);
+
+		system("/usr/sbin/ap_update");
+
 		return 0;
 	}
 }
 
-void set_wifi(char* ssid, int ssid_len, char* password, int password_len, char *encrypt, int encrypt_len){
+int set_sta(char* ssid, int ssid_len, char* password, int password_len, char *encrypt, int encrypt_len){
 	FILE *fp;
-	fp = fopen(ETC_WIRELESS, "w");
+	int w_res;
+	int i;
+
+	char *ln[4] = {"config wifi-iface\n",
+		"\toption device radio0\n",
+		"\topiton mode sta\n",
+	    "\toption network wwan\n"};
+	char *op_ssid = "\toption ssid ";
+	char *op_encrypt= "\toption encryption psk2\n";
+	char *op_key= "\toption key ";
+
+	bakup_sta();
+
+	fp = fopen(ETC_WIRELESS_COMPONENT_AP, "w+");
 	if (fp == NULL){
 		return -1;
 	}
 	else {
+		//bakup wireless.ap
+		for (i = 0; i < 4; i++){
+			w_res = fwrite(ln[i], strlen(ln[i]), sizeof(char), fp);
+			if (w_res < 0){
+				//write fails
+				fclose(fp);
+				restore_sta();
+				return -1;
+			}
+		}
 
-		//overwrite ssid, password, encrypt type
-		write_res = fwrite("config \n", sizeof(char), fp);
-		write_res = fwrite("config \n", sizeof(char), fp);
+		w_res = fwrite(op_ssid, strlen(op_ssid), sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_sta();
+				return -1;
+		}
 
-		execlp("ifup", "ifup", "wifi", (char*)0);
+		ssid[ssid_len] = '\n';
+		w_res = fwrite(ssid, ssid_len+1, sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_sta();
+				return -1;
+		}
+
+		w_res = fwrite(op_encrypt, strlen(op_encrypt), sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_sta();
+				return -1;
+		}
+
+		w_res = fwrite(op_key, strlen(op_key), sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_sta();
+				return -1;
+		}
+
+
+		password[password_len] = '\n';
+		w_res = fwrite(password, password_len+1, sizeof(char), fp);
+		if (w_res < 0){
+				fclose(fp);
+				restore_sta();
+				return -1;
+		}
 
 		fclose(fp);
+
+		system("/usr/sbin/sta_update");
+
 		return 0;
 	}
+}
+
+void bakup_ap(){
+	system("cp /etc/config/wireless.ap /etc/config/wireless.ap.bak");
+}
+void restore_ap(){
+	system("cp /etc/config/wireless.ap.bak /etc/config/wireless.ap");
+}
+void bakup_sta(){
+	system("cp /etc/config/wireless.sta /etc/config/wireless.sta.bak");
+}
+void restore_sta(){
+	system("cp /etc/config/wireless.sta.bak /etc/config/wireless.sta");
 }

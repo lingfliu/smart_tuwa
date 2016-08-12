@@ -1713,6 +1713,11 @@ int handle_local_message(message *msg, localuser *usr){
 	scene* sce;
 	znode_install* install;
 
+	/* new code for ap and sta set*/
+	char ssid[32];
+	int ssid_len;
+	char key[32];
+	int key_len;
 
 	if( message_isvalid(msg) != 1) {
 		retval = -1;
@@ -2403,6 +2408,27 @@ int handle_local_message(message *msg, localuser *usr){
 				else {
 					retval = -1;
 				}
+				break;
+
+			/*
+			 *new code: AP and STA wireless set
+			 */
+			case DATA_SET_AP:
+				ssid_len = msg->data[0] & 0x00FF;
+				memcpy(ssid, msg->data+1, 32*sizeof(char)); //
+				key_len = msg->data[33] & 0x00FF;
+				memcpy(key, msg->data+34, 32*sizeof(char)); //
+				set_ap(ssid, ssid_len, key, key_len, NULL, 0);
+
+				break;
+
+			case DATA_SET_STA:
+				ssid_len = msg->data[0] & 0x00FF;
+				memcpy(ssid, msg->data+1, 32*sizeof(char)); //
+				key_len = msg->data[33] & 0x00FF;
+				memcpy(key, msg->data+34, 32*sizeof(char)); //
+				set_sta(ssid, ssid_len, key, key_len, NULL, 0);
+
 				break;
 
 			case DATA_DEL_ZNODE:

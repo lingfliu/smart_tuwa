@@ -257,4 +257,5 @@ znode_install* sys_find_install(sys_t* sys, char id[8]);
  */
 void sys_znet_bakup(sys_t* sys, char* bakup_file);
 void sys_znet_restore(sys_t* sys, char* bakup_file);
+
 #endif

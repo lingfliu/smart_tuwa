@@ -134,6 +134,7 @@
 
 #define DATA_SYS_RESET 101 //sys reset command (not used)
 
+
 /*
  * password management
  */
@@ -141,6 +142,9 @@
 #define DATA_SET_LIC 103 //set server login password
 #define DATA_SET_PASSWORD_ACK 104
 #define DATA_SET_LIC_ACK 105
+
+#define DATA_SET_AP 106
+#define DATA_SET_STA 107
 
 #define DATA_SET_WDS 120
 #define DATA_SET_WIRELESS 121

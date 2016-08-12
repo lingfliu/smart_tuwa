@@ -1,0 +1,12 @@
+#!/bash/sh
+
+SLEEP=5
+
+cat /etc/config/wireless.common > /etc/config/wireless
+cat /etc/config/wireless.ap >> /etc/config/wireless
+cat /etc/config/wireless.sta >> /etc/config/wireless
+
+cp /etc/config/wireless /etc/config/wireless_APSTA
+
+wifi up
+sleep $SLEEP
