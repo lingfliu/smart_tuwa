@@ -215,7 +215,7 @@ int set_ap(char* ssid, int ssid_len, char* password, int password_len, char *enc
 
 		fclose(fp);
 
-		system("/usr/sbin/ap_update");
+		system("ap_update");
 
 		return 0;
 	}
@@ -292,7 +292,7 @@ int set_sta(char* ssid, int ssid_len, char* password, int password_len, char *en
 
 		fclose(fp);
 
-		system("/usr/sbin/sta_update");
+		system("sta_update");
 
 		return 0;
 	}

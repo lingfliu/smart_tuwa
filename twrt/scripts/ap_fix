@@ -8,7 +8,7 @@ sta_err=0
 while true; do
 	if [ $(iwinfo | grep -c "ESSID: unknown") -ge 1 ]; then
 		let sta_err=$sta_err+1
-		if [ $((sta_err * SLEEP)) -ge SLEEP ]; then
+		if [ $((sta_err * SLEEP)) -ge $TIMEOUT ]; then
 			cp /etc/config/wireless_AP /etc/config/wireless
 			wifi up
 			sleep $SLEEP
@@ -21,4 +21,3 @@ while true; do
 	fi
 	sleep $SLEEP
 done
-

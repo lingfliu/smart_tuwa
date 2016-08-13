@@ -1714,9 +1714,9 @@ int handle_local_message(message *msg, localuser *usr){
 	znode_install* install;
 
 	/* new code for ap and sta set*/
-	char ssid[32];
+	char ssid[33];
 	int ssid_len;
-	char key[32];
+	char key[33];
 	int key_len;
 
 	if( message_isvalid(msg) != 1) {
@@ -1882,52 +1882,52 @@ int handle_local_message(message *msg, localuser *usr){
 									//don't forget to delete the message
 									message_destroy(msg_tx);
 								}
-							}
 
-							//remove temp scene
-							if (isnew >= 0){
-								if (sce->trigger_num > 0){
-									free(sce->trigger);
+								//remove temp scene
+								if (isnew >= 0){
+									if (sce->trigger_num > 0){
+										free(sce->trigger);
+									}
+									if (sce->item_num > 0){
+										free(sce->item);
+									}
+									free(sce);
 								}
-								if (sce->item_num > 0){
-									free(sce->item);
-								}
-								free(sce);
+								/*new code: restore the theme status*/
+								sys.znode_list[idx].status[m] = THEME_LEARN;
+								break;
 							}
-							/*new code: restore the theme status*/
-							sys.znode_list[idx].status[m] = THEME_LEARN;
-							break;
 						}
 					}
 
-				//if trigger status, send ctrl to the znet
-				if (sys.znode_list[idx].type > 100 && sys.znode_list[idx].type < 200){ //sensor as trigger
-					sce = sys_find_scene_bytrigger(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
-					if (sce != NULL) {
-						printf("found trigger \n");
-						pthread_mutex_lock(&mut_msg_tx);
-						for (m = 0; m < sce->item_num; m ++){
-							//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
+					//if trigger status, send ctrl to the znet
+					if (sys.znode_list[idx].type > 100 && sys.znode_list[idx].type < 200){ //sensor as trigger
+						sce = sys_find_scene_bytrigger(&sys, sys.znode_list[idx].id, sys.znode_list[idx].status);
+						if (sce != NULL) {
+							printf("found trigger \n");
+							pthread_mutex_lock(&mut_msg_tx);
+							for (m = 0; m < sce->item_num; m ++){
+								//N.B.: no specification on the ctrl data will be put, because it is impossible to store all the znode info
 
-							msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
-							msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
-							message_destroy(msg_tx);
+								msg_tx = message_create_ctrl(sce->item[m].state_len, sce->item[m].state, sys.id, sce->item[m].id, sce->item[m].type);
+								msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+								message_destroy(msg_tx);
+							}
+							pthread_mutex_unlock(&mut_msg_tx);
 						}
-						pthread_mutex_unlock(&mut_msg_tx);
 					}
+
+					/*new code*/
+					val = sys.znode_list[idx].type;
+					if (val == 110 || val == 113 || val == 118 || val == 115){
+						printf("alarm, type = %d, reset trigger at idx %d\n", val, idx);
+						memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
+					}
+
+					update_num ++;
+
 				}
-
-				/*new code*/
-				val = sys.znode_list[idx].type;
-				if (val == 110 || val == 113 || val == 118 || val == 115){
-					printf("alarm, type = %d, reset trigger at idx %d\n", val, idx);
-					memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
-				}
-
-				update_num ++;
-
-			}
-			break;
+				break;
 
 			case DATA_REQ_AUTH_LOCAL:
 				/*
@@ -2433,7 +2433,7 @@ int handle_local_message(message *msg, localuser *usr){
 
 				break;
 			case DATA_REQ_SERVER_CONN:
-				msg_tx = message_create_ack_server_conn(sys.id, (char) sys.server_status);
+				msg_tx = message_create_ack_server_conn(sys.id, (char) (sys.server_status & 0x00ff));
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);

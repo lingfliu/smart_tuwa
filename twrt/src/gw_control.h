@@ -13,9 +13,9 @@
 #define ETC_WIRELESS_AP "/etc/config/wirelss_AP"
 #define ETC_WIRELESS_APSTA "/etc/config/wirelss_APSTA"
 
-#define ETC_WIRELESS_COMMON "/etc/config/wirelss.common"
-#define ETC_WIRELESS_COMPONENT_AP "/etc/config/wirelss.ap"
-#define ETC_WIRELESS_COMPONENT_STA "/etc/config/wirelss.sta"
+#define ETC_WIRELESS_COMMON "/root/wirelss.common"
+#define ETC_WIRELESS_COMPONENT_AP "/root/wirelss.ap"
+#define ETC_WIRELESS_COMPONENT_STA "/root/wirelss.sta"
 
 void fan_control(int cmd);
 
