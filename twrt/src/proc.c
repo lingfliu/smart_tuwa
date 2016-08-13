@@ -655,3 +655,15 @@ message* message_create_ack_scene_op(char id_gw[8], char id_major[8], char id_mi
 	msg->data_type = DATA_ACK_SCENE_OP;
 	return msg;
 }
+
+
+message* message_create_ack_server_conn(char id_gw[8], char server_conn){
+	message *msg = message_create();
+	msg->data = realloc(msg->data,1);
+	msg->data[0] = server_conn;
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	msg->dev_type = 0;
+	msg->data_type = DATA_ACK_SERVER_CONN;
+
+	return msg;
+};

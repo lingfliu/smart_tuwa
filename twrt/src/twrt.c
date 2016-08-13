@@ -49,11 +49,11 @@ int main(int argn, char* argv[]){
 	 ********************************************/
 	if (serial_open(&srl) < 0) {
 		printf("failed to open serial\n");
-		sys.server_status = SERIAL_OFF;
+		sys.serial_status = SERIAL_OFF;
 	}
 	else {
 		printf("serial opened\n");
-		sys.server_status = SERIAL_ON;
+		sys.serial_status = SERIAL_ON;
 	}
 
 	/********************************************
@@ -2411,7 +2411,9 @@ int handle_local_message(message *msg, localuser *usr){
 				break;
 
 			/*
-			 *new code: AP and STA wireless set
+			 *new code: 
+			 1. AP and STA wireless set
+			 2. get server connection status
 			 */
 			case DATA_SET_AP:
 				ssid_len = msg->data[0] & 0x00FF;
@@ -2430,7 +2432,15 @@ int handle_local_message(message *msg, localuser *usr){
 				set_sta(ssid, ssid_len, key, key_len, NULL, 0);
 
 				break;
+			case DATA_REQ_SERVER_CONN:
+				msg_tx = message_create_ack_server_conn(sys.id, (char) sys.server_status);
+				pthread_mutex_lock(&mut_msg_tx);
+				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
+				pthread_mutex_unlock(&mut_msg_tx);
+				message_destroy(msg_tx);
+				retval = 0;
 
+				break;
 			case DATA_DEL_ZNODE:
 				printf("delete znode from znet, id = %s\n", msg->dev_id);
 				idx = -1;

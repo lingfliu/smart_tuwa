@@ -119,6 +119,9 @@
 #define DATA_REQ_STAT 27 //localuser request for znet status
 #define DATA_REQ_AUTH_LOCAL 28 //localuser auth request
 
+/*new protocol for request server connection*/
+#define DATA_REQ_SERVER_CONN 29 
+
 #define DATA_ACK_SYNC 61 //synchronization ack (not used)
 #define DATA_ACK_AUTH_GW 62 //auth gw ack
 //#define DATA_ACK_AUTH_DEV 63 //auth dev ack (not used)
@@ -131,6 +134,9 @@
 /*new messages for scene operation*/
 #define DATA_ACK_INSTALL_OP 69
 #define DATA_ACK_SCENE_OP 70
+
+/*new protocol for request server connection*/
+#define DATA_ACK_SERVER_CONN 71
 
 #define DATA_SYS_RESET 101 //sys reset command (not used)
 
@@ -146,8 +152,6 @@
 #define DATA_SET_AP 106
 #define DATA_SET_STA 107
 
-#define DATA_SET_WDS 120
-#define DATA_SET_WIRELESS 121
 
 #define DATA_NULL 201  //null data type for general purposes
 
@@ -301,4 +305,6 @@ message* message_create_del_znode(char id_gw[8], char id_dev[8]);
 //message* message_create_req_stat(char id_dev[8]);
 message* message_create_ack_install_op(char id_gw[8], char id_dev[8], int op_code, int result);
 message* message_create_ack_scene_op(char id_gw[8], char id_major[8], char id_minor[8], int op_code, int result);
+
+message* message_create_ack_server_conn(char id_gw[8], char server_conn);
 #endif
