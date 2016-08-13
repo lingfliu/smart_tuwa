@@ -15,7 +15,7 @@
 
 //sys status code
 #define SERVER_CONNECT 1
-#define SERVER_DISCONNECT 2
+#define SERVER_DISCONNECT 0
 
 #define LOCALHOST_LISTENING 1
 #define LOCALHOST_CLOSED 2 
