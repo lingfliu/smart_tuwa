@@ -2429,6 +2429,7 @@ int handle_local_message(message *msg, localuser *usr){
 				memcpy(ssid, msg->data+1, 32*sizeof(char)); //
 				key_len = msg->data[33] & 0x00FF;
 				memcpy(key, msg->data+34, 32*sizeof(char)); //
+				printf("setting sta, ssid = %s\n", ssid);
 				set_sta(ssid, ssid_len, key, key_len, NULL, 0);
 
 				break;

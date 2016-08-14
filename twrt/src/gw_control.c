@@ -145,17 +145,24 @@ int set_lic(char* lic_prev, char* lic_new){
 
 
 int set_ap(char* ssid, int ssid_len, char* password, int password_len, char *encrypt, int encrypt_len){
+	printf("set ap ssid=%s, key=%s\n", ssid, password);
 	FILE *fp;
 	int w_res;
 	int i;
 
 	char *ln[4] = {"config wifi-iface\n",
 		"\toption device radio0\n",
-		"\topiton mode ap\n",
+		"\toption mode ap\n",
 		"\toption network lan\n"};
 	char *op_ssid = "\toption ssid ";
 	char *op_encrypt= "\toption encryption psk2\n";
 	char *op_key= "\toption key ";
+
+	if (ssid_len == 0 || password_len == 0){
+		reset_ap();
+		system("ap_update");
+		return 0;
+	}
 
 	bakup_ap();
 
@@ -164,6 +171,7 @@ int set_ap(char* ssid, int ssid_len, char* password, int password_len, char *enc
 		return -1;
 	}
 	else {
+		printf("ap opened\n");
 		//bakup wireless.ap
 		for (i = 0; i < 4; i++){
 			w_res = fwrite(ln[i], strlen(ln[i]), sizeof(char), fp);
@@ -228,15 +236,21 @@ int set_sta(char* ssid, int ssid_len, char* password, int password_len, char *en
 
 	char *ln[4] = {"config wifi-iface\n",
 		"\toption device radio0\n",
-		"\topiton mode sta\n",
+		"\toption mode sta\n",
 	    "\toption network wwan\n"};
 	char *op_ssid = "\toption ssid ";
 	char *op_encrypt= "\toption encryption psk2\n";
 	char *op_key= "\toption key ";
 
+	if (ssid_len == 0 || password_len == 0){
+		reset_sta();
+		system("sta_update");
+		return 0;
+	}
+
 	bakup_sta();
 
-	fp = fopen(ETC_WIRELESS_COMPONENT_AP, "w+");
+	fp = fopen(ETC_WIRELESS_COMPONENT_STA, "w+");
 	if (fp == NULL){
 		return -1;
 	}
@@ -299,14 +313,20 @@ int set_sta(char* ssid, int ssid_len, char* password, int password_len, char *en
 }
 
 void bakup_ap(){
-	system("cp /etc/config/wireless.ap /etc/config/wireless.ap.bak");
+	system("cp /root/wireless.ap /root/wireless.ap.bak");
 }
 void restore_ap(){
-	system("cp /etc/config/wireless.ap.bak /etc/config/wireless.ap");
+	system("cp /root/wireless.ap.bak /root/wireless.ap");
+}
+void reset_ap(){
+	system("cp /root/wireless.ap.origin /root/wireless.sta");
 }
 void bakup_sta(){
-	system("cp /etc/config/wireless.sta /etc/config/wireless.sta.bak");
+	system("cp /root/wireless.sta /root/wireless.sta.bak");
 }
 void restore_sta(){
-	system("cp /etc/config/wireless.sta.bak /etc/config/wireless.sta");
+	system("cp /root/wireless.sta.bak /root/wireless.sta");
+}
+void reset_sta(){
+	system("cp /root/wireless.sta.origin /root/wireless.sta");
 }

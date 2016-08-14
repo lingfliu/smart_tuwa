@@ -1,4 +1,4 @@
-#!/bash/sh
+#!/bin/sh
 
 SLEEP=5
 
@@ -8,5 +8,5 @@ cat /root/wireless.sta >> /etc/config/wireless
 
 cp /etc/config/wireless /etc/config/wireless_APSTA
 
-wifi up
+wifi down; wifi up
 sleep $SLEEP

@@ -23,10 +23,10 @@ ap_ssid_len = '\x06'
 ap_key = '12345678'+'\x00'*24
 ap_key_len = '\x08'
 
-sta_ssid = '520-1'+'\x00'*27
+sta_ssid = 'ling'+'\x00'*28
 sta_ssid_len = '\x04'
-sta_key = 'wsn520520520'+'\x00'*20
-sta_key_len = '\x0c'
+sta_key = '87656641'+'\x00'*24
+sta_key_len = '\x08'
 
 msg_set_ap = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+msg_set_ap_datatype+'\x00\x42'+ap_ssid_len+ap_ssid+ap_key_len+ap_key
 msg_set_sta = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+msg_set_sta_datatype+'\x00\x42'+sta_ssid_len+sta_ssid+sta_key_len+sta_key

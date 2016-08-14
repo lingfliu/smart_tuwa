@@ -9,13 +9,13 @@
 #include "config.h"
 #include <string.h>
 
-#define ETC_WIRELESS "/etc/config/wirelss"
-#define ETC_WIRELESS_AP "/etc/config/wirelss_AP"
-#define ETC_WIRELESS_APSTA "/etc/config/wirelss_APSTA"
+#define ETC_WIRELESS "/etc/config/wireless"
+#define ETC_WIRELESS_AP "/etc/config/wireless_AP"
+#define ETC_WIRELESS_APSTA "/etc/config/wireless_APSTA"
 
-#define ETC_WIRELESS_COMMON "/root/wirelss.common"
-#define ETC_WIRELESS_COMPONENT_AP "/root/wirelss.ap"
-#define ETC_WIRELESS_COMPONENT_STA "/root/wirelss.sta"
+#define ETC_WIRELESS_COMMON "/root/wireless.common"
+#define ETC_WIRELESS_COMPONENT_AP "/root/wireless.ap"
+#define ETC_WIRELESS_COMPONENT_STA "/root/wireless.sta"
 
 void fan_control(int cmd);
 
@@ -33,7 +33,9 @@ int set_ap(char* ssid, int ssid_len, char* password, int password_len, char *enc
 int set_sta(char* ssid, int ssid_len, char* password, int password_len, char *encrypt, int encrypt_len);
 void bakup_ap();
 void restore_ap();
+void reset_ap();
 void bakup_sta();
 void restore_sta();
+void reset_sta();
 #endif
 
