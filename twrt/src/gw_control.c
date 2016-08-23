@@ -160,7 +160,7 @@ int set_ap(char* ssid, int ssid_len, char* password, int password_len, char *enc
 
 	if (ssid_len == 0 || password_len == 0){
 		reset_ap();
-		system("ap_update");
+		system("ap_update&");
 		return 0;
 	}
 
@@ -244,7 +244,7 @@ int set_sta(char* ssid, int ssid_len, char* password, int password_len, char *en
 
 	if (ssid_len == 0 || password_len == 0){
 		reset_sta();
-		system("sta_update");
+		system("sta_update&");
 		return 0;
 	}
 
