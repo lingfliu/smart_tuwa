@@ -1,0 +1,6 @@
+#!/bin/sh
+
+SLEEP=5
+
+sleep $SLEEP
+ifup wwan
