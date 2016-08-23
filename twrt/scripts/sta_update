@@ -1,12 +1,12 @@
 #!/bin/sh
 
-SLEEP=5
+SLEEEP=5
 
 cat /root/wireless.common > /etc/config/wireless
-cat /root/wireless.ap >> /etc/config/wireless
 cat /root/wireless.sta >> /etc/config/wireless
 
 cp /etc/config/wireless /etc/config/wireless_APSTA
 
-wifi down; wifi up
+sta_fix
+
 sleep $SLEEP
