@@ -1,6 +1,7 @@
 #include "twrt.h"
 
 int main(int argn, char* argv[]){
+
 	message *msg_auth;
 	message *msg_stamp;
 
@@ -90,6 +91,7 @@ int main(int argn, char* argv[]){
 
 	//initialize system periodic task
 	gettimeofday(&(sys.timer_pulse), NULL);
+	gettimeofday(&(sys.timer_pulse_ack), NULL);
 	gettimeofday(&(sys.timer_reset), NULL);
 	gettimeofday(&(sys.timer_sync), NULL);
 	gettimeofday(&(sys.timer_bakup), NULL);
@@ -127,6 +129,7 @@ int main(int argn, char* argv[]){
 
 		/* connect to the server */
 		if(sys.server_status == SERVER_DISCONNECT){
+			printf("connecting to server \n");
 			if (inet_client_connect(&client) == -1){
 				if(errno == EINPROGRESS){ //connection is in progress 
 					inet_timeout.tv_sec = 2; //set timeout as in 2 seconds
@@ -135,18 +138,31 @@ int main(int argn, char* argv[]){
 					FD_SET(client.fd, &inet_fds);
 					retval = select(client.fd+1, NULL, &inet_fds, NULL, &inet_timeout);
 					if(retval == -1 || retval == 0){ //error or timeout
-						//printf("failed to connect server\n");
+						printf("failed to connect server, timeout\n");
 						/*test code*/
 						on_inet_client_disconnect();
 						//inet_client_close(&client);
 					}
 					else {
-						printf("connected to server\n");
-						sys.server_status = SERVER_CONNECT;
+						
+						/*
+						if(getsockopt(client.fd, SOL_SOCKET, SO_ERROR, &val, &sock_len) < 0){
+							on_inet_client_disconnect();
+						}
+						else if (val !=0){
+							printf("%s connect server runs here %d\n", cfg.server_ip, val);
+							on_inet_client_disconnect();
+						}
+						else {
+						*/
+							printf("connected to server\n");
+							sys.server_status = SERVER_CONNECT;
+							gettimeofday(&(sys.timer_pulse_ack), NULL); //initialize pulse ack timer
+						//}
 					}
 				}
 				else { 
-					//printf("failed to connect server\n");
+					printf("failed to connect server, socket error\n");
 					/*test code*/
 					on_inet_client_disconnect();
 					//inet_client_close(&client);
@@ -456,8 +472,8 @@ void *run_sys_msg_tx(){
 						break;
 					}
 				case MSG_TO_SERVER:
-					printf("sending to server, msg type = %d\n", msg->data_type);
 					if(sys.server_status == SERVER_CONNECT) {
+						printf("sending to server, msg type = %d\n", msg->data_type);
 						if(sys.lic_status != LIC_VALID){//if not authed, send only auth msg
 							if(msg->data_type == DATA_REQ_AUTH_GW){
 								if(pthread_create(&thrd_client_tx, NULL, run_client_tx, (void*) msg) < 0){
@@ -782,6 +798,7 @@ void* run_sys_ptask(){
 		
 
 		//tcp pulse
+		gettimeofday(&timer, NULL);
 		if(timediff_ms(sys.timer_pulse, timer)>TIMER_PULSE){
 			if (msg != NULL) {
 				message_destroy(msg); //destroy old message before creating one
@@ -795,6 +812,15 @@ void* run_sys_ptask(){
 			//reset the timer
 			gettimeofday(&(sys.timer_pulse), NULL);
 		}
+
+		/*check if server is not responding*/
+		if (timediff_ms(sys.timer_pulse_ack, timer) > TIMER_PULSE_ACK && sys.server_status == SERVER_CONNECT){
+			printf("server not responding for %ld, breaking\n", timediff_ms(sys.timer_pulse_ack, timer));
+			//reset the timer
+			gettimeofday(&(sys.timer_pulse_ack), NULL);
+			on_inet_client_disconnect();
+		}
+
 
 		if(msg != NULL){
 			message_destroy(msg); //memory cleanup
@@ -1678,6 +1704,11 @@ int handle_msg_rx(message *msg){
 					message_destroy(msg_tx);
 				}
 			}
+			break;
+
+		case DATA_ACK_PULSE:
+			printf("received pulse from server\n");
+			gettimeofday(&(sys.timer_pulse_ack), NULL);
 			break;
 
 		default:
