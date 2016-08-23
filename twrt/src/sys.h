@@ -53,6 +53,8 @@
 
 //timer settings
 #define TIMER_PULSE 1000 //pulse ack waiting time in milli-second
+/*new code, timer pulse ack*/
+#define TIMER_PULSE_ACK 5000 //pulse ack waiting time in milli-second
 #define TIMER_RESET 72 //pulse ack waiting time in hour 
 #define TIMER_BAKUP 1800 //bakup time in seconds ( 30 minutes by default)
 #define TIMER_REQ 2000 //request waiting time in milli-second
@@ -182,6 +184,7 @@ typedef struct{
 
     //timer 
     struct timeval timer_pulse; //timer to send tcp pulse to the server
+    struct timeval timer_pulse_ack; //timer to send tcp pulse to the server
     struct timeval  timer_reset; //timer to reset the sys_t (not used)
     struct timeval  timer_sync; //timer to synchronization 
 	struct timeval timer_bakup;

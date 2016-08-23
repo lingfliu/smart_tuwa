@@ -127,7 +127,7 @@
 //#define DATA_ACK_AUTH_DEV 63 //auth dev ack (not used)
 #define DATA_ACK_USER 64 //user list ack (not used)
 #define DATA_ACK_STAMP 65 //initial stamp ack 
-//#define DATA_ACK_PULSE 66 //tcp pulse ack (not used)
+#define DATA_ACK_PULSE 66 //tcp pulse ack (not used)
 
 #define DATA_ACK_AUTH_LOCAL 67 //localuser auth ack
 
