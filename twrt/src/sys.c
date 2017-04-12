@@ -612,7 +612,7 @@ void sys_get_scene(sys_t *sys, char* scene_file){ //read scenes into file
 			sys->sces[cnt].item = tmp_sce.item;
 
 			cnt ++;
-			printf("restored scenes %d\n", cnt);
+			printf("restored scenes %d, trigger num = %d, item num = %d\n", cnt, trigger_num, item_num);
 		}
 
 		fclose(fp);

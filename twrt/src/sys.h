@@ -47,14 +47,14 @@
 #define LOCAL_STATUS_EXITNORMAL 'c'
 
 //memory settings
-#define BUFF_IO_LEN 1000 
-#define BUFF_RING_LEN 5000 
+#define BUFF_IO_LEN 20000 
+#define BUFF_RING_LEN 20000 
 #define MSG_Q_LEN 50  //length of message queue
 
 //timer settings
 #define TIMER_PULSE 1000 //pulse ack waiting time in milli-second
 /*new code, timer pulse ack*/
-#define TIMER_PULSE_ACK 5000 //pulse ack waiting time in milli-second
+#define TIMER_PULSE_ACK 50000 //pulse ack waiting time in milli-second
 #define TIMER_RESET 72 //pulse ack waiting time in hour 
 #define TIMER_BAKUP 1800 //bakup time in seconds ( 30 minutes by default)
 #define TIMER_REQ 2000 //request waiting time in milli-second

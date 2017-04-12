@@ -42,6 +42,7 @@ void *run_localhost();
 void *run_localuser_rx();
 void *run_localuser_tx();
 
+int test_localuser_tx(localbundle* bundle);
 /***********************************************
    result for multiple uses
    *********************************************/
