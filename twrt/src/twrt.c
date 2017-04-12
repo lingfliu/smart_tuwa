@@ -338,7 +338,8 @@ void *run_client_tx(void *arg){
 		pthread_exit(0);
 	}
 
-	printf("sending message type=%d\n",msg->data_type);
+	printf("sending message type=%d, len = %d\n",msg->data_type, msg->data_len);
+
 	char *bytes = calloc(len,sizeof(char)); 
 	message2bytes(msg, bytes);
 	int ret; 
@@ -681,6 +682,64 @@ void* run_localuser_rx(void* arg) {
 	}
 }
 
+int test_localuser_tx(localbundle* bundle){
+	printf("test localuser tx\n");
+	localuser *usr = bundle->usr;
+	message *msg = bundle->msg;
+	char *local_status = &(usr->tx_status);
+
+	int len = MSG_LEN_FIXED+msg->data_len;
+	if(len == 0) {
+		*local_status = LOCAL_STATUS_MSGINVALID;
+		return *local_status;
+	}
+
+	char *bytes = calloc(len,sizeof(char)); 
+	message2bytes(msg, bytes);
+	int ret; 
+	int pos = 0;
+
+	while(pos < len) {
+		ret = send( usr->skt, bytes+pos, len - pos, 0 );
+		if( ret == len - pos ) {
+			free(bytes); //don't forget to free the mem
+			if (msg->data_type == 70){
+				printf("localuser tx, datatype = %d, send complete \n", msg->data_type);
+			}
+			else {
+				printf("localuser tx, datatype = %d, send complete \n", msg->data_type);
+			}
+			*local_status = LOCAL_STATUS_SKTDISCONNECT;
+			return *local_status;
+		}
+
+		if(ret == -1) { //send failed
+			if( errno == EAGAIN || errno == EINTR ) { //buff is full or interrupted
+				usleep(1000);
+				continue;
+			}
+			if(errno == ECONNRESET) { //connection broke
+				printf("localuser tx reset, close socket\n");
+				free(bytes);
+				*local_status = LOCAL_STATUS_SKTDISCONNECT;
+				return *local_status;
+			}
+			printf("localuser tx broken, other reasons, close socket\n");
+			free(bytes); //don't forget to free the mem
+			*local_status = LOCAL_STATUS_SKTDISCONNECT;
+			return *local_status;
+		}
+		else { //send partial data
+			pos += ret;
+		}
+	}
+	free(bytes); //don't forget to free the mem
+	*local_status = LOCAL_STATUS_EXITNORMAL;
+	return *local_status;
+}
+
+
+
 void* run_localuser_tx(void *arg){
 	localbundle *bundle = (localbundle*) arg;
 	localuser *usr = bundle->usr;
@@ -703,7 +762,13 @@ void* run_localuser_tx(void *arg){
 		if( ret == len - pos ) {
 			free(bytes); //don't forget to free the mem
 			*local_status = LOCAL_STATUS_EXITNORMAL;
-			printf("localuser tx, datatype = %d\n", msg->data_type);
+			if (msg->data_type == 70){
+				printf("localuser tx, datatype = %d, send complete \n", msg->data_type);
+			}
+			else {
+				printf("localuser tx, datatype = %d, send complete \n", msg->data_type);
+			}
+
 			pthread_exit((void*) local_status);
 		}
 
@@ -713,10 +778,12 @@ void* run_localuser_tx(void *arg){
 				continue;
 			}
 			if(errno == ECONNRESET) { //connection broke
+				printf("localuser tx reset, close socket\n");
 				free(bytes);
 				*local_status = LOCAL_STATUS_SKTDISCONNECT;
 				pthread_exit((void*) local_status);
 			}
+			printf("localuser tx broken, other reasons, close socket\n");
 			free(bytes); //don't forget to free the mem
 			*local_status = LOCAL_STATUS_SKTDISCONNECT;
 			pthread_exit((void*) local_status);
@@ -884,7 +951,8 @@ int handle_msg_rx(message *msg){
 			if(idx >= 0) {
 
 				printf("received data stat from znet, dev index = %d, device type = %d\n", idx, sys.znode_list[idx].type);
-				msg_tx = message_create_sync(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
+				//new code, send stat update
+				msg_tx = message_create_stat_update(sys.znode_list[idx].status_len, sys.znode_list[idx].status, sys.znode_list[idx].u_stamp, sys.id, sys.znode_list[idx].id, sys.znode_list[idx].type);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				pthread_mutex_unlock(&mut_msg_tx);
@@ -989,6 +1057,7 @@ int handle_msg_rx(message *msg){
 								sce->trigger_num = 0;
 								sce->item_num = val;
 								sce->item = calloc(val, sizeof(scene_item));
+								sce->scene_type = SCENE_TYPE_HARD;
 							}
 							else{
 								isnew = -1;
@@ -1001,6 +1070,8 @@ int handle_msg_rx(message *msg){
 								sce->trigger_num = 0;
 								sce->item_num = val;
 								sce->item = calloc(val,sizeof(scene_item));
+
+								sce->scene_type = SCENE_TYPE_HARD;
 							}
 							
 							val = 0;
@@ -1040,7 +1111,7 @@ int handle_msg_rx(message *msg){
 								}
 							}
 
-							if (isnew >=0){
+							if (isnew >= 0){
 								val = sys_edit_scene(&sys, sce); //modify scene
 							}
 							else {
@@ -1152,8 +1223,19 @@ int handle_msg_rx(message *msg){
 				/*new code*/
 				val = sys.znode_list[idx].type;
 				if (val == 110 || val == 113 || val == 118 || val == 115){
-					printf("alarm, type = %d, reset trigger at idx %d\n", val, idx);
+
+					printf("alarm, type = %d, reset trigger at idx %d, status before = ", val, idx);
+					for (m = 0 ; m < sys.znode_list[idx].status_len; m ++){
+						printf("%d ", sys.znode_list[idx].status[m] & 0x00ff);
+					}
+
 					memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
+
+					printf(" after = ");
+					for (m = 0 ; m < sys.znode_list[idx].status_len; m ++){
+						printf("%d ", sys.znode_list[idx].status[m] & 0x00ff);
+					}
+					printf("\n");
 				}
 
 				/*
@@ -1260,10 +1342,10 @@ int handle_msg_rx(message *msg){
 			}
 
 		case DATA_ACK_AUTH_GW:
-			printf("received data auth\n");
 			pthread_mutex_lock(&mut_msg_tx);
 			val = message_queue_del_stamp(&msg_q_tx_req_h, msg->stamp);
 			if(val > 0){//if req still in the queue 
+				printf("received data auth\n");
 				if(!memcmp(msg->data, sys.id, MSG_LEN_ID_GW)){//if head equals to the gw id
 					sys.lic_status = LIC_VALID;
 					memcpy(sys.auth_code, msg->data, SYS_LEN_AUTHCODE); 
@@ -1573,14 +1655,15 @@ int handle_msg_rx(message *msg){
 			break;
 
 		case DATA_GET_SCENE:
+			printf("get scene, id major = %s, id_minor = %s\n", id_major, id_minor);
 			memcpy(id_major, msg->data, 8*sizeof(char));
 			memcpy(id_minor, msg->data+8, 8*sizeof(char));
 			sce = sys_find_scene(&sys, id_major, id_minor);
 
-			printf("get scene, host_mac=%s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
 
 			if (sce == NULL) {
 				//send all sces
+				printf("send all scenes to server\n");
 				pthread_mutex_lock(&mut_msg_tx);
 				for (m = 0; m < MAX_SCENE_NUM; m ++){
 					if (sys.sces[m].scene_type <=0)
@@ -1593,6 +1676,7 @@ int handle_msg_rx(message *msg){
 				pthread_mutex_unlock(&mut_msg_tx);
 			}
 			else {
+				printf("get scene, id major = %s, id_minor = %s\n", id_major, id_minor);
 				pthread_mutex_lock(&mut_msg_tx);
 				msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 				msg_tx = message_create_scene(sys.id, sce);
@@ -1951,8 +2035,19 @@ int handle_local_message(message *msg, localuser *usr){
 					/*new code*/
 					val = sys.znode_list[idx].type;
 					if (val == 110 || val == 113 || val == 118 || val == 115){
-						printf("alarm, type = %d, reset trigger at idx %d\n", val, idx);
+
+						printf("alarm, type = %d, reset trigger at idx %d, status before = ", val, idx);
+						for (m = 0 ; m < sys.znode_list[idx].status_len; m ++){
+							printf("%d ", sys.znode_list[idx].status[m] & 0x00ff);
+						}
+
 						memset(sys.znode_list[idx].status, 0, sys.znode_list[idx].status_len);
+
+						printf(" after = ");
+						for (m = 0 ; m < sys.znode_list[idx].status_len; m ++){
+							printf("%d ", sys.znode_list[idx].status[m] & 0x00ff);
+						}
+						printf("\n");
 					}
 
 					update_num ++;
@@ -2300,6 +2395,7 @@ int handle_local_message(message *msg, localuser *usr){
 				}
 
 				printf("set scene, host_mac = %s, id_major=%s, id_minor=%s\n", sce->host_mac, sce->host_id_major, sce->host_id_minor);
+
 				//send operation result back
 				msg_tx = message_create_ack_scene_op(sys.id, sce->host_id_major, sce->host_id_minor, DATA_SET_SCENE, val);
 				bundle.msg = msg_tx;
@@ -2359,13 +2455,26 @@ int handle_local_message(message *msg, localuser *usr){
 				printf("finish scene\n"); 
 				sys_update_scene(&sys, FILE_SCENE); //store scenes into file
 
-				msg_tx = message_create_ack_scene_op(sys.id, NULL_USER, NULL_USER, DATA_FINISH_SCENE, 1);
+				//send operation result back
+				msg_tx = message_create_ack_scene_op(sys.id, NULL_DEV, NULL_DEV, DATA_FINISH_SCENE, 1);
+
 
 				bundle.msg = msg_tx;
+
+				/*
 				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
 				//the thrd_tx should return a new 
 				pthread_join(usr->thrd_tx, NULL);
 				//don't forget to delete the message
+				message_destroy(msg_tx);
+				*/
+
+
+				pthread_create( &(usr->thrd_tx), NULL, run_localuser_tx, &bundle);
+				//the thrd_tx should return a new 
+				pthread_join(usr->thrd_tx, NULL);
+				//don't forget to delete the message
+				//test_localuser_tx(&bundle);
 				message_destroy(msg_tx);
 	
 				result = 0;
@@ -2480,8 +2589,8 @@ int handle_local_message(message *msg, localuser *usr){
 				for (m = 0; m < ZNET_SIZE; m ++){
 					if (!memcmp(sys.znode_list[m].id, msg->dev_id, 8)){
 						//found znode to-be-deleted
-						printf("found znode, idx = %d\n", idx);
 						idx = m;
+						printf("found znode, idx = %d\n", idx);
 						znode_delete(&(sys.znode_list[m]));
 						break;
 					}
@@ -2489,12 +2598,16 @@ int handle_local_message(message *msg, localuser *usr){
 
 				if (idx >= 0){
 					//send znode_delete to server
+					printf("znode deleted at idx %d\n", idx);
 					msg_tx = message_create_del_znode(sys.id, msg->dev_id);
 					pthread_mutex_lock(&mut_msg_tx);
 					msg_q_tx = message_queue_put(msg_q_tx, msg_tx);
 					pthread_mutex_unlock(&mut_msg_tx);
 					message_destroy(msg_tx);
 					retval = 0;
+				}
+				else {
+					printf("znode not found\n");
 				}
 				break;
 
