@@ -4,11 +4,11 @@ import random
 
 msg_header = 'AADD'
 msg_stamp = '\x00\x00\x00\x00'
-msg_id_gw = '2016A002'
+msg_id_gw = '2016A011'
 msg_id_dev = '00000000'
 msg_devtype = '\x01\x00'
 
-msg_auth_key = 'TWRT2015' 
+msg_auth_key = '88888888' 
 msg_auth_datatype = '\x1c\x00'
 
 msg_auth = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+msg_auth_datatype+'\x00\x08'+msg_auth_key
@@ -114,19 +114,19 @@ print msg_bak
 
 for i in range(0, 8):
 #    print(msg_set_scene[i])
-    length = skt.send(msg_set_scene[i]) 
-    time.sleep(0.1)
-    #pass
+    #length = skt.send(msg_set_scene[i]) 
+    #time.sleep(0.1)
+    pass
 
 
 #msg_bak = skt.recv(1024)
 #print 'received msg' 
 #print msg_bak
 
-time.sleep(0.1)
+time.sleep(1)
 for i in range(0,8):
     length = skt.send(msg_stat[i]) 
-    time.sleep(0.1)
+    time.sleep(1)
     print('sending message: ' + str(length))
 
 #skt.close()
