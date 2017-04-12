@@ -460,6 +460,19 @@ message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[
 }
 
 
+message* message_create_stat_update(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type){
+	message *msg = message_create();
+	msg->data = calloc(sizeof(char)*(stat_len+4), sizeof(char));
+	memcpy(msg->gateway_id, id_gw, MSG_LEN_ID_GW);
+	memcpy(msg->dev_id, id_dev, MSG_LEN_ID_DEV);
+	msg->data_type = DATA_STAT_UPDATE;
+	msg->dev_type = dev_type;
+	memcpy((void*) msg->data, (void*) &u_stamp, 4);
+	memcpy(msg->data+4, stat, stat_len);
+	msg->data_len = stat_len+4;
+	return msg;
+}
+
 message* message_create_req_auth_gw(int lic_len, char* lic, char id_gw[8], long stamp){
 	message *msg = message_create();
 	msg->data = realloc(msg->data, lic_len);

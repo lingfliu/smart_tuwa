@@ -122,6 +122,9 @@
 /*new protocol for request server connection*/
 #define DATA_REQ_SERVER_CONN 29 
 
+
+#define DATA_STAT_UPDATE 30 //simple update sync 
+
 #define DATA_ACK_SYNC 61 //synchronization ack (not used)
 #define DATA_ACK_AUTH_GW 62 //auth gw ack
 //#define DATA_ACK_AUTH_DEV 63 //auth dev ack (not used)
@@ -286,6 +289,7 @@ int message_queue_find_stamp(message_queue* msg_q, long stamp); //find if stamp 
 message* message_create_stat(int stat_len, char* stat, char id_gw[8], char id_dev[8], int dev_type);
 message* message_create_ctrl(int ctrl_len, char* ctrl, char id_gw[8], char id_dev[8], int dev_type);
 message* message_create_sync(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type);
+message* message_create_stat_update(int stat_len, char* stat, long u_stamp, char id_gw[8], char id_dev[8], int dev_type);
 message* message_create_req_auth_gw(int lic_len, char* lic, char id_gw[8], long stamp);
 message* message_create_req_auth_dev(char id_gw[8], char id_dev[8], long stamp);
 message* message_create_req_user(char id_gw[8], char id_user[8], long stamp);
