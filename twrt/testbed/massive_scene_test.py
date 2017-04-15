@@ -29,14 +29,15 @@ msg_bak = skt.recv(1024)
 print msg_bak
 
 #scene set
-for i in range(0,1): 
+for i in range(0,50): 
+    print('create scene' + str(i))
     sce_type_val = int(math.ceil(random.random()*3))
     sce_type = '%c'%sce_type_val
 
-    sce_id_major_val = round(random.random()*1000)
+    sce_id_major_val = i #round(random.random()*1000)
     sce_id_major = '%08d'%sce_id_major_val
 
-    sce_id_minor_val = round(random.random()*1000)
+    sce_id_minor_val = i #round(random.random()*1000)
     sce_id_minor = '%08d'%sce_id_minor_val
 
     sce_mac_val= round(random.random()*1000)
@@ -49,13 +50,13 @@ for i in range(0,1):
     sce_type = '%c'%sce_type_val
     sce_type +='\x00'*3
 
-    sce_trigger_num = 100#int(random.random()*100)
+    sce_trigger_num = int(random.random()*100)
     sce_trigger = ''
     for m in range(0, sce_trigger_num):
         sce_trigger_val = round(random.random()*100)
         sce_trigger += ('%08d'%sce_trigger_val)*6
 
-    sce_item_num = 100 #int(random.random()*100)
+    sce_item_num = int(random.random()*100)
     sce_item = ''
     for m in range(0, sce_item_num):
         sce_item_val = round(random.random()*100) 
@@ -93,15 +94,15 @@ for i in range(0,1):
 
     msg_bak = skt.recv(1024)
     print msg_bak
-    #time.sleep(5)
+    time.sleep(0.01)
 
-msg_finish_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x11\x00'+'\x00\x01' + '\x00'
+    msg_finish_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x11\x00'+'\x00\x01' + '\x00'
             
-print('msg finish = ' + msg_finish_scene)
-length = skt.send(msg_finish_scene)
-print length
-msg_bak = skt.recv(1024)
-print msg_bak
+    print('msg finish = ' + msg_finish_scene)
+    length = skt.send(msg_finish_scene)
+    print length
+    msg_bak = skt.recv(1024)
+    print msg_bak
 
 #while(True):
     #msg_bak = skt.recv(1024)
