@@ -700,7 +700,7 @@ int test_localuser_tx(localbundle* bundle){
 	int pos = 0;
 
 	while(pos < len) {
-		ret = send( usr->skt, bytes+pos, len - pos, 0 );
+		ret = send( usr->skt, bytes+pos, len - pos, MSG_NOSIGNAL );
 		if( ret == len - pos ) {
 			free(bytes); //don't forget to free the mem
 			if (msg->data_type == 70){
@@ -758,7 +758,7 @@ void* run_localuser_tx(void *arg){
 	int pos = 0;
 
 	while(pos < len) {
-		ret = send( usr->skt, bytes+pos, len - pos, 0 );
+		ret = send( usr->skt, bytes+pos, len - pos, MSG_NOSIGNAL );
 		if( ret == len - pos ) {
 			free(bytes); //don't forget to free the mem
 			*local_status = LOCAL_STATUS_EXITNORMAL;
@@ -1074,6 +1074,7 @@ int handle_msg_rx(message *msg){
 								sce->scene_type = SCENE_TYPE_HARD;
 							}
 							
+							//reset val
 							val = 0;
 
 							/*begin--new code, add fan to scene*/
@@ -2315,7 +2316,7 @@ int handle_local_message(message *msg, localuser *usr){
 				memcpy(id_major, msg->data, 8*sizeof(char));
 				memcpy(id_minor, msg->data+8, 8*sizeof(char));
 
-				printf("scene ctrl, id_major = %s, id_minor = %s\n", id_major, id_minor);
+				printf("local scene ctrl, id_major = %s, id_minor = %s\n", id_major, id_minor);
 				sce = sys_find_scene(&sys, id_major, id_minor);
 				if (sce != NULL) {
 					printf("found scene, send ctrl\n");
@@ -2423,7 +2424,7 @@ int handle_local_message(message *msg, localuser *usr){
 
 				if (sce == NULL) {
 					//send all sces
-					printf("send all scenes\n");
+					printf("scene not matched, send all scenes\n");
 					for (m = 0; m < MAX_SCENE_NUM; m ++){
 						if (sys.sces[m].scene_type <=0)
 							break;
@@ -2486,7 +2487,7 @@ int handle_local_message(message *msg, localuser *usr){
 				val = sys_del_scene(&sys, id_major, id_minor);
 				//send operation result back
 
-				printf("delete scene, res = %d, scene remains = %d\n", val, sys_get_scene_num(&sys));
+				printf("local delete scene, res = %d, scene remains = %d\n", val, sys_get_scene_num(&sys));
 				msg_tx = message_create_ack_scene_op(sys.id, id_major, id_minor, DATA_DELETE_SCENE, val);
 
 				/*new code: sending del scene back to server*/
