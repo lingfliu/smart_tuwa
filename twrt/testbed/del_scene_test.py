@@ -29,7 +29,7 @@ msg_bak = skt.recv(1024)
 print msg_bak
 
 #scene set
-for i in range(0,50): 
+for i in range(3,4): 
     sce_type_val = int(math.ceil(random.random()*3))
     sce_type = '%c'%sce_type_val
 
@@ -72,6 +72,15 @@ msg_finish_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x11\x
             
 print('msg finish = ' + msg_finish_scene)
 length = skt.send(msg_finish_scene)
+print length
+msg_bak = skt.recv(1024)
+print msg_bak
+
+
+msg_get_scene = msg_header+msg_stamp+msg_id_gw+msg_id_dev+msg_devtype+'\x0e\x00'+ body_len + sce_id_major +sce_id_minor
+
+print('get deleted scene id = ' + sce_id_major + ' + ' + sce_id_minor )
+length = skt.send(msg_get_scene)
 print length
 msg_bak = skt.recv(1024)
 print msg_bak

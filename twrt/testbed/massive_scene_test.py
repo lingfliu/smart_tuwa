@@ -29,7 +29,7 @@ msg_bak = skt.recv(1024)
 print msg_bak
 
 #scene set
-for i in range(0,50): 
+for i in range(0,20): 
     print('create scene' + str(i))
     sce_type_val = int(math.ceil(random.random()*3))
     sce_type = '%c'%sce_type_val
@@ -50,7 +50,7 @@ for i in range(0,50):
     sce_type = '%c'%sce_type_val
     sce_type +='\x00'*3
 
-    sce_trigger_num = int(random.random()*100)
+    sce_trigger_num = 100 #int(random.random()*100)
     sce_trigger = ''
     for m in range(0, sce_trigger_num):
         sce_trigger_val = round(random.random()*100)
