@@ -149,8 +149,8 @@ typedef struct{
 	int trigger_num;
 	int item_num;
 
-	scene_item* trigger;
-	scene_item* item;
+	scene_item* trigger; //arrays
+	scene_item* item; //arrays
 }scene;
 
 /////////////////////////////////////////////

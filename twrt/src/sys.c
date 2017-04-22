@@ -621,7 +621,6 @@ void sys_get_scene(sys_t *sys, char* scene_file){ //read scenes into file
 
 void sys_update_scene(sys_t *sys, char* scene_file){
 
-
 	FILE* fp;
 	int m;
 
@@ -659,19 +658,20 @@ int sys_edit_scene(sys_t* sys, scene* sce){
 	int idx = -1;
 	int is_update = -1;
 	for (m = 0; m < MAX_SCENE_NUM; m ++){
+		idx = m;
 		if (sys->sces[m].scene_type <= 0) {
 			//found a position for the new scene
-			idx = m;
 			break;
 		}
 		else if(!memcmp(sce->host_id_major, sys->sces[m].host_id_major, 8) && !memcmp(sce->host_id_minor, sys->sces[m].host_id_minor, 8) ){
+			is_update = 1;
+		//	idx = m;
 			//update old scene
 
 			if (sys->sces[m].trigger_num > 0)
 				free(sys->sces[m].trigger);
 			if (sys->sces[m].item_num > 0)
 				free(sys->sces[m].item);
-
 			
 			sys->sces[m].trigger_num = sce->trigger_num;
 			sys->sces[m].item_num= sce->item_num;
@@ -685,16 +685,11 @@ int sys_edit_scene(sys_t* sys, scene* sce){
 				sys->sces[m].item = calloc(sys->sces[m].item_num, sizeof(scene_item));
 
 
-		
-
 			for (n = 0; n < sys->sces[m].trigger_num; n ++) 
 				memcpy(&(sys->sces[m].trigger[n]), &(sce->trigger[n]), sizeof(scene_item));
 			
 			for (n = 0; n < sys->sces[m].item_num; n ++) 
 				memcpy(&(sys->sces[m].item[n]), &(sce->item[n]), sizeof(scene_item));
-
-			is_update = 1;
-			idx = m;
 
 			break;
 		}
@@ -702,7 +697,7 @@ int sys_edit_scene(sys_t* sys, scene* sce){
 
 	//new scene
 	if (is_update < 0 && idx < MAX_SCENE_NUM) {
-		printf("found new position for scene=%d\n",idx);
+		printf("found new position for scene at %d\n",idx);
 		memcpy(sys->sces[idx].host_id_major, sce->host_id_major, sizeof(char)*8);
 		memcpy(sys->sces[idx].host_id_minor, sce->host_id_minor, sizeof(char)*8);
 		memcpy(sys->sces[idx].host_mac, sce->host_mac, sizeof(char)*8);
@@ -720,7 +715,7 @@ int sys_edit_scene(sys_t* sys, scene* sce){
 			sys->sces[idx].item = calloc(sys->sces[idx].item_num, sizeof(scene_item));
 		}
 
-		printf("runs here, trigger %d, item %d\n", sce->trigger_num, sce->item_num);
+		//printf("runs here, trigger %d, item %d\n", sce->trigger_num, sce->item_num);
 
 		for (n = 0; n < sys->sces[idx].trigger_num; n ++) 
 			memcpy(&(sys->sces[idx].trigger[n]), &(sce->trigger[n]), sizeof(scene_item));
