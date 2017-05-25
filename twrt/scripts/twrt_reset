@@ -1,0 +1,21 @@
+#!/bin/sh
+
+SLEEP=3
+
+sleep $SLEEP
+rm /root/znet_bakup
+touch /root/znet_bakup
+rm /root/scene
+touch /root/scene
+rm /root/install
+touch /root/install
+
+cat /root/wireless.common > /etc/config/wireless
+cat /root/wireless.ap.origin >> /etc/config/wireless
+
+sleep $SLEEP
+
+ifup wwan
+
+sleep $SLEEP
+twrt
